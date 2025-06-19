@@ -1,0 +1,458 @@
+use crate::internals::{
+    GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, HOT_VERIFY_METHOD_NAME,
+    MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT, TIMEOUT,
+};
+use crate::{metrics, ChainValidationConfig, VerifyArgs};
+use anyhow::{Context, Result};
+use async_trait::async_trait;
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
+use futures_util::future::BoxFuture;
+use serde::Serialize;
+use std::sync::Arc;
+
+#[derive(Serialize)]
+struct RpcParams {
+    request_type: String,
+    finality: String,
+    account_id: String,
+    method_name: String,
+    args_base64: String,
+}
+
+impl RpcParams {
+    pub fn build(account_id: String, method_name: String, args_base64: String) -> Self {
+        Self {
+            request_type: "call_function".to_string(),
+            finality: "final".to_string(),
+            account_id,
+            method_name,
+            args_base64,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct RpcRequest {
+    jsonrpc: String,
+    id: String,
+    method: String,
+    params: RpcParams,
+}
+
+impl RpcRequest {
+    pub fn build(account_id: String, method_name: String, args_base64: String) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: "dontcare".to_string(),
+            method: "query".to_string(),
+            params: RpcParams::build(account_id, method_name, args_base64),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct NearSingleVerifier {
+    client: Arc<reqwest::Client>,
+    server: String,
+}
+
+impl NearSingleVerifier {
+    fn new(client: Arc<reqwest::Client>, server: String) -> Self {
+        Self { client, server }
+    }
+
+    async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
+        let method_args = GetWalletArgs { wallet_id };
+        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&method_args)?);
+        let rpc_args = RpcRequest::build(
+            MPC_HOT_WALLET_CONTRACT.to_string(),
+            MPC_GET_WALLET_METHOD.to_string(),
+            args_base64,
+        );
+        let wallet_model = self
+            .call_rpc(serde_json::to_value(&rpc_args)?)
+            .await
+            .context(format!("get_wallet failed when calling {}", self.server))?;
+        let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
+        Ok(wallet_model)
+    }
+
+    async fn call_rpc(&self, json: serde_json::Value) -> Result<Vec<u8>> {
+        let response = self
+            .client
+            .post(&self.server)
+            .json(&json)
+            .timeout(TIMEOUT)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let value = response.json::<serde_json::Value>().await?;
+            // Intended.
+            //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
+            let value = value
+                .get("result")
+                .context(format!("missing result: {}", value))?;
+            let value = value.get("result").context("missing result in result")?;
+            let value = serde_json::from_value::<Vec<u8>>(value.clone())?;
+            Ok(value)
+        } else {
+            Err(anyhow::anyhow!(
+                "Failed to call {}: {}",
+                self.server,
+                response.status()
+            ))
+        }
+    }
+}
+
+#[async_trait]
+impl SingleVerifier for NearSingleVerifier {
+    fn get_endpoint(&self) -> String {
+        self.server.clone()
+    }
+
+    async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
+        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&args)?);
+        let rpc_args = RpcRequest::build(
+            auth_contract_id.to_string(),
+            HOT_VERIFY_METHOD_NAME.to_string(),
+            args_base64,
+        );
+        let verify_result = self.call_rpc(serde_json::to_value(&rpc_args)?).await?;
+        let verify_result = serde_json::from_slice::<bool>(verify_result.as_slice())?;
+        Ok(verify_result)
+    }
+}
+
+impl ThresholdVerifier<NearSingleVerifier> {
+    pub(crate) fn new_near(
+        near_validation_config: ChainValidationConfig,
+        client: Arc<reqwest::Client>,
+    ) -> Self {
+        let threshold = near_validation_config.threshold;
+        let servers = near_validation_config.servers;
+        if threshold > servers.len() {
+            panic!(
+                "There should be at least {} servers, got {}",
+                threshold,
+                servers.len()
+            )
+        }
+        let callers = servers
+            .iter()
+            .map(|s| {
+                let verifier = NearSingleVerifier::new(client.clone(), s.clone());
+                Arc::new(verifier)
+            })
+            .collect();
+        Self {
+            threshold,
+            verifiers: callers,
+        }
+    }
+
+    pub async fn get_wallet_auth_methods(
+        self: Arc<Self>,
+        wallet_id: &str,
+    ) -> Result<WalletAuthMethods> {
+        let _timer = metrics::performance::RPC_GET_AUTH_METHODS_DURATION.start_timer();
+
+        let functor =
+            |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Option<WalletAuthMethods>> {
+                let wallet_id = wallet_id.to_string();
+                Box::pin(async move {
+                    match verifier.get_wallet(wallet_id).await {
+                        Ok(model) => Some(model),
+                        Err(err) => {
+                            tracing::error!("Error calling `get_wallet`: {:?}", err);
+                            None
+                        }
+                    }
+                })
+            };
+
+        self.threshold_call(functor).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::internals::{uid_to_wallet_id, AuthMethod};
+    use crate::ChainId;
+
+    #[tokio::test]
+    async fn near_single_verifier() {
+        let client = Arc::new(reqwest::Client::new());
+        let server_addr = "https://rpc.mainnet.near.org";
+        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "keys.auth.hot.tg";
+
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        rpc_caller.verify(auth_contract_id, args).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn near_single_verifier_bad_wallet() {
+        let client = Arc::new(reqwest::Client::new());
+        let server_addr = "https://rpc.mainnet.near.org";
+        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+
+        let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "keys.auth.hot.tg";
+
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        rpc_caller.verify(auth_contract_id, args).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn near_single_verifier_bad_auth_contract() {
+        let client = Arc::new(reqwest::Client::new());
+        let server_addr = "https://rpc.mainnet.near.org";
+        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "123123.auth.hot.tg";
+
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        rpc_caller.verify(auth_contract_id, args).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn near_single_verifier_bad_msg_hash() {
+        let client = Arc::new(reqwest::Client::new());
+        let server_addr = "https://rpc.mainnet.near.org";
+        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "keys.auth.hot.tg";
+
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        let result = rpc_caller.verify(auth_contract_id, args).await.unwrap();
+        assert!(!result);
+    }
+
+    #[tokio::test]
+    async fn near_threshold_verifier() {
+        let rpc_validation = ThresholdVerifier::new_near(
+            ChainValidationConfig {
+                threshold: 2,
+                servers: vec![
+                    "https://rpc.mainnet.near.org".to_string(),
+                    "https://rpc.near.org".to_string(),
+                    "https://nearrpc.aurora.dev".to_string(),
+                ],
+            },
+            Arc::new(reqwest::Client::new()),
+        );
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "keys.auth.hot.tg";
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        rpc_validation.verify(auth_contract_id, args).await.unwrap();
+    }
+
+    #[should_panic]
+    #[tokio::test]
+    async fn near_threshold_verifier_all_rpcs_bad() {
+        let rpc_validation = ThresholdVerifier::new_near(
+            ChainValidationConfig {
+                threshold: 2,
+                servers: vec![
+                    "https://hello.com".to_string(),
+                    "https://hello.com".to_string(),
+                    "https://hello.com".to_string(),
+                    "https://hello.com".to_string(),
+                ],
+            },
+            Arc::new(reqwest::Client::new()),
+        );
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let auth_contract_id: &str = "keys.auth.hot.tg";
+        let args = VerifyArgs {
+            msg_body: "".to_string(),
+            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
+            wallet_id: Some(wallet_id),
+            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+            metadata: None,
+        };
+
+        rpc_validation.verify(auth_contract_id, args).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn near_single_verifier_get_wallet() {
+        let client = Arc::new(reqwest::Client::new());
+        let server_addr = "https://rpc.mainnet.near.org";
+        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let expected = WalletAuthMethods {
+            access_list: vec![AuthMethod {
+                account_id: "keys.auth.hot.tg".to_string(),
+                metadata: None,
+                chain_id: ChainId::Near,
+            }],
+            key_gen: 1,
+            block_height: 0,
+        };
+
+        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
+        assert_eq!(actual, expected)
+    }
+
+    #[tokio::test]
+    async fn threshold_verifier_get_wallet() {
+        let rpc_validation = ThresholdVerifier::new_near(
+            ChainValidationConfig {
+                threshold: 2,
+                servers: vec![
+                    "https://rpc.mainnet.near.org".to_string(),
+                    "https://rpc.near.org".to_string(),
+                    "https://nearrpc.aurora.dev".to_string(),
+                ],
+            },
+            Arc::new(reqwest::Client::new()),
+        );
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let expected = WalletAuthMethods {
+            access_list: vec![AuthMethod {
+                account_id: "keys.auth.hot.tg".to_string(),
+                metadata: None,
+                chain_id: ChainId::Near,
+            }],
+            key_gen: 1,
+            block_height: 0,
+        };
+
+        let actual = Arc::new(rpc_validation)
+            .get_wallet_auth_methods(wallet_id)
+            .await
+            .unwrap();
+
+        assert_eq!(actual, expected)
+    }
+
+    #[tokio::test]
+    async fn threshold_verifier_get_wallet_bad_rpcs() {
+        let rpc_validation = ThresholdVerifier::new_near(
+            ChainValidationConfig {
+                threshold: 3,
+                servers: vec![
+                    "https://google.com".to_string(),
+                    "https://bim-bim-bom-bom.com".to_string(),
+                    "https://rpc.mainnet.near.org".to_string(),
+                    "https://hello.dev".to_string(),
+                    "https://rpc.near.org".to_string(),
+                    "https://nearrpc.aurora.dev".to_string(),
+                ],
+            },
+            Arc::new(reqwest::Client::new()),
+        );
+
+        let expected = WalletAuthMethods {
+            access_list: vec![AuthMethod {
+                account_id: "keys.auth.hot.tg".to_string(),
+                metadata: None,
+                chain_id: ChainId::Near,
+            }],
+            key_gen: 1,
+            block_height: 0,
+        };
+
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let actual = Arc::new(rpc_validation)
+            .get_wallet_auth_methods(wallet_id)
+            .await
+            .unwrap();
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn converter_to_base58_correct() {
+        let uid = "0887d14fbe253e8b6a7b8193f3891e04f88a9ed744b91f4990d567ffc8b18e5f";
+        let expected = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let actual = uid_to_wallet_id(uid).unwrap();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn converter_to_base58_incorrect() {
+        let uid = "sha256 expected as uid";
+        uid_to_wallet_id(uid).unwrap();
+    }
+
+    #[test]
+    fn get_wallet_data_model_correct() {
+        let sample_json = r#"{
+            "access_list": [
+                {
+                    "account_id": "keys.auth.hot.tg",
+                    "metadata": null,
+                    "chain_id": 0
+                }
+            ],
+            "key_gen": 1,
+            "block_height": 0
+        }"#;
+
+        let expected = WalletAuthMethods {
+            access_list: vec![AuthMethod {
+                account_id: "keys.auth.hot.tg".to_string(),
+                metadata: None,
+                chain_id: ChainId::Near,
+            }],
+            key_gen: 1,
+            block_height: 0,
+        };
+
+        let actual: WalletAuthMethods = serde_json::from_str(sample_json).unwrap();
+
+        assert_eq!(actual, expected);
+    }
+}
