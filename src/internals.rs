@@ -197,11 +197,11 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
                 match verifier.verify(&auth, args).await {
                     Ok(true) => Some(true),
                     Ok(false) => {
-                        log::warn!("Verification failed for {}", verifier.get_endpoint());
+                        tracing::warn!("Verification failed for {}", verifier.get_endpoint());
                         Some(false)
                     }
                     Err(e) => {
-                        log::warn!("{}", e);
+                        tracing::warn!("{}", e);
                         None
                     }
                 }
