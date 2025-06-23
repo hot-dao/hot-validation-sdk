@@ -208,7 +208,7 @@ mod tests {
                 ChainId::Stellar,
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://soroban-testnet.stellar.org".to_string()],
+                    servers: vec!["https://mainnet.sorobanrpc.com".to_string()],
                 },
             ),
             (
@@ -322,6 +322,20 @@ mod tests {
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
             ],
+        };
+
+        validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn validate_on_stellar() {
+        let validation = create_validation_object();
+
+        let uid = "bfe2d1d813e759844d1f0617639c986a52427a5965a1e72392cd0f6b4d556074".to_string();
+        let message = "".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec!["000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string()],
         };
 
         validation.verify(uid, message, proof).await.unwrap();
