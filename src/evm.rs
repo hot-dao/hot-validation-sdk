@@ -32,7 +32,7 @@ impl RpcRequest {
             jsonrpc: "2.0".to_string(),
             id: "dontcare".to_string(),
             method: "eth_call".to_string(),
-            params: json!([call_request, "finalized"]),
+            params: json!([call_request, "latest"]),
         }
     }
 }
