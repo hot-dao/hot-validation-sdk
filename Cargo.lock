@@ -984,6 +984,7 @@ dependencies = [
  "sha2",
  "soroban-client",
  "tokio",
+ "tokio-util",
  "tracing",
  "web3",
 ]
