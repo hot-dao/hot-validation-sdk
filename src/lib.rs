@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use tokio::task::JoinHandle;
+use crate::metrics::Metrics;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
@@ -71,14 +71,16 @@ pub struct Validation {
     near: Arc<ThresholdVerifier<NearSingleVerifier>>,
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
+    metrics: Arc<Metrics>,
 }
 
 impl Validation {
+    pub fn metrics(&self) -> Arc<Metrics> {
+        self.metrics.clone()
+    }
+
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
-
-        let _availability_checker: JoinHandle<()> =
-            tokio::spawn(Validation::availability_checker(configs.clone()));
 
         let near_config = configs
             .get(&ChainId::Near)
@@ -101,6 +103,7 @@ impl Validation {
         };
 
         let evm_validation = configs
+            .clone()
             .into_iter()
             .filter(|(id, _)| *id != ChainId::Near)
             .map(|(id, config)| {
@@ -112,10 +115,13 @@ impl Validation {
             })
             .collect();
 
+        let metrics = Arc::new(Metrics::new(configs));
+        
         let validation = Self {
             near: near_validation,
             evm: evm_validation,
             stellar: stellar_validation,
+            metrics,
         };
         Ok(validation)
     }
