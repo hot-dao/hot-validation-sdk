@@ -83,6 +83,10 @@ impl Metrics {
 
     async fn check_all_servers(&self) -> anyhow::Result<()> {
         for (&chain_id, config) in &self.configs {
+            if chain_id == ChainId::Ton {
+                // TODO: Add TON availability check
+                continue;
+            }
             let availability =
                 check_availability_for_chain(&self.client, chain_id, &config.servers).await;
 
@@ -175,6 +179,7 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
                 "id": 1
             })
         }
+        ChainId::Ton => unreachable!(),
     }
 }
 

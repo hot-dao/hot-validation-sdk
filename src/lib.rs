@@ -3,18 +3,20 @@ mod internals;
 mod metrics;
 mod near;
 mod stellar;
+mod ton;
 
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
+use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
+use crate::ton::TonSingleVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use crate::metrics::Metrics;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
@@ -37,6 +39,7 @@ pub struct ChainValidationConfig {
 pub enum ChainId {
     Near,
     Stellar,
+    Ton,
     Evm(u64),
 }
 
@@ -45,6 +48,7 @@ impl From<u64> for ChainId {
         match value {
             0 => ChainId::Near,
             1100 => ChainId::Stellar,
+            1117 => ChainId::Ton,
             other => ChainId::Evm(other),
         }
     }
@@ -54,6 +58,7 @@ impl From<ChainId> for u64 {
         match value {
             ChainId::Near => 0,
             ChainId::Stellar => 1100,
+            ChainId::Ton => 1117,
             ChainId::Evm(other) => other,
         }
     }
@@ -71,6 +76,7 @@ pub struct Validation {
     near: Arc<ThresholdVerifier<NearSingleVerifier>>,
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
+    ton: Arc<ThresholdVerifier<TonSingleVerifier>>,
     metrics: Arc<Metrics>,
 }
 
@@ -79,26 +85,26 @@ impl Validation {
         self.metrics.clone()
     }
 
-    pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
+    pub async fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
 
-        let near_config = configs
-            .get(&ChainId::Near)
-            .expect("No near config (chain_id = 0) found")
-            .clone();
-
         let near_validation = {
-            let verifier = ThresholdVerifier::new_near(near_config, client.clone());
+            let config = configs
+                .get(&ChainId::Near)
+                .expect("No near config (chain_id = 0) found")
+                .clone();
+
+            let verifier = ThresholdVerifier::new_near(config, client.clone());
             Arc::new(verifier)
         };
 
-        let stellar_config = configs
-            .get(&ChainId::Stellar)
-            .expect("No stellar config (chain_id = 1100) found")
-            .clone();
-
         let stellar_validation = {
-            let verifier = ThresholdVerifier::new_stellar(stellar_config)?;
+            let config = configs
+                .get(&ChainId::Stellar)
+                .expect("No stellar config (chain_id = 1100) found")
+                .clone();
+
+            let verifier = ThresholdVerifier::new_stellar(config)?;
             Arc::new(verifier)
         };
 
@@ -115,12 +121,28 @@ impl Validation {
             })
             .collect();
 
+        let ton_validation = {
+            let config = configs
+                .get(&ChainId::Ton)
+                .expect("No stellar config (chain_id = 1117) found")
+                .clone();
+
+            let verifier = ThresholdVerifier::new_ton(
+                config.threshold,
+                // We don't care about in config, because servers will be fetched from TON blockchain.
+                config.servers.len(),
+            )
+            .await?;
+            Arc::new(verifier)
+        };
+
         let metrics = Arc::new(Metrics::new(configs));
-        
+
         let validation = Self {
             near: near_validation,
             evm: evm_validation,
             stellar: stellar_validation,
+            ton: ton_validation,
             metrics,
         };
         Ok(validation)
@@ -194,7 +216,7 @@ mod tests {
         assert_eq!(ChainId::Evm(5).to_string(), "5");
     }
 
-    fn create_validation_object() -> Arc<Validation> {
+    async fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
             (
                 ChainId::Near,
@@ -239,13 +261,13 @@ mod tests {
             ),
         ]);
 
-        let validation = Validation::new(configs).unwrap();
+        let validation = Validation::new(configs).await.unwrap();
         Arc::new(validation)
     }
 
     #[tokio::test]
     async fn validate_on_near() {
-        let validation = create_validation_object();
+        let validation = create_validation_object().await;
 
         let uid = "0887d14fbe253e8b6a7b8193f3891e04f88a9ed744b91f4990d567ffc8b18e5f".to_string();
         let message =
@@ -260,7 +282,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_on_base() {
-        let validation = create_validation_object();
+        let validation = create_validation_object().await;
 
         let uid = "6c2015fd2a1a858144749d55d0f38f0632b8342f59a2d44ee374d64047b0f4f4".to_string();
         let message =
@@ -275,7 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn two_auth_methods() {
-        let validation = create_validation_object();
+        let validation = create_validation_object().await;
 
         let uid = "114e0efee6a1c73dbc8403264db8537d38fdfa7bdf81ed6fcf4841b93b9a2b6a".to_string();
         let message =
@@ -317,7 +339,7 @@ mod tests {
                 },
             ),
         ]);
-        let validation = Arc::new(Validation::new(configs).unwrap());
+        let validation = Arc::new(Validation::new(configs).await.unwrap());
 
         let uid = "114e0efee6a1c73dbc8403264db8537d38fdfa7bdf81ed6fcf4841b93b9a2b6a".to_string();
         let message =
@@ -335,7 +357,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_on_stellar() {
-        let validation = create_validation_object();
+        let validation = create_validation_object().await;
 
         let uid = "bfe2d1d813e759844d1f0617639c986a52427a5965a1e72392cd0f6b4d556074".to_string();
         let message = "".to_string();
@@ -345,5 +367,10 @@ mod tests {
         };
 
         validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn validate_on_ton() {
+        // TODO
     }
 }
