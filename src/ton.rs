@@ -1,3 +1,10 @@
+//! TON verification logic.
+//!
+//! TON smart contracts are called in sequence to validate a proof. The list of
+//! calls comes from [`AuthMethod::metadata`] as a JSON array of objects with a
+//! method name and arguments. Each intermediate call returns the address of the
+//! next contract. The final call returns a boolean result.
+
 use crate::internals::{SingleVerifier, ThresholdVerifier, VerifyArgs};
 use anyhow::Result;
 use anyhow::{bail, ensure, Context};
@@ -9,12 +16,16 @@ use tonlib_client::tl::{SmcMethodId, TonFunction, TonResult, TvmNumber, TvmSlice
 use tonlib_core::cell::{ArcCell, BagOfCells};
 use tonlib_core::TonAddress;
 
+/// Sequence of contract calls required for validation.
 #[derive(Debug, Deserialize)]
 struct TonValidationStructure(Vec<TonValidationStep>);
 
 #[derive(Debug, Deserialize)]
+/// Single contract method invocation.
 struct TonValidationStep {
+    /// Method to call on the contract.
     method: String,
+    /// Arguments to pass to the method.
     args: Vec<StackArgType>,
 }
 
@@ -34,14 +45,18 @@ impl TonValidationStep {
     }
 }
 
+/// Argument of a TON contract call.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum StackArgType {
+    /// Numeric argument encoded as string.
     Num(String),
+    /// Base58 encoded slice.
     #[serde(deserialize_with = "deserialize_base58")]
     Slice(Vec<u8>),
 }
 
+/// Helper for base58 encoded byte slices.
 fn deserialize_base58<'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>
 where
     D: Deserializer<'de>,
@@ -63,12 +78,17 @@ impl From<StackArgType> for TvmStackEntry {
     }
 }
 
+/// Wrapper around a [`TonClient`] that implements [`SingleVerifier`].
 #[derive(Clone)]
 pub(crate) struct TonSingleVerifier {
     client: TonClient,
 }
 
 impl ThresholdVerifier<TonSingleVerifier> {
+    /// Build a [`ThresholdVerifier`] for TON.
+    ///
+    /// `pool_size` defines the number of connections in the underlying
+    /// [`TonClient`].
     pub async fn new_ton(threshold: usize, pool_size: usize) -> Result<Self> {
         ensure!(threshold > 0, "Threshold must be greater than 0");
         ensure!(
@@ -99,6 +119,7 @@ impl SingleVerifier for TonSingleVerifier {
         "TON ADNL".to_string()
     }
 
+    /// Execute the validation sequence described in metadata.
     async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
 
@@ -134,6 +155,7 @@ impl TonSingleVerifier {
         Self { client }
     }
 
+    /// Extracts the single cell returned by a TON RPC call.
     fn get_root_from_ton_result(ton_result: &TonResult) -> Result<ArcCell> {
         let root = match ton_result {
             TonResult::SmcRunResult(result) => match &result.stack.elements[0] {
@@ -152,6 +174,7 @@ impl TonSingleVerifier {
         Ok(root)
     }
 
+    /// Perform a single call on `address` according to `step`.
     async fn do_step(&self, address: &TonAddress, step: &TonValidationStep) -> Result<ArcCell> {
         let smc_state = self.client.smc_load(address).await?;
         let function = step.convert_to_function(smc_state.id);
@@ -160,6 +183,7 @@ impl TonSingleVerifier {
         Ok(root)
     }
 
+    /// Execute a step that returns the next contract address.
     async fn do_intermediate_step(
         &self,
         address: &TonAddress,
@@ -170,6 +194,7 @@ impl TonSingleVerifier {
         Ok(address)
     }
 
+    /// Execute the last step and return its boolean result.
     async fn do_final_step(&self, address: &TonAddress, step: &TonValidationStep) -> Result<bool> {
         let root = self.do_step(address, step).await?;
         let bit = root.parser().load_bit()?;
