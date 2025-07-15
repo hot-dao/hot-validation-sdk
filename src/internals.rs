@@ -85,6 +85,20 @@ impl Validation {
                         auth_method.chain_id
                     ))?
             }
+            ChainId::Ton => {
+                let verify_args = VerifyArgs {
+                    wallet_id: Some(wallet_id),
+                    msg_hash: message_hex,
+                    metadata: auth_method.metadata.clone(),
+                    user_payload,
+                    msg_body: message_body,
+                };
+                self.ton
+                    .clone()
+                    .verify(auth_method.account_id.as_str(), verify_args)
+                    .await
+                    .context("Validation on Stellar failed")?
+            }
         };
 
         if status {
