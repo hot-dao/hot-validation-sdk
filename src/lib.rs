@@ -3,6 +3,7 @@ mod internals;
 mod metrics;
 mod near;
 mod stellar;
+mod ton;
 
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
