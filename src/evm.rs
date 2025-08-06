@@ -2,6 +2,7 @@ use crate::internals::{SingleVerifier, ThresholdVerifier, HOT_VERIFY_METHOD_NAME
 use crate::{ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use futures_util::future::BoxFuture;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde_json::json;
@@ -77,13 +78,6 @@ impl EvmSingleVerifier {
             ))
         }
     }
-}
-
-#[async_trait]
-impl SingleVerifier for EvmSingleVerifier {
-    fn get_endpoint(&self) -> String {
-        self.server.clone()
-    }
 
     async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
         let msg_hash = hex::decode(args.msg_hash).context("msg_hash is not valid hex")?;
@@ -127,6 +121,13 @@ impl SingleVerifier for EvmSingleVerifier {
     }
 }
 
+#[async_trait]
+impl SingleVerifier for EvmSingleVerifier {
+    fn get_endpoint(&self) -> String {
+        self.server.clone()
+    }
+}
+
 impl ThresholdVerifier<EvmSingleVerifier> {
     pub fn new_evm(validation_config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
         let threshold = validation_config.threshold;
@@ -151,11 +152,71 @@ impl ThresholdVerifier<EvmSingleVerifier> {
             verifiers,
         }
     }
+
+    pub async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
+        let auth_contract_id = Arc::new(auth_contract_id.to_string());
+        let functor = move |verifier: Arc<EvmSingleVerifier>| -> BoxFuture<'static, Option<bool>> {
+            let auth = auth_contract_id.clone();
+            let args = args.clone();
+            Box::pin(async move {
+                match verifier.verify(&auth, args).await {
+                    Ok(true) => Some(true),
+                    Ok(false) => {
+                        tracing::warn!("Verification failed for {}", verifier.get_endpoint());
+                        Some(false)
+                    }
+                    Err(e) => {
+                        tracing::warn!("{}", e);
+                        None
+                    }
+                }
+            })
+        };
+
+        let result = self.threshold_call(functor).await?;
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // #[tokio::test]
+    // async fn foo() -> Result<()> {
+    //     let evm_hot_verify_contract =
+    //         Arc::new(Contract::load(HOT_VERIFY_EVM_ABI.as_bytes())?);
+    //
+    //     let validation = EvmSingleVerifier::new(
+    //         Arc::new(reqwest::Client::new()),
+    //         "https://1rpc.io/bnb".to_string(),
+    //         evm_hot_verify_contract,
+    //     );
+    //
+    //     let auth_method = WalletAuthMethods {
+    //         access_list: vec![
+    //             AuthMethod {
+    //                 account_id: "drops.nfts.tg".to_string(),
+    //                 metadata: Some(
+    //                     "{\"method\": \"hot_verify_deposit\"}".to_string(),
+    //                 ),
+    //                 chain_id: Near,
+    //             },
+    //         ],
+    //         key_gen: 1,
+    //         block_height: 0,
+    //     };
+    //
+    //     validation
+    //         .verify(
+    //
+    //         )
+    //
+    //
+    //
+    //
+    //     Ok(())
+    // }
 
     #[tokio::test]
     async fn base_single_verifier() {

@@ -6,6 +6,7 @@ mod stellar;
 
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
+use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
 use anyhow::{bail, Context, Result};
@@ -14,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use crate::metrics::Metrics;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
@@ -116,7 +116,7 @@ impl Validation {
             .collect();
 
         let metrics = Arc::new(Metrics::new(configs));
-        
+
         let validation = Self {
             near: near_validation,
             evm: evm_validation,

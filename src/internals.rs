@@ -38,6 +38,11 @@ impl Validation {
                 let message_bs58 = hex::decode(&message_hex)
                     .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
 
+                let method_name = auth_method
+                    .metadata
+                    .clone()
+                    .unwrap_or(HOT_VERIFY_METHOD_NAME.to_string());
+
                 let verify_args = VerifyArgs {
                     wallet_id: Some(wallet_id),
                     msg_hash: message_bs58,
@@ -47,7 +52,7 @@ impl Validation {
                 };
                 self.near
                     .clone()
-                    .verify(auth_method.account_id.as_str(), verify_args)
+                    .verify(auth_method.account_id.as_str(), method_name, verify_args)
                     .await
                     .context("Validation on Near failed")?
             }
@@ -109,6 +114,7 @@ pub struct GetWalletArgs {
 #[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
 pub struct AuthMethod {
     pub account_id: String,
+    /// Used to override what method is called on the `account_id`.
     pub metadata: Option<String>,
     pub chain_id: ChainId,
 }
@@ -140,9 +146,6 @@ pub struct VerifyArgs {
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String;
-
-    /// Call `hot_verify` on the `auth_contract_id` with the specified args.
-    async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> anyhow::Result<bool>;
 }
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
@@ -187,35 +190,12 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!("No consensus for threshold call"))
     }
-
-    pub async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> anyhow::Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<T>| -> BoxFuture<'static, Option<bool>> {
-            let auth = auth_contract_id.clone();
-            let args = args.clone();
-            Box::pin(async move {
-                match verifier.verify(&auth, args).await {
-                    Ok(true) => Some(true),
-                    Ok(false) => {
-                        tracing::warn!("Verification failed for {}", verifier.get_endpoint());
-                        Some(false)
-                    }
-                    Err(e) => {
-                        tracing::warn!("{}", e);
-                        None
-                    }
-                }
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use async_trait::async_trait;
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
@@ -230,10 +210,6 @@ mod tests {
     impl SingleVerifier for DummyVerifier {
         fn get_endpoint(&self) -> String {
             "dummy".into()
-        }
-
-        async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
-            Ok(true)
         }
     }
 
@@ -342,18 +318,50 @@ mod tests {
         result: Result<bool, ()>,
     }
 
-    #[async_trait]
-    impl SingleVerifier for BoolVerifier {
-        fn get_endpoint(&self) -> String {
-            "bool".into()
-        }
-
+    impl BoolVerifier {
         async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
                 Err(_) => Err(anyhow!("boom")),
             }
+        }
+    }
+
+    #[async_trait]
+    impl SingleVerifier for BoolVerifier {
+        fn get_endpoint(&self) -> String {
+            "bool".into()
+        }
+    }
+
+    impl ThresholdVerifier<BoolVerifier> {
+        pub async fn verify(
+            &self,
+            auth_contract_id: &str,
+            args: VerifyArgs,
+        ) -> anyhow::Result<bool> {
+            let auth_contract_id = Arc::new(auth_contract_id.to_string());
+            let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Option<bool>> {
+                let auth = auth_contract_id.clone();
+                let args = args.clone();
+                Box::pin(async move {
+                    match verifier.verify(&auth, args).await {
+                        Ok(true) => Some(true),
+                        Ok(false) => {
+                            tracing::warn!("Verification failed for {}", verifier.get_endpoint());
+                            Some(false)
+                        }
+                        Err(e) => {
+                            tracing::warn!("{}", e);
+                            None
+                        }
+                    }
+                })
+            };
+
+            let result = self.threshold_call(functor).await?;
+            Ok(result)
         }
     }
 

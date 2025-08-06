@@ -981,6 +981,7 @@ dependencies = [
  "reqwest 0.12.15",
  "serde",
  "serde_json",
+ "serde_with",
  "sha2",
  "soroban-client",
  "tokio",

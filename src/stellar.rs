@@ -2,6 +2,7 @@ use crate::internals::{SingleVerifier, ThresholdVerifier, HOT_VERIFY_METHOD_NAME
 use crate::{ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
+use futures_util::future::BoxFuture;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -65,13 +66,6 @@ impl StellarSingleVerifier {
 
         Ok(operation)
     }
-}
-
-#[async_trait]
-impl SingleVerifier for StellarSingleVerifier {
-    fn get_endpoint(&self) -> String {
-        self.server.clone()
-    }
 
     async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
         let operation = Self::build_contract_call(auth_contract_id, args)?;
@@ -95,6 +89,13 @@ impl SingleVerifier for StellarSingleVerifier {
     }
 }
 
+#[async_trait]
+impl SingleVerifier for StellarSingleVerifier {
+    fn get_endpoint(&self) -> String {
+        self.server.clone()
+    }
+}
+
 impl ThresholdVerifier<StellarSingleVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
@@ -115,11 +116,36 @@ impl ThresholdVerifier<StellarSingleVerifier> {
             verifiers,
         })
     }
+
+    pub async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
+        let auth_contract_id = Arc::new(auth_contract_id.to_string());
+        let functor =
+            move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Option<bool>> {
+                let auth = auth_contract_id.clone();
+                let args = args.clone();
+                Box::pin(async move {
+                    match verifier.verify(&auth, args).await {
+                        Ok(true) => Some(true),
+                        Ok(false) => {
+                            tracing::warn!("Verification failed for {}", verifier.get_endpoint());
+                            Some(false)
+                        }
+                        Err(e) => {
+                            tracing::warn!("{}", e);
+                            None
+                        }
+                    }
+                })
+            };
+
+        let result = self.threshold_call(functor).await?;
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::internals::{SingleVerifier, VerifyArgs};
+    use crate::internals::VerifyArgs;
     use crate::stellar::StellarSingleVerifier;
 
     #[tokio::test]
