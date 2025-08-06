@@ -2,35 +2,14 @@ use crate::internals::{
     GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
-use crate::{metrics, ChainValidationConfig, VerifyArgs};
+use crate::{metrics, ChainValidationConfig, HotVerifyResult, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use futures_util::future::BoxFuture;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-struct InputParam {
-    #[serde(rename = "type")]
-    param_type: String,
-    value: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct HotVerifyAuthCall {
-    contract_id: String,
-    method: String,
-    chain_id: u64,
-    input: Vec<InputParam>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub enum HotVerifyResult {
-    AuthCall(HotVerifyAuthCall),
-    Result(bool),
-}
 
 #[derive(Serialize)]
 struct RpcParams {
@@ -110,6 +89,7 @@ impl NearSingleVerifier {
 
         if response.status().is_success() {
             let value = response.json::<serde_json::Value>().await?;
+            dbg!(&value);
             // Intended.
             //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
             let value = value
@@ -132,11 +112,12 @@ impl NearSingleVerifier {
         auth_contract_id: &str,
         method_name: String,
         args: VerifyArgs,
-    ) -> Result<bool> {
+    ) -> Result<HotVerifyResult> {
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&args)?);
         let rpc_args = RpcRequest::build(auth_contract_id.to_string(), method_name, args_base64);
-        let verify_result = self.call_rpc(serde_json::to_value(&rpc_args)?).await?;
-        let verify_result = serde_json::from_slice::<bool>(verify_result.as_slice())?;
+        let json = serde_json::to_value(&rpc_args)?;
+        let verify_result = self.call_rpc(json).await?;
+        let verify_result = serde_json::from_slice::<HotVerifyResult>(verify_result.as_slice())?;
         Ok(verify_result)
     }
 }
@@ -203,19 +184,14 @@ impl ThresholdVerifier<NearSingleVerifier> {
         auth_contract_id: &str, // TODO: As String
         method_name: String,
         args: VerifyArgs,
-    ) -> Result<bool> {
-        // TODO: Replace with the new type
+    ) -> Result<HotVerifyResult> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Option<bool>> {
+        let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Option<HotVerifyResult>> {
             let auth = auth_contract_id.clone();
             let args = args.clone();
             Box::pin(async move {
                 match verifier.verify(&auth, method_name, args).await {
-                    Ok(true) => Some(true),
-                    Ok(false) => {
-                        tracing::warn!("Verification failed for {}", verifier.get_endpoint());
-                        Some(false)
-                    }
+                    Ok(result) => Some(result),
                     Err(e) => {
                         tracing::warn!("{}", e);
                         None
@@ -307,7 +283,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn near_single_verifier_bad_msg_hash() {
+    async fn near_single_verifier_bad_msg_hash() -> Result<()> {
         let client = Arc::new(reqwest::Client::new());
         let server_addr = "https://rpc.mainnet.near.org";
         let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
@@ -325,9 +301,10 @@ mod tests {
 
         let result = rpc_caller
             .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
-            .await
-            .unwrap();
+            .await?
+            .as_result()?;
         assert!(!result);
+        Ok(())
     }
 
     #[tokio::test]

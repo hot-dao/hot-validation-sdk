@@ -4,7 +4,7 @@ mod metrics;
 mod near;
 mod stellar;
 
-use crate::evm::EvmSingleVerifier;
+use crate::evm::{EvmInputData, EvmSingleVerifier};
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
@@ -38,6 +38,48 @@ pub enum ChainId {
     Near,
     Stellar,
     Evm(u64),
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[serde(untagged)]
+pub enum InputData {
+    Evm(EvmInputData),
+    Stellar(),
+}
+
+impl InputData {
+    pub fn as_evm(&self) -> Result<EvmInputData> {
+        if let InputData::Evm(evm) = self {
+            return Ok(evm.clone());
+        }
+        bail!("Expected EvmInputData, got {:?}", self)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+pub struct HotVerifyAuthCall {
+    pub contract_id: String,
+    pub method: String,
+    pub chain_id: ChainId,
+    pub input: InputData,
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[serde(untagged)]
+pub enum HotVerifyResult {
+    AuthCall(HotVerifyAuthCall),
+    Result(bool),
+}
+
+impl HotVerifyResult {
+    pub fn as_result(&self) -> Result<bool> {
+        match self {
+            HotVerifyResult::Result(result) => Ok(*result),
+            HotVerifyResult::AuthCall(_) => {
+                bail!("Expected result, got auth call")
+            }
+        }
+    }
 }
 
 impl From<u64> for ChainId {
@@ -237,6 +279,13 @@ mod tests {
                     ],
                 },
             ),
+            (
+                ChainId::Evm(56),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://bsc.drpc.org".to_string()],
+                },
+            ),
         ]);
 
         let validation = Validation::new(configs).unwrap();
@@ -342,6 +391,23 @@ mod tests {
         let proof = ProofModel {
             message_body: "".to_string(),
             user_payloads: vec!["000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string()],
+        };
+
+        validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn bridge_validation() {
+        let validation = create_validation_object();
+
+        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let message =
+            "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![
+                "{\"Deposit\":{\"chain_id\":56,\"nonce\":\"1754431900000000013182\"}}".to_string(),
+            ],
         };
 
         validation.verify(uid, message, proof).await.unwrap();
