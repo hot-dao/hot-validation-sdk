@@ -1,9 +1,19 @@
 [workspace]
+resolver = "3"
 members = [
     "core",
+    "primitives"
 ]
 
+[workspace.package]
+edition = "2024"
+repository = "https://github.com/hot-dao/hot-validation-sdk"
+version = "0.1.0"
+rust-version = "1.85.0"
+
 [workspace.dependencies]
+hot-validation-primitives.path = "primitives"
+
 anyhow = "1.0.98"
 async-trait = "0.1.88"
 
@@ -33,3 +43,21 @@ prometheus = "0.13.4"
 soroban-client = "0.4.8"
 serde-hex = "0.1.0"
 derive_more = { version = "2.0.1", features = ["full"] }
+
+borsh = { version = "1.5.7", features = ["borsh-derive"] }
+
+schemars = { version = "0.8.21", features = ["derive"] }
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+as_conversions = { level = "deny", priority = -1 }
+
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+unreadable_literal = "allow"
+similar_names = "allow"
+too_long_first_doc_paragraph = "allow"

@@ -1,11 +1,12 @@
 use crate::evm::EvmInputData;
 use crate::stellar::StellarInputData;
-use crate::{metrics, ChainId, HotVerifyResult, Validation};
+use crate::{metrics, HotVerifyResult, Validation};
 use anyhow::Result;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
+use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -86,6 +87,12 @@ impl Validation {
                 ChainId::Near => {
                     unimplemented!("Auth call should not lead to NEAR")
                 }
+                ChainId::Solana => {
+                    unimplemented!("Solana is not supported")
+                }
+                ChainId::Ton => {
+                    unimplemented!("Ton is not supported")
+                }
             },
             HotVerifyResult::Result(status) => status,
         };
@@ -134,6 +141,7 @@ impl Validation {
     ) -> Result<()> {
         let _timer = metrics::performance::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
+        // TODO: DRY
         let status = match auth_method.chain_id {
             ChainId::Near => {
                 self.handle_near(
@@ -161,6 +169,12 @@ impl Validation {
                     EvmInputData::from_parts(message_hex, user_payload)?,
                 )
                 .await?
+            }
+            ChainId::Solana => {
+                unimplemented!("Solana is not supported")
+            }
+            ChainId::Ton => {
+                unimplemented!("Ton is not supported")
             }
         };
 

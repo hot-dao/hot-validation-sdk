@@ -8,6 +8,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
+hot-validation-primitives = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 

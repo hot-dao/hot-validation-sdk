@@ -12,9 +12,9 @@ use crate::stellar::{StellarInputData, StellarSingleVerifier};
 use anyhow::{bail, Context, Result};
 use derive_more::{TryFrom, TryInto};
 use futures_util::future::try_join_all;
+use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Collection of arguments for each auth method.
@@ -31,14 +31,6 @@ pub struct ProofModel {
 pub struct ChainValidationConfig {
     pub threshold: usize,
     pub servers: Vec<String>,
-}
-
-#[derive(Copy, Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
-#[serde(into = "u64", from = "u64")]
-pub enum ChainId {
-    Near,
-    Stellar,
-    Evm(u64),
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone, TryFrom, TryInto)]
@@ -72,31 +64,6 @@ impl HotVerifyResult {
                 bail!("Expected result, got auth call")
             }
         }
-    }
-}
-
-impl From<u64> for ChainId {
-    fn from(value: u64) -> Self {
-        match value {
-            0 => ChainId::Near,
-            1100 => ChainId::Stellar,
-            other => ChainId::Evm(other),
-        }
-    }
-}
-impl From<ChainId> for u64 {
-    fn from(value: ChainId) -> Self {
-        match value {
-            ChainId::Near => 0,
-            ChainId::Stellar => 1100,
-            ChainId::Evm(other) => other,
-        }
-    }
-}
-
-impl Display for ChainId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", <u64>::from(*self))
     }
 }
 
@@ -210,24 +177,6 @@ impl Validation {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn chain_id_roundtrip() {
-        assert_eq!(ChainId::from(0u64), ChainId::Near);
-        assert_eq!(ChainId::from(1100u64), ChainId::Stellar);
-        assert_eq!(ChainId::from(42u64), ChainId::Evm(42));
-
-        assert_eq!(u64::from(ChainId::Near), 0u64);
-        assert_eq!(u64::from(ChainId::Stellar), 1100u64);
-        assert_eq!(u64::from(ChainId::Evm(7)), 7u64);
-    }
-
-    #[test]
-    fn chain_id_display() {
-        assert_eq!(ChainId::Near.to_string(), "0");
-        assert_eq!(ChainId::Stellar.to_string(), "1100");
-        assert_eq!(ChainId::Evm(5).to_string(), "5");
-    }
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([

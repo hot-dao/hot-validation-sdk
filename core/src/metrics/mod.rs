@@ -175,6 +175,9 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
                 "id": 1
             })
         }
+        _ => {
+            unreachable!()
+        }
     }
 }
 
