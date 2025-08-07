@@ -31,8 +31,11 @@ tokio-util = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
 
-web3 = { workspace = true }
 once_cell = { workspace = true }
 lazy_static = { workspace = true }
 prometheus = { workspace = true }
 soroban-client = { workspace = true }
+
+alloy-json-abi.workspace = true
+alloy-dyn-abi.workspace = true
+alloy-contract.workspace = true

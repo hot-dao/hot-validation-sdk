@@ -13,5 +13,6 @@ serde-hex.workspace = true
 hex.workspace = true
 anyhow.workspace = true
 stellar-xdr.workspace = true
-ethabi.workspace = true
-getrandom = { version = "0.2.16", features = ["js"] } # because `ethabi` depends on `getrandom` lol
+alloy-primitives.workspace = true
+alloy-dyn-abi.workspace = true
+alloy-sol-types.workspace = true

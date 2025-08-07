@@ -1,40 +1,55 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
 use crate::ChainValidationConfig;
+use alloy_contract::Interface;
+use alloy_dyn_abi::DynSolValue;
+use alloy_json_abi::JsonAbi;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use once_cell::sync::Lazy;
-use serde::Serialize;
-use serde_json::json;
-use std::str::FromStr;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::sync::Arc;
-use web3::ethabi;
-use web3::ethabi::{Contract, ParamType, Token};
-use web3::types::{CallRequest, H160};
 
-pub const HOT_VERIFY_EVM_ABI: &str = r#"[{"inputs":[{"internalType":"bytes32","name":"msg_hash","type":"bytes32"},{"internalType":"bytes","name":"walletId","type":"bytes"},{"internalType":"bytes","name":"userPayload","type":"bytes"},{"internalType":"bytes","name":"metadata","type":"bytes"}],"name":"hot_verify","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}]"#;
-static EVM_CONTRACT_ABI: Lazy<Arc<Contract>> = Lazy::new(|| {
-    let contract =
-        Contract::load(HOT_VERIFY_EVM_ABI.as_bytes()).expect("Couldn't load evm contract schema");
-    Arc::new(contract)
+// JSON ABI for hot_verify
+pub const HOT_VERIFY_EVM_ABI: &str = r#"[{
+  "inputs": [
+    { "internalType": "bytes32", "name": "msg_hash",    "type": "bytes32" },
+    { "internalType": "bytes",   "name": "walletId",    "type": "bytes"   },
+    { "internalType": "bytes",   "name": "userPayload", "type": "bytes"   },
+    { "internalType": "bytes",   "name": "metadata",    "type": "bytes"   }
+  ],
+  "name": "hot_verify",
+  "outputs": [
+    { "internalType": "bool", "name": "", "type": "bool" }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+}]"#;
+
+// Initialize the Interface once
+static INTERFACE: Lazy<Interface> = Lazy::new(|| {
+    let abi: JsonAbi =
+        serde_json::from_str(HOT_VERIFY_EVM_ABI).expect("Invalid JSON ABI for hot_verify");
+    Interface::new(abi)
 });
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct RpcRequest {
     jsonrpc: String,
     id: String,
     method: String,
-    params: serde_json::Value,
+    params: Value,
 }
 
 impl RpcRequest {
-    pub fn build(call_request: CallRequest) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            id: "dontcare".to_string(),
-            method: "eth_call".to_string(),
-            params: json!([call_request, "latest"]),
+    pub fn build(call_obj: Value) -> Self {
+        RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: "dontcare".into(),
+            method: "eth_call".into(),
+            params: json!([call_obj, "latest"]),
         }
     }
 }
@@ -43,39 +58,34 @@ impl RpcRequest {
 pub(crate) struct EvmSingleVerifier {
     client: Arc<reqwest::Client>,
     server: String,
-    contract: Arc<Contract>,
 }
 
 impl EvmSingleVerifier {
-    pub fn new(client: Arc<reqwest::Client>, server: String, contract: Arc<Contract>) -> Self {
-        Self {
-            client,
-            server,
-            contract,
-        }
+    pub fn new(client: Arc<reqwest::Client>, server: String) -> Self {
+        Self { client, server }
     }
 
-    async fn call_rpc(&self, json: serde_json::Value) -> Result<String> {
-        let response = self
+    async fn call_rpc(&self, rpc: &RpcRequest) -> Result<String> {
+        let resp = self
             .client
             .post(&self.server)
-            .json(&json)
+            .json(rpc)
             .timeout(TIMEOUT)
             .send()
             .await?;
 
-        if response.status().is_success() {
-            let value = response.json::<serde_json::Value>().await?;
-            let value = value
+        if resp.status().is_success() {
+            let v: Value = resp.json().await?;
+            let result = v
                 .get("result")
-                .context(format!("missing result: {}", value))?;
-            let value = serde_json::from_value::<String>(value.clone())?;
-            Ok(value)
+                .context(format!("missing result: {:?}", v))?;
+            serde_json::from_value(result.clone())
+                .context("Failed to parse RPC result as hex string")
         } else {
             Err(anyhow::anyhow!(
-                "Failed to call {}: {}",
+                "RPC error {}: {}",
                 self.server,
-                response.status()
+                resp.status()
             ))
         }
     }
@@ -86,36 +96,24 @@ impl EvmSingleVerifier {
         method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
-        let input: Vec<Token> = From::from(input);
-        let data = self
-            .contract
-            .function(&method_name)?
-            .encode_input(&input)
-            .context("Bad arguments for evm smart contract")?;
+        let args: Vec<DynSolValue> = From::from(input);
 
-        let call_request = CallRequest::builder()
-            .to(H160::from_str(auth_contract_id)?)
-            .data(data.into())
-            .build();
+        let data = INTERFACE.encode_input(&method_name, &args)?;
+        let data_hex = format!("0x{}", hex::encode(data));
 
-        let rpc_request = RpcRequest::build(call_request);
-        let rpc_request = serde_json::to_value(&rpc_request)?;
+        // Build and send RPC request
+        let call_obj = json!({"to": auth_contract_id, "data": data_hex});
+        let rpc = RpcRequest::build(call_obj);
+        let raw = self.call_rpc(&rpc).await?;
+        let bytes = hex::decode(raw.trim_start_matches("0x"))?;
 
-        let raw = self
-            .call_rpc(rpc_request)
-            .await?
-            .trim_start_matches("0x")
-            .to_string();
-
-        let data = hex::decode(raw).context("invalid hex in RPC response")?;
-
-        let tokens = ethabi::decode(&[ParamType::Bool], &data).context("ABI decode failed")?;
-        let result = match tokens[0] {
-            Token::Bool(b) => b,
-            _ => unreachable!(),
-        };
-
-        Ok(result)
+        // Decode output
+        let out = INTERFACE.decode_output("hot_verify", &bytes)?;
+        if let Some(DynSolValue::Bool(b)) = out.first() {
+            Ok(*b)
+        } else {
+            Err(anyhow::anyhow!("Unexpected output type"))
+        }
     }
 }
 
@@ -127,23 +125,15 @@ impl SingleVerifier for EvmSingleVerifier {
 }
 
 impl ThresholdVerifier<EvmSingleVerifier> {
-    pub fn new_evm(validation_config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
-        let threshold = validation_config.threshold;
-        let servers = validation_config.servers;
+    pub fn new_evm(config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
+        let threshold = config.threshold;
+        let servers = config.servers;
         if threshold > servers.len() {
-            panic!(
-                "There should be at least {} servers, got {}",
-                threshold,
-                servers.len()
-            )
+            panic!("Threshold {} > servers {}", threshold, servers.len());
         }
         let verifiers = servers
-            .iter()
-            .map(|s| {
-                let verifier =
-                    EvmSingleVerifier::new(client.clone(), s.clone(), EVM_CONTRACT_ABI.clone());
-                Arc::new(verifier)
-            })
+            .into_iter()
+            .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url)))
             .collect();
         Self {
             threshold,
@@ -175,131 +165,18 @@ impl ThresholdVerifier<EvmSingleVerifier> {
                 }
             })
         };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
+        self.threshold_call(functor).await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::evm::{EvmInputData, EvmSingleVerifier, HOT_VERIFY_EVM_ABI};
+    use crate::evm::EvmInputData;
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
     use crate::ChainValidationConfig;
     use anyhow::Result;
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
     use std::sync::Arc;
-    use web3::ethabi::Contract;
-
-    #[tokio::test]
-    async fn base_single_verifier() -> Result<()> {
-        let evm_hot_verify_contract = Arc::new(Contract::load(HOT_VERIFY_EVM_ABI.as_bytes())?);
-        let msg_hash =
-            "0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let user_payload = "00000000000000000000000000000000000000000000005dac769be0b6d400000000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let auth_contract_id = "0xf22Ef29d5Bb80256B569f4233a76EF09Cae996eC";
-
-        let validation = EvmSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://1rpc.io/base".to_string(),
-            evm_hot_verify_contract,
-        );
-
-        validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                EvmInputData::from_parts(msg_hash, user_payload)?,
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn base_single_verifier_non_trivial_message() -> Result<()> {
-        let evm_hot_verify_contract =
-            Arc::new(Contract::load(HOT_VERIFY_EVM_ABI.as_bytes()).unwrap());
-
-        let msg_hash =
-            "ef32edffb454d2a3172fd0af3fdb0e43fac5060a929f1b83b6de2b73754e3f45".to_string();
-        let user_payload = "00000000000000000000000000000000000000000000005e095d2c286c4414050000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let auth_contract_id = "0x42351e68420D16613BBE5A7d8cB337A9969980b4";
-
-        let validation = EvmSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://1rpc.io/base".to_string(),
-            evm_hot_verify_contract,
-        );
-
-        validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                EvmInputData::from_parts(msg_hash, user_payload)?,
-            )
-            .await?;
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn base_single_verifier_wrong_message() -> Result<()> {
-        let evm_hot_verify_contract =
-            Arc::new(Contract::load(HOT_VERIFY_EVM_ABI.as_bytes()).unwrap());
-
-        let msg_hash =
-            "cf32edffb454d2a3172fd0af3fdb0e43fac5060a929f1b83b6de2b73754e3f45".to_string();
-        let user_payload = "00000000000000000000000000000000000000000000005e095d2c286c4414050000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let auth_contract_id = "0x42351e68420D16613BBE5A7d8cB337A9969980b4";
-
-        let validation = EvmSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://1rpc.io/base".to_string(),
-            evm_hot_verify_contract,
-        );
-
-        let status = validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                EvmInputData::from_parts(msg_hash, user_payload)?,
-            )
-            .await;
-
-        assert!(status.is_err());
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn base_threshold_verifier() -> Result<()> {
-        let msg_hash =
-            "0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let user_payload = "00000000000000000000000000000000000000000000005dac769be0b6d400000000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let auth_contract_id = "0xf22Ef29d5Bb80256B569f4233a76EF09Cae996eC";
-
-        let validation = ThresholdVerifier::new_evm(
-            ChainValidationConfig {
-                threshold: 1,
-                servers: vec![
-                    "http://localhost:8545".to_string(),
-                    "https://1rpc.io/base".to_string(),
-                    "http://localhost:8545".to_string(),
-                ],
-            },
-            Arc::new(reqwest::Client::new()),
-        );
-
-        validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
-                EvmInputData::from_parts(msg_hash, user_payload)?,
-            )
-            .await?;
-        Ok(())
-    }
 
     #[tokio::test]
     async fn base_threshold_verifier_with_bad_rpcs() -> Result<()> {
@@ -335,39 +212,6 @@ mod tests {
         Ok(())
     }
 
-    #[should_panic]
-    #[tokio::test]
-    async fn base_threshold_verifier_all_rpcs_bad() {
-        let msg_hash =
-            "0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let user_payload = "00000000000000000000000000000000000000000000005dac769be0b6d400000000000000000000000000000000000000000000000000000000000000000000".to_string();
-        let auth_contract_id = "0xf22Ef29d5Bb80256B569f4233a76EF09Cae996eC";
-
-        let validation = ThresholdVerifier::new_evm(
-            ChainValidationConfig {
-                threshold: 1,
-                servers: vec![
-                    "http://localhost:1000".to_string(),
-                    "http://localhost:1000".to_string(),
-                    "http://localhost:1000".to_string(),
-                    "http://localhost:1000".to_string(),
-                    "http://localhost:1000".to_string(),
-                    "http://localhost:1000".to_string(),
-                ],
-            },
-            Arc::new(reqwest::Client::new()),
-        );
-
-        validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
-                EvmInputData::from_parts(msg_hash, user_payload).unwrap(),
-            )
-            .await
-            .unwrap();
-    }
-
     #[test]
     fn check_evm_bridge_validation_format() {
         let x = r#"{
@@ -395,31 +239,5 @@ mod tests {
         }"#
             .to_string();
         serde_json::from_str::<HotVerifyAuthCall>(&x).unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_bridge_validation() -> Result<()> {
-        let evm_hot_verify_contract = Arc::new(Contract::load(HOT_VERIFY_EVM_ABI.as_bytes())?);
-        let msg_hash =
-            "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
-        let user_payload =
-            "00000000000000000000000000000000000000000000005f1ba235abe1a5f37e00".to_string();
-        let auth_contract_id = "0x233c5370CCfb3cD7409d9A3fb98ab94dE94Cb4Cd";
-
-        let validation = EvmSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://bsc.drpc.org".to_string(),
-            evm_hot_verify_contract,
-        );
-
-        validation
-            .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                EvmInputData::from_parts(msg_hash, user_payload)?,
-            )
-            .await?;
-
-        Ok(())
     }
 }

@@ -1,47 +1,49 @@
+use alloy_dyn_abi::DynSolValue;
+use alloy_sol_types::Word;
 use anyhow::Result;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_hex::SerHexSeq;
-use serde_hex::StrictPfx;
+use serde_hex::{SerHexSeq, StrictPfx};
 
-#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
 pub enum EvmInputArg {
     #[serde(rename = "bytes32")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     FixedBytes(Vec<u8>),
+
     #[serde(rename = "bytes")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
-    #[schemars(with = "[u8; 32]")]
+    #[schemars(with = "[u8]")]
     Bytes(Vec<u8>),
 }
 
-impl From<EvmInputArg> for ethabi::Token {
-    fn from(value: EvmInputArg) -> Self {
-        match value {
-            EvmInputArg::FixedBytes(data) => ethabi::Token::FixedBytes(data),
-            EvmInputArg::Bytes(data) => ethabi::Token::Bytes(data),
+impl From<EvmInputArg> for DynSolValue {
+    fn from(arg: EvmInputArg) -> Self {
+        match arg {
+            EvmInputArg::FixedBytes(bytes) => DynSolValue::FixedBytes(Word::from_slice(&bytes), 32),
+            EvmInputArg::Bytes(bytes) => DynSolValue::Bytes(bytes),
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Eq, PartialEq, Hash, Clone)]
 pub struct EvmInputData(pub Vec<EvmInputArg>);
 
 impl EvmInputData {
     pub fn from_parts(message_hex: String, user_payload: String) -> Result<Self> {
-        let result = EvmInputData(vec![
+        Ok(Self(vec![
             EvmInputArg::FixedBytes(hex::decode(message_hex)?),
-            EvmInputArg::Bytes(vec![]),
+            EvmInputArg::Bytes(Vec::new()),
             EvmInputArg::Bytes(hex::decode(user_payload)?),
-            EvmInputArg::Bytes(vec![]),
-        ]);
-        Ok(result)
+            EvmInputArg::Bytes(Vec::new()),
+        ]))
     }
 }
 
-impl From<EvmInputData> for Vec<ethabi::Token> {
-    fn from(value: EvmInputData) -> Self {
-        value.0.into_iter().map(|v| v.into()).collect()
+impl From<EvmInputData> for Vec<DynSolValue> {
+    fn from(data: EvmInputData) -> Self {
+        data.0.into_iter().map(DynSolValue::from).collect()
     }
 }
