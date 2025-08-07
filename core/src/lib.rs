@@ -4,13 +4,12 @@ mod metrics;
 mod near;
 mod stellar;
 
-use crate::evm::{EvmInputData, EvmSingleVerifier};
+use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
-use crate::stellar::{StellarInputData, StellarSingleVerifier};
+use crate::stellar::StellarSingleVerifier;
 use anyhow::{bail, Context, Result};
-use derive_more::{TryFrom, TryInto};
 use futures_util::future::try_join_all;
 use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
@@ -31,40 +30,6 @@ pub struct ProofModel {
 pub struct ChainValidationConfig {
     pub threshold: usize,
     pub servers: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone, TryFrom, TryInto)]
-#[try_into(owned, ref, ref_mut)]
-#[serde(untagged)]
-pub enum InputData {
-    Evm(EvmInputData),
-    Stellar(StellarInputData),
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct HotVerifyAuthCall {
-    pub contract_id: String,
-    pub method: String,
-    pub chain_id: ChainId,
-    pub input: InputData,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-#[serde(untagged)]
-pub enum HotVerifyResult {
-    AuthCall(HotVerifyAuthCall),
-    Result(bool),
-}
-
-impl HotVerifyResult {
-    pub fn as_result(&self) -> Result<bool> {
-        match self {
-            HotVerifyResult::Result(result) => Ok(*result),
-            HotVerifyResult::AuthCall(_) => {
-                bail!("Expected result, got auth call")
-            }
-        }
-    }
 }
 
 /// The logic that prevents signing arbitrary messages.

@@ -47,6 +47,8 @@ derive_more = { version = "2.0.1", features = ["full"] }
 borsh = { version = "1.5.7", features = ["borsh-derive"] }
 
 schemars = { version = "0.8.21", features = ["derive"] }
+ethabi = "18.0.0"
+stellar-xdr = "22.2.0"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }

@@ -1,11 +1,12 @@
-use crate::evm::EvmInputData;
-use crate::stellar::StellarInputData;
-use crate::{metrics, HotVerifyResult, Validation};
+use crate::{metrics, Validation};
 use anyhow::Result;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
+use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::bridge::stellar::StellarInputData;
+use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

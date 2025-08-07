@@ -3,10 +3,9 @@ use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
+use hot_validation_primitives::bridge::evm::EvmInputData;
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use serde_hex::SerHexSeq;
-use serde_hex::StrictPfx;
+use serde::Serialize;
 use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -27,47 +26,6 @@ struct RpcRequest {
     id: String,
     method: String,
     params: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-#[serde(tag = "type", content = "value")]
-pub enum EvmInputArg {
-    #[serde(rename = "bytes32")]
-    #[serde(with = "SerHexSeq::<StrictPfx>")]
-    FixedBytes(Vec<u8>),
-    #[serde(rename = "bytes")]
-    #[serde(with = "SerHexSeq::<StrictPfx>")]
-    Bytes(Vec<u8>),
-}
-
-impl From<EvmInputArg> for Token {
-    fn from(value: EvmInputArg) -> Self {
-        match value {
-            EvmInputArg::FixedBytes(data) => Token::FixedBytes(data),
-            EvmInputArg::Bytes(data) => Token::Bytes(data),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct EvmInputData(pub Vec<EvmInputArg>);
-
-impl EvmInputData {
-    pub fn from_parts(message_hex: String, user_payload: String) -> Result<Self> {
-        let result = EvmInputData(vec![
-            EvmInputArg::FixedBytes(hex::decode(message_hex)?),
-            EvmInputArg::Bytes(vec![]),
-            EvmInputArg::Bytes(hex::decode(user_payload)?),
-            EvmInputArg::Bytes(vec![]),
-        ]);
-        Ok(result)
-    }
-}
-
-impl From<EvmInputData> for Vec<Token> {
-    fn from(value: EvmInputData) -> Self {
-        value.0.into_iter().map(|v| v.into()).collect()
-    }
 }
 
 impl RpcRequest {
@@ -227,8 +185,9 @@ impl ThresholdVerifier<EvmSingleVerifier> {
 mod tests {
     use crate::evm::{EvmInputData, EvmSingleVerifier, HOT_VERIFY_EVM_ABI};
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
-    use crate::{ChainValidationConfig, HotVerifyAuthCall};
+    use crate::ChainValidationConfig;
     use anyhow::Result;
+    use hot_validation_primitives::bridge::HotVerifyAuthCall;
     use std::sync::Arc;
     use web3::ethabi::Contract;
 

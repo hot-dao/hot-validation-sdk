@@ -2,12 +2,13 @@ use crate::internals::{
     GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
-use crate::{metrics, ChainValidationConfig, HotVerifyResult, VerifyArgs};
+use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use futures_util::future::BoxFuture;
+use hot_validation_primitives::bridge::HotVerifyResult;
 use serde::Serialize;
 use std::sync::Arc;
 

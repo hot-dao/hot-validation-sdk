@@ -933,7 +933,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bs58",
- "derive_more 2.0.1",
  "futures",
  "futures-util",
  "hex",
@@ -944,7 +943,6 @@ dependencies = [
  "prometheus",
  "reqwest 0.12.22",
  "serde",
- "serde-hex",
  "serde_json",
  "sha2",
  "soroban-client",
@@ -958,9 +956,16 @@ dependencies = [
 name = "hot-validation-primitives"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "borsh",
+ "derive_more 2.0.1",
+ "ethabi",
+ "getrandom 0.2.16",
+ "hex",
  "schemars 0.8.22",
  "serde",
+ "serde-hex",
+ "stellar-xdr",
 ]
 
 [[package]]

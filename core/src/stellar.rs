@@ -3,16 +3,13 @@ use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
-use serde::{Deserialize, Serialize};
-use serde_hex::SerHexSeq;
-use serde_hex::StrictPfx;
+use hot_validation_primitives::bridge::stellar::StellarInputData;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
 use soroban_client::network::{NetworkPassphrase, Networks};
 use soroban_client::transaction::ScVal;
 use soroban_client::transaction_builder::{TransactionBuilder, TransactionBuilderBehavior};
-use soroban_client::xdr::{ScBytes, ScString};
 use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,48 +19,6 @@ use std::sync::Arc;
 pub(crate) struct StellarSingleVerifier {
     client: Arc<Server>,
     server: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-#[serde(tag = "type", content = "value")]
-pub enum StellarInputArg {
-    #[serde(rename = "string")]
-    #[serde(with = "SerHexSeq::<StrictPfx>")]
-    String(Vec<u8>),
-    #[serde(rename = "bytes")]
-    #[serde(with = "SerHexSeq::<StrictPfx>")]
-    Bytes(Vec<u8>),
-}
-
-impl TryFrom<StellarInputArg> for ScVal {
-    type Error = anyhow::Error;
-
-    fn try_from(value: StellarInputArg) -> std::result::Result<Self, anyhow::Error> {
-        match value {
-            StellarInputArg::String(data) => Ok(ScVal::String(ScString(data.try_into()?))),
-            StellarInputArg::Bytes(data) => Ok(ScVal::Bytes(ScBytes(data.try_into()?))),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct StellarInputData(pub Vec<StellarInputArg>);
-
-impl StellarInputData {
-    pub fn from_parts(msg_hash: String, user_payload: String) -> Result<Self> {
-        Ok(Self(vec![
-            StellarInputArg::String(hex::decode(msg_hash)?),
-            StellarInputArg::Bytes(hex::decode(user_payload)?),
-        ]))
-    }
-}
-
-impl TryFrom<StellarInputData> for Vec<ScVal> {
-    type Error = anyhow::Error;
-
-    fn try_from(value: StellarInputData) -> std::result::Result<Self, anyhow::Error> {
-        value.0.into_iter().map(TryFrom::try_from).collect()
-    }
 }
 
 impl StellarSingleVerifier {
@@ -196,8 +151,8 @@ impl ThresholdVerifier<StellarSingleVerifier> {
 mod tests {
     use crate::internals::HOT_VERIFY_METHOD_NAME;
     use crate::stellar::{StellarInputData, StellarSingleVerifier};
-    use crate::HotVerifyAuthCall;
     use anyhow::Result;
+    use hot_validation_primitives::bridge::HotVerifyAuthCall;
 
     #[tokio::test]
     async fn single_verifier() -> Result<()> {
