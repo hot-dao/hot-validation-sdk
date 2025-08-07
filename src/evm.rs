@@ -108,7 +108,6 @@ impl EvmSingleVerifier {
 
         if response.status().is_success() {
             let value = response.json::<serde_json::Value>().await?;
-            dbg!(&value);
             let value = value
                 .get("result")
                 .context(format!("missing result: {}", value))?;
@@ -411,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn check_evm_input_format() {
+    fn check_evm_bridge_validation_format() {
         let x = r#"{
         "chain_id": 56,
         "contract_id": "0x233c5370CCfb3cD7409d9A3fb98ab94dE94Cb4Cd",

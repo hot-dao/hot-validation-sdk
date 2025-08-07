@@ -89,7 +89,6 @@ impl NearSingleVerifier {
 
         if response.status().is_success() {
             let value = response.json::<serde_json::Value>().await?;
-            dbg!(&value);
             // Intended.
             //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
             let value = value

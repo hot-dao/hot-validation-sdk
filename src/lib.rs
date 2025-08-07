@@ -8,8 +8,9 @@ use crate::evm::{EvmInputData, EvmSingleVerifier};
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
-use crate::stellar::StellarSingleVerifier;
+use crate::stellar::{StellarInputData, StellarSingleVerifier};
 use anyhow::{bail, Context, Result};
+use derive_more::{TryFrom, TryInto};
 use futures_util::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -40,20 +41,12 @@ pub enum ChainId {
     Evm(u64),
 }
 
-#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone, TryFrom, TryInto)]
+#[try_into(owned, ref, ref_mut)]
 #[serde(untagged)]
 pub enum InputData {
     Evm(EvmInputData),
-    Stellar(),
-}
-
-impl InputData {
-    pub fn as_evm(&self) -> Result<EvmInputData> {
-        if let InputData::Evm(evm) = self {
-            return Ok(evm.clone());
-        }
-        bail!("Expected EvmInputData, got {:?}", self)
-    }
+    Stellar(StellarInputData),
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
@@ -397,7 +390,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bridge_validation() {
+    async fn bridge_validation_evm() {
         let validation = create_validation_object();
 
         let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
@@ -411,5 +404,25 @@ mod tests {
         };
 
         validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn bridge_validation_stellar() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let message =
+            "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![
+                "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
+                    .to_string(),
+            ],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
     }
 }

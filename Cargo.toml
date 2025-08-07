@@ -37,3 +37,4 @@ lazy_static = "1.5.0"
 prometheus = "0.13.4"
 soroban-client = "0.4.8"
 serde-hex = "0.1.0"
+derive_more = { version = "2.0.1", features = ["full"] }

@@ -1,4 +1,5 @@
 use crate::evm::EvmInputData;
+use crate::stellar::StellarInputData;
 use crate::{metrics, ChainId, HotVerifyResult, Validation};
 use anyhow::Result;
 use anyhow::{anyhow, Context};
@@ -56,8 +57,6 @@ impl Validation {
             msg_body: message_body.clone(),
         };
 
-        dbg!(&auth_method);
-
         let status = self
             .near
             .clone()
@@ -65,20 +64,13 @@ impl Validation {
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
 
-        {
-            let x = serde_json::to_string(&status)?;
-            println!("{}", x);
-        }
-
         let status = match status {
             HotVerifyResult::AuthCall(auth_call) => match auth_call.chain_id {
                 ChainId::Stellar => {
                     self.handle_stellar(
-                        wallet_id,
-                        auth_method,
-                        message_hex,
-                        message_body,
-                        user_payload,
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
                     )
                     .await?
                 }
@@ -87,7 +79,7 @@ impl Validation {
                         auth_call.chain_id,
                         &auth_call.contract_id,
                         &auth_call.method,
-                        auth_call.input.as_evm()?,
+                        auth_call.input.try_into()?,
                     )
                     .await?
                 }
@@ -102,23 +94,14 @@ impl Validation {
 
     async fn handle_stellar(
         self: Arc<Self>,
-        wallet_id: String,
-        auth_method: &AuthMethod,
-        message_hex: String,
-        message_body: String,
-        user_payload: String,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: StellarInputData,
     ) -> Result<bool> {
-        let verify_args = VerifyArgs {
-            wallet_id: Some(wallet_id),
-            msg_hash: message_hex,
-            metadata: auth_method.metadata.clone(),
-            user_payload,
-            msg_body: message_body,
-        };
         let status = self
             .stellar
             .clone()
-            .verify(auth_method.account_id.as_str(), verify_args)
+            .verify(auth_contract_id, method_name, input)
             .await
             .context("Validation on Stellar failed")?;
         Ok(status)
@@ -164,11 +147,9 @@ impl Validation {
             }
             ChainId::Stellar => {
                 self.handle_stellar(
-                    wallet_id,
-                    &auth_method,
-                    message_hex,
-                    message_body,
-                    user_payload,
+                    &auth_method.account_id,
+                    HOT_VERIFY_METHOD_NAME,
+                    StellarInputData::from_parts(message_hex, user_payload)?,
                 )
                 .await?
             }

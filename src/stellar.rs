@@ -1,8 +1,11 @@
-use crate::internals::{SingleVerifier, ThresholdVerifier, HOT_VERIFY_METHOD_NAME, TIMEOUT};
-use crate::{ChainValidationConfig, VerifyArgs};
+use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
+use serde::{Deserialize, Serialize};
+use serde_hex::SerHexSeq;
+use serde_hex::StrictPfx;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -19,6 +22,48 @@ use std::sync::Arc;
 pub(crate) struct StellarSingleVerifier {
     client: Arc<Server>,
     server: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+#[serde(tag = "type", content = "value")]
+pub enum StellarInputArg {
+    #[serde(rename = "string")]
+    #[serde(with = "SerHexSeq::<StrictPfx>")]
+    String(Vec<u8>),
+    #[serde(rename = "bytes")]
+    #[serde(with = "SerHexSeq::<StrictPfx>")]
+    Bytes(Vec<u8>),
+}
+
+impl TryFrom<StellarInputArg> for ScVal {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StellarInputArg) -> std::result::Result<Self, anyhow::Error> {
+        match value {
+            StellarInputArg::String(data) => Ok(ScVal::String(ScString(data.try_into()?))),
+            StellarInputArg::Bytes(data) => Ok(ScVal::Bytes(ScBytes(data.try_into()?))),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
+pub struct StellarInputData(pub Vec<StellarInputArg>);
+
+impl StellarInputData {
+    pub fn from_parts(msg_hash: String, user_payload: String) -> Result<Self> {
+        Ok(Self(vec![
+            StellarInputArg::String(hex::decode(msg_hash)?),
+            StellarInputArg::Bytes(hex::decode(user_payload)?),
+        ]))
+    }
+}
+
+impl TryFrom<StellarInputData> for Vec<ScVal> {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StellarInputData) -> std::result::Result<Self, anyhow::Error> {
+        value.0.into_iter().map(TryFrom::try_from).collect()
+    }
 }
 
 impl StellarSingleVerifier {
@@ -50,25 +95,24 @@ impl StellarSingleVerifier {
         Ok(transaction_builder)
     }
 
-    fn build_contract_call(auth_contract_id: &str, args: VerifyArgs) -> Result<xdr::Operation> {
-        let msg_hash = hex::decode(args.msg_hash).context("msg_hash is not valid hex")?;
-        let user_payload =
-            hex::decode(args.user_payload).context("user_payload is not valid hex")?;
-
+    fn build_contract_call(
+        auth_contract_id: &str,
+        method_name: String,
+        input: StellarInputData,
+    ) -> Result<xdr::Operation> {
         let contract = Contracts::new(auth_contract_id).map_err(|e| anyhow::anyhow!(e))?;
-
-        let sc_args = vec![
-            ScVal::String(ScString(msg_hash.try_into()?)),
-            ScVal::Bytes(ScBytes(user_payload.try_into()?)),
-        ];
-
-        let operation = contract.call(HOT_VERIFY_METHOD_NAME, Some(sc_args));
-
+        let sc_args: Vec<ScVal> = TryFrom::try_from(input).context("Failed to convert input")?;
+        let operation = contract.call(&method_name, Some(sc_args));
         Ok(operation)
     }
 
-    async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
-        let operation = Self::build_contract_call(auth_contract_id, args)?;
+    async fn verify(
+        &self,
+        auth_contract_id: &str,
+        method_name: String,
+        input: StellarInputData,
+    ) -> Result<bool> {
+        let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
             .add_operation(operation)
@@ -117,14 +161,19 @@ impl ThresholdVerifier<StellarSingleVerifier> {
         })
     }
 
-    pub async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> Result<bool> {
+    pub async fn verify(
+        &self,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: StellarInputData,
+    ) -> Result<bool> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor =
             move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Option<bool>> {
                 let auth = auth_contract_id.clone();
-                let args = args.clone();
+                let method_name = method_name.to_string();
                 Box::pin(async move {
-                    match verifier.verify(&auth, args).await {
+                    match verifier.verify(&auth, method_name, input).await {
                         Ok(true) => Some(true),
                         Ok(false) => {
                             tracing::warn!("Verification failed for {}", verifier.get_endpoint());
@@ -145,22 +194,66 @@ impl ThresholdVerifier<StellarSingleVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::internals::VerifyArgs;
-    use crate::stellar::StellarSingleVerifier;
+    use crate::internals::HOT_VERIFY_METHOD_NAME;
+    use crate::stellar::{StellarInputData, StellarSingleVerifier};
+    use crate::HotVerifyAuthCall;
+    use anyhow::Result;
 
     #[tokio::test]
-    async fn single_verifier() {
-        let args = VerifyArgs {
-            msg_body: "".to_string(),
-            wallet_id: None,
-            msg_hash: "".into(),
-            metadata: None,
-            user_payload: "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".into(),
-        };
+    async fn single_verifier() -> Result<()> {
+        let msg_hash = "".to_string();
+        let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
-        let validation =
-            StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string()).unwrap();
+        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
-        validation.verify(auth_contract_id, args).await.unwrap();
+        validation
+            .verify(
+                auth_contract_id,
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                StellarInputData::from_parts(msg_hash, user_payload)?,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn single_verifier_bridge() -> Result<()> {
+        let msg_hash = "".to_string();
+        let user_payload = "000000000000005f1d038ae3e890ca50c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
+        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
+        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
+
+        validation
+            .verify(
+                auth_contract_id,
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                StellarInputData::from_parts(msg_hash, user_payload)?,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_stellar_bridge_validation_format() {
+        let x = r#"
+            {
+                  "chain_id": 1100,
+                  "contract_id": "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG",
+                  "input": [
+                    {
+                      "type": "string",
+                      "value": ""
+                    },
+                    {
+                      "type": "bytes",
+                      "value": "0x000000000000005f1d038ae3e890ca50c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881"
+                    }
+                  ],
+                  "method": "hot_verify"
+                }
+        "#.to_string();
+        serde_json::from_str::<HotVerifyAuthCall>(&x).unwrap();
     }
 }
