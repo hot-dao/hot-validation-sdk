@@ -1,13 +1,9 @@
-[package]
-name = "hot-validation"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "core",
+]
 
-[lib]
-path = "src/lib.rs"
-crate-type = ["cdylib", "lib"]
-
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0.98"
 async-trait = "0.1.88"
 
