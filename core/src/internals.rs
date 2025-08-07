@@ -1,8 +1,13 @@
-use crate::{metrics, ChainId, Validation};
+use crate::{metrics, Validation};
+use anyhow::Result;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
+use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::bridge::stellar::StellarInputData;
+use hot_validation_primitives::bridge::HotVerifyResult;
+use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -15,7 +20,7 @@ pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
 pub const MPC_GET_WALLET_METHOD: &str = "get_wallet";
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 
-pub fn uid_to_wallet_id(uid: &str) -> anyhow::Result<String> {
+pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
     let uid_bytes = hex::decode(uid)?;
     let sha256_bytes = Sha256::new_with_prefix(uid_bytes).finalize();
     let uid_b58 = bs58::encode(sha256_bytes.as_slice()).into_string();
@@ -23,6 +28,110 @@ pub fn uid_to_wallet_id(uid: &str) -> anyhow::Result<String> {
 }
 
 impl Validation {
+    async fn handle_near(
+        self: Arc<Self>,
+        wallet_id: String,
+        auth_method: &AuthMethod,
+        message_hex: String,
+        message_body: String,
+        user_payload: String,
+    ) -> Result<bool> {
+        let message_bs58 = hex::decode(&message_hex)
+            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
+
+        #[derive(Debug, Deserialize)]
+        struct MethodName {
+            method: String,
+        }
+
+        let method_name = if let Some(metadata) = &auth_method.metadata {
+            let method_name = serde_json::from_str::<MethodName>(metadata)?;
+            method_name.method
+        } else {
+            HOT_VERIFY_METHOD_NAME.to_string()
+        };
+
+        let verify_args = VerifyArgs {
+            wallet_id: Some(wallet_id.clone()),
+            msg_hash: message_bs58,
+            metadata: auth_method.metadata.clone(),
+            user_payload: user_payload.clone(),
+            msg_body: message_body.clone(),
+        };
+
+        let status = self
+            .near
+            .clone()
+            .verify(auth_method.account_id.as_str(), method_name, verify_args)
+            .await
+            .context("Could not get HotVerifyResult from NEAR")?;
+
+        let status = match status {
+            HotVerifyResult::AuthCall(auth_call) => match auth_call.chain_id {
+                ChainId::Stellar => {
+                    self.handle_stellar(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Evm(_) => {
+                    self.handle_evm(
+                        auth_call.chain_id,
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Near => {
+                    unimplemented!("Auth call should not lead to NEAR")
+                }
+                ChainId::Solana => {
+                    unimplemented!("Solana is not supported")
+                }
+                ChainId::Ton => {
+                    unimplemented!("Ton is not supported")
+                }
+            },
+            HotVerifyResult::Result(status) => status,
+        };
+        Ok(status)
+    }
+
+    async fn handle_stellar(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: StellarInputData,
+    ) -> Result<bool> {
+        let status = self
+            .stellar
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Stellar failed")?;
+        Ok(status)
+    }
+
+    async fn handle_evm(
+        self: Arc<Self>,
+        chain_id: ChainId,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: EvmInputData,
+    ) -> Result<bool> {
+        let validation = self.evm.get(&chain_id).ok_or(anyhow::anyhow!(
+            "EVM validation is not configured for chain {:?}",
+            chain_id
+        ))?;
+        let status = validation
+            .verify(auth_contract_id, method_name, input)
+            .await?;
+        Ok(status)
+    }
+
     pub(crate) async fn verify_auth_method(
         self: Arc<Self>,
         wallet_id: String,
@@ -30,60 +139,43 @@ impl Validation {
         message_body: String,
         message_hex: String,
         user_payload: String,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let _timer = metrics::performance::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
+        // TODO: DRY
         let status = match auth_method.chain_id {
             ChainId::Near => {
-                let message_bs58 = hex::decode(&message_hex)
-                    .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
-
-                let verify_args = VerifyArgs {
-                    wallet_id: Some(wallet_id),
-                    msg_hash: message_bs58,
-                    metadata: auth_method.metadata.clone(),
+                self.handle_near(
+                    wallet_id,
+                    &auth_method,
+                    message_hex,
+                    message_body,
                     user_payload,
-                    msg_body: message_body,
-                };
-                self.near
-                    .clone()
-                    .verify(auth_method.account_id.as_str(), verify_args)
-                    .await
-                    .context("Validation on Near failed")?
+                )
+                .await?
             }
             ChainId::Stellar => {
-                let verify_args = VerifyArgs {
-                    wallet_id: Some(wallet_id),
-                    msg_hash: message_hex,
-                    metadata: auth_method.metadata.clone(),
-                    user_payload,
-                    msg_body: message_body,
-                };
-                self.stellar
-                    .clone()
-                    .verify(auth_method.account_id.as_str(), verify_args)
-                    .await
-                    .context("Validation on Stellar failed")?
+                self.handle_stellar(
+                    &auth_method.account_id,
+                    HOT_VERIFY_METHOD_NAME,
+                    StellarInputData::from_parts(message_hex, user_payload)?,
+                )
+                .await?
             }
             ChainId::Evm(_) => {
-                let verify_args = VerifyArgs {
-                    wallet_id: Some(wallet_id),
-                    msg_hash: message_hex,
-                    metadata: auth_method.metadata.clone(),
-                    user_payload,
-                    msg_body: message_body,
-                };
-                let validation = self.evm.get(&auth_method.chain_id).ok_or(anyhow::anyhow!(
-                    "EVM validation is not configured for chain {:?}",
-                    auth_method.chain_id
-                ))?;
-                validation
-                    .verify(auth_method.account_id.as_str(), verify_args)
-                    .await
-                    .context(format!(
-                        "Validation on EVM chain ({:?}) failed",
-                        auth_method.chain_id
-                    ))?
+                self.handle_evm(
+                    auth_method.chain_id,
+                    &auth_method.account_id,
+                    HOT_VERIFY_METHOD_NAME,
+                    EvmInputData::from_parts(message_hex, user_payload)?,
+                )
+                .await?
+            }
+            ChainId::Solana => {
+                unimplemented!("Solana is not supported")
+            }
+            ChainId::Ton => {
+                unimplemented!("Ton is not supported")
             }
         };
 
@@ -109,6 +201,7 @@ pub struct GetWalletArgs {
 #[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
 pub struct AuthMethod {
     pub account_id: String,
+    /// Used to override what method is called on the `account_id`.
     pub metadata: Option<String>,
     pub chain_id: ChainId,
 }
@@ -140,9 +233,6 @@ pub struct VerifyArgs {
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String;
-
-    /// Call `hot_verify` on the `auth_contract_id` with the specified args.
-    async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> anyhow::Result<bool>;
 }
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
@@ -187,35 +277,12 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!("No consensus for threshold call"))
     }
-
-    pub async fn verify(&self, auth_contract_id: &str, args: VerifyArgs) -> anyhow::Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<T>| -> BoxFuture<'static, Option<bool>> {
-            let auth = auth_contract_id.clone();
-            let args = args.clone();
-            Box::pin(async move {
-                match verifier.verify(&auth, args).await {
-                    Ok(true) => Some(true),
-                    Ok(false) => {
-                        tracing::warn!("Verification failed for {}", verifier.get_endpoint());
-                        Some(false)
-                    }
-                    Err(e) => {
-                        tracing::warn!("{}", e);
-                        None
-                    }
-                }
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use async_trait::async_trait;
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
@@ -230,10 +297,6 @@ mod tests {
     impl SingleVerifier for DummyVerifier {
         fn get_endpoint(&self) -> String {
             "dummy".into()
-        }
-
-        async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
-            Ok(true)
         }
     }
 
@@ -342,18 +405,50 @@ mod tests {
         result: Result<bool, ()>,
     }
 
-    #[async_trait]
-    impl SingleVerifier for BoolVerifier {
-        fn get_endpoint(&self) -> String {
-            "bool".into()
-        }
-
+    impl BoolVerifier {
         async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
                 Err(_) => Err(anyhow!("boom")),
             }
+        }
+    }
+
+    #[async_trait]
+    impl SingleVerifier for BoolVerifier {
+        fn get_endpoint(&self) -> String {
+            "bool".into()
+        }
+    }
+
+    impl ThresholdVerifier<BoolVerifier> {
+        pub async fn verify(
+            &self,
+            auth_contract_id: &str,
+            args: VerifyArgs,
+        ) -> anyhow::Result<bool> {
+            let auth_contract_id = Arc::new(auth_contract_id.to_string());
+            let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Option<bool>> {
+                let auth = auth_contract_id.clone();
+                let args = args.clone();
+                Box::pin(async move {
+                    match verifier.verify(&auth, args).await {
+                        Ok(true) => Some(true),
+                        Ok(false) => {
+                            tracing::warn!("Verification failed for {}", verifier.get_endpoint());
+                            Some(false)
+                        }
+                        Err(e) => {
+                            tracing::warn!("{}", e);
+                            None
+                        }
+                    }
+                })
+            };
+
+            let result = self.threshold_call(functor).await?;
+            Ok(result)
         }
     }
 

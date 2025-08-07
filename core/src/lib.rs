@@ -6,15 +6,15 @@ mod stellar;
 
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
+use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
+use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use crate::metrics::Metrics;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
@@ -30,39 +30,6 @@ pub struct ProofModel {
 pub struct ChainValidationConfig {
     pub threshold: usize,
     pub servers: Vec<String>,
-}
-
-#[derive(Copy, Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
-#[serde(into = "u64", from = "u64")]
-pub enum ChainId {
-    Near,
-    Stellar,
-    Evm(u64),
-}
-
-impl From<u64> for ChainId {
-    fn from(value: u64) -> Self {
-        match value {
-            0 => ChainId::Near,
-            1100 => ChainId::Stellar,
-            other => ChainId::Evm(other),
-        }
-    }
-}
-impl From<ChainId> for u64 {
-    fn from(value: ChainId) -> Self {
-        match value {
-            ChainId::Near => 0,
-            ChainId::Stellar => 1100,
-            ChainId::Evm(other) => other,
-        }
-    }
-}
-
-impl Display for ChainId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", <u64>::from(*self))
-    }
 }
 
 /// The logic that prevents signing arbitrary messages.
@@ -116,7 +83,7 @@ impl Validation {
             .collect();
 
         let metrics = Arc::new(Metrics::new(configs));
-        
+
         let validation = Self {
             near: near_validation,
             evm: evm_validation,
@@ -176,24 +143,6 @@ impl Validation {
 mod tests {
     use super::*;
 
-    #[test]
-    fn chain_id_roundtrip() {
-        assert_eq!(ChainId::from(0u64), ChainId::Near);
-        assert_eq!(ChainId::from(1100u64), ChainId::Stellar);
-        assert_eq!(ChainId::from(42u64), ChainId::Evm(42));
-
-        assert_eq!(u64::from(ChainId::Near), 0u64);
-        assert_eq!(u64::from(ChainId::Stellar), 1100u64);
-        assert_eq!(u64::from(ChainId::Evm(7)), 7u64);
-    }
-
-    #[test]
-    fn chain_id_display() {
-        assert_eq!(ChainId::Near.to_string(), "0");
-        assert_eq!(ChainId::Stellar.to_string(), "1100");
-        assert_eq!(ChainId::Evm(5).to_string(), "5");
-    }
-
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
             (
@@ -235,6 +184,13 @@ mod tests {
                         "https://1rpc.io/base".to_string(),
                         "http://bad-rpc:8545".to_string(),
                     ],
+                },
+            ),
+            (
+                ChainId::Evm(56),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://bsc.drpc.org".to_string()],
                 },
             ),
         ]);
@@ -345,5 +301,42 @@ mod tests {
         };
 
         validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn bridge_validation_evm() {
+        let validation = create_validation_object();
+
+        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let message =
+            "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![
+                "{\"Deposit\":{\"chain_id\":56,\"nonce\":\"1754431900000000013182\"}}".to_string(),
+            ],
+        };
+
+        validation.verify(uid, message, proof).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn bridge_validation_stellar() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let message =
+            "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![
+                "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
+                    .to_string(),
+            ],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
     }
 }

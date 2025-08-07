@@ -1,0 +1,17 @@
+[package]
+name = "hot-validation-primitives"
+edition.workspace = true
+version.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+borsh = { workspace = true, features = ["derive", "unstable__schema"], optional = true }
+schemars.workspace = true
+derive_more.workspace = true
+serde-hex.workspace = true
+hex.workspace = true
+anyhow.workspace = true
+stellar-xdr.workspace = true
+ethabi.workspace = true
+getrandom = { version = "0.2.16", features = ["js"] } # because `ethabi` depends on `getrandom` lol
