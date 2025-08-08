@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_hex::SerHexSeq;
 use serde_hex::StrictPfx;
-use stellar_xdr::curr::{ScBytes, ScString, ScVal};
+use stellar_xdr::curr::{Limited, Limits, ReadXdr, ScBytes, ScString, ScVal, UInt128Parts};
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
@@ -14,15 +14,22 @@ pub enum StellarInputArg {
     #[schemars(with = "[u8; 32]")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     Bytes(Vec<u8>),
+    #[serde(rename = "u128")]
+    U128(u128),
 }
 
 impl TryFrom<StellarInputArg> for ScVal {
     type Error = anyhow::Error;
 
-    fn try_from(value: StellarInputArg) -> std::result::Result<Self, anyhow::Error> {
+    fn try_from(value: StellarInputArg) -> Result<Self, anyhow::Error> {
         match value {
             StellarInputArg::String(data) => Ok(ScVal::String(ScString(data.try_into()?))),
             StellarInputArg::Bytes(data) => Ok(ScVal::Bytes(ScBytes(data.try_into()?))),
+            StellarInputArg::U128(data) => {
+                let bytes = data.to_be_bytes();
+                let mut limited = Limited::new(bytes.as_slice(), Limits::none());
+                Ok(ScVal::U128(UInt128Parts::read_xdr(&mut limited)?))
+            }
         }
     }
 }
@@ -44,5 +51,21 @@ impl TryFrom<StellarInputData> for Vec<ScVal> {
 
     fn try_from(value: StellarInputData) -> std::result::Result<Self, anyhow::Error> {
         value.0.into_iter().map(TryFrom::try_from).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bridge::stellar::StellarInputArg;
+    use anyhow::Result;
+    use stellar_xdr::curr::ScVal;
+
+    #[test]
+    fn check_u128() -> Result<()> {
+        let x: ScVal = StellarInputArg::U128(((1 << 16) - 1) << 56).try_into()?;
+        let ScVal::U128(parts) = x else { panic!() };
+        assert_eq!(parts.hi, (1 << 8) - 1);
+        assert_eq!(parts.lo, ((1 << 8) - 1) << 56);
+        Ok(())
     }
 }
