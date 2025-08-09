@@ -5,6 +5,7 @@ use stellar_xdr::curr::{Limited, Limits, ReadXdr, ScBytes, ScString, ScVal, UInt
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
+#[serde(rename_all = "snake_case")]
 pub enum StellarInputArg {
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
@@ -55,7 +56,7 @@ impl TryFrom<StellarInputData> for Vec<ScVal> {
 
 #[cfg(test)]
 mod tests {
-    use crate::bridge::stellar::StellarInputArg;
+    use crate::bridge::stellar::{StellarInputArg, StellarInputData};
     use anyhow::Result;
     use stellar_xdr::curr::ScVal;
 
@@ -65,6 +66,15 @@ mod tests {
         let ScVal::U128(parts) = x else { panic!() };
         assert_eq!(parts.hi, (1 << 8) - 1);
         assert_eq!(parts.lo, ((1 << 8) - 1) << 56);
+        Ok(())
+    }
+
+    #[test]
+    fn check_input_data() -> Result<()> {
+        let x = r#"
+        [{"type":"string","value":""},{"type":"bytes","value":"0x000000000000005f1d038ae3e890ca50c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881"}]
+        "#.to_string();
+        serde_json::from_str::<StellarInputData>(&x)?;
         Ok(())
     }
 }
