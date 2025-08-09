@@ -1,4 +1,5 @@
 use alloy_dyn_abi::DynSolValue;
+use alloy_primitives::U256;
 use alloy_sol_types::Word;
 use anyhow::Result;
 use schemars::JsonSchema;
@@ -12,11 +13,11 @@ pub enum EvmInputArg {
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     FixedBytes(Vec<u8>),
-
     #[serde(rename = "bytes")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8]")]
     Bytes(Vec<u8>),
+    Uint(u128),
 }
 
 impl From<EvmInputArg> for DynSolValue {
@@ -24,6 +25,7 @@ impl From<EvmInputArg> for DynSolValue {
         match arg {
             EvmInputArg::FixedBytes(bytes) => DynSolValue::FixedBytes(Word::from_slice(&bytes), 32),
             EvmInputArg::Bytes(bytes) => DynSolValue::Bytes(bytes),
+            EvmInputArg::Uint(value) => DynSolValue::Uint(U256::from(value), 128),
         }
     }
 }
