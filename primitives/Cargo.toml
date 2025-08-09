@@ -16,3 +16,6 @@ stellar-xdr.workspace = true
 alloy-primitives.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-sol-types.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

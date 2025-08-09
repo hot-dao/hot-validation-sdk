@@ -1826,6 +1826,7 @@ dependencies = [
  "schemars 0.8.22",
  "serde",
  "serde-hex",
+ "serde_json",
  "stellar-xdr",
 ]
 

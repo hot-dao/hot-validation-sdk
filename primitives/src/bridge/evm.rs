@@ -13,10 +13,11 @@ pub enum EvmInputArg {
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     FixedBytes(Vec<u8>),
-    #[serde(rename = "bytes")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8]")]
     Bytes(Vec<u8>),
+    #[serde(with = "crate::integer::u128_string")]
+    #[schemars(with = "String")]
     Uint(u128),
 }
 
