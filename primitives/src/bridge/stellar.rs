@@ -5,14 +5,16 @@ use stellar_xdr::curr::{Limited, Limits, ReadXdr, ScBytes, ScString, ScVal, UInt
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
-#[serde(rename_all = "snake_case")]
 pub enum StellarInputArg {
+    #[serde(rename = "string")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     String(Vec<u8>),
+    #[serde(rename = "bytes")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     Bytes(Vec<u8>),
+    #[serde(rename = "u128")]
     #[serde(with = "crate::integer::u128_string")]
     #[schemars(with = "String")]
     U128(u128),

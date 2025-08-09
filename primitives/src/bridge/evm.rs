@@ -8,15 +8,16 @@ use serde_hex::{SerHexSeq, StrictPfx};
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
-#[serde(rename_all = "snake_case")]
 pub enum EvmInputArg {
     #[serde(rename = "bytes32")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8; 32]")]
     FixedBytes(Vec<u8>),
+    #[serde(rename = "bytes")]
     #[serde(with = "SerHexSeq::<StrictPfx>")]
     #[schemars(with = "[u8]")]
     Bytes(Vec<u8>),
+    #[serde(rename = "uint128")]
     #[serde(with = "crate::integer::u128_string")]
     #[schemars(with = "String")]
     Uint(u128),
