@@ -339,6 +339,33 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn bridge_withdraw_removal_validation_stellar() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let message =
+            "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
+
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![r#"
+                    {
+                      "Withdraw": {
+                        "chain_id": 1100,
+                        "nonce": "1754631474000000070075"
+                      }
+                    }
+                "#
+            .to_string()],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
+
     #[tokio::test]
     async fn bridge_withdraw_removal_validation_evm() -> Result<()> {
         let validation = create_validation_object();

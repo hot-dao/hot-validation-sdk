@@ -152,6 +152,7 @@ mod tests {
     use crate::internals::HOT_VERIFY_METHOD_NAME;
     use crate::stellar::{StellarInputData, StellarSingleVerifier};
     use anyhow::Result;
+    use hot_validation_primitives::bridge::stellar::StellarInputArg;
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
 
     #[tokio::test]
@@ -184,6 +185,23 @@ mod tests {
                 auth_contract_id,
                 HOT_VERIFY_METHOD_NAME.to_string(),
                 StellarInputData::from_parts(msg_hash, user_payload)?,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stellar_locker_nonce_executed() -> Result<()> {
+        let nonce = 1754631474000000070075u128;
+        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
+        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
+
+        validation
+            .verify(
+                auth_contract_id,
+                "is_executed".to_string(),
+                StellarInputData(vec![StellarInputArg::U128(nonce)]),
             )
             .await?;
 
