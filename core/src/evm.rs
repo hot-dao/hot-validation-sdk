@@ -13,20 +13,35 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 // JSON ABI for hot_verify
-pub const HOT_VERIFY_EVM_ABI: &str = r#"[{
-  "inputs": [
-    { "internalType": "bytes32", "name": "msg_hash",    "type": "bytes32" },
-    { "internalType": "bytes",   "name": "walletId",    "type": "bytes"   },
-    { "internalType": "bytes",   "name": "userPayload", "type": "bytes"   },
-    { "internalType": "bytes",   "name": "metadata",    "type": "bytes"   }
-  ],
-  "name": "hot_verify",
-  "outputs": [
-    { "internalType": "bool", "name": "", "type": "bool" }
-  ],
-  "stateMutability": "view",
-  "type": "function"
-}]"#;
+pub const HOT_VERIFY_EVM_ABI: &str = r#"
+[
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "msg_hash",    "type": "bytes32" },
+      { "internalType": "bytes",   "name": "walletId",    "type": "bytes"   },
+      { "internalType": "bytes",   "name": "userPayload", "type": "bytes"   },
+      { "internalType": "bytes",   "name": "metadata",    "type": "bytes"   }
+    ],
+    "name": "hot_verify",
+    "outputs": [
+      { "internalType": "bool", "name": "", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint128", "name": "", "type": "uint128" }
+    ],
+    "name": "usedNonces",
+    "outputs": [
+      { "internalType": "bool", "name": "", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
+"#;
 
 // Initialize the Interface once
 static INTERFACE: Lazy<Interface> = Lazy::new(|| {
