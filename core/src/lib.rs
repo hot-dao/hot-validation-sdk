@@ -304,10 +304,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn bridge_validation_evm() {
+    async fn bridge_deposit_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
         let proof = ProofModel {
@@ -317,14 +317,15 @@ mod tests {
             ],
         };
 
-        validation.verify(uid, message, proof).await.unwrap();
+        validation.verify(uid, message, proof).await?;
+        Ok(())
     }
 
     #[tokio::test]
-    async fn bridge_validation_stellar() -> Result<()> {
+    async fn bridge_deposit_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496".to_string();
+        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let proof = ProofModel {
