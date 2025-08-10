@@ -11,6 +11,7 @@ use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
@@ -251,7 +252,7 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
     /// with `None` being a vote for no data (when a server is unavailable), and `Some(R)` being a vote for `R`.
     pub(crate) async fn threshold_call<F, R>(&self, functor: F) -> anyhow::Result<R>
     where
-        R: Eq + Hash + Clone,
+        R: Eq + Hash + Clone + Debug,
         F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, Option<R>>,
     {
         let threshold = self.threshold;
@@ -275,7 +276,10 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
         }
 
         // if we exit the loop, nobody hit the threshold
-        Err(anyhow!("No consensus for threshold call"))
+        Err(anyhow!(
+            "No consensus for threshold call, got: {:?}",
+            counts
+        ))
     }
 }
 
@@ -361,7 +365,7 @@ mod tests {
         };
 
         let err = tv.threshold_call(functor).await.unwrap_err();
-        assert_eq!(err.to_string(), "No consensus for threshold call");
+        assert!(err.to_string().contains("No consensus for threshold call"));
     }
 
     #[tokio::test]
@@ -560,7 +564,7 @@ mod tests {
             )
             .await
             .unwrap_err();
-        assert_eq!(err.to_string(), "No consensus for threshold call");
+        assert!(err.to_string().contains("No consensus for threshold call"));
     }
 
     #[tokio::test]
