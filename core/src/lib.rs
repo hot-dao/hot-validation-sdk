@@ -72,7 +72,7 @@ impl Validation {
         let evm_validation = configs
             .clone()
             .into_iter()
-            .filter(|(id, _)| *id != ChainId::Near)
+            .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
                     let verifier = ThresholdVerifier::new_evm(config, client.clone());
