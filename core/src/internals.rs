@@ -218,14 +218,15 @@ pub struct WalletAuthMethods {
 /// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
 #[derive(Debug, Serialize, Clone)]
 pub struct VerifyArgs {
+    /// In some cases, we need to know the exact message that we trying to sign.
     pub msg_body: String,
-    /// The hash of a refund message, supplied by user as a base85-encoded string.
+    /// The hash of the message that we try to sign.
     pub msg_hash: String,
-    /// Used in Near only, otherwise no bytes.
+    /// The wallet id, that initates the signing
     pub wallet_id: Option<String>,
-    /// On EVM: Encoded nonce. On Near something else.
+    /// The actual data, that authorizes signing
     pub user_payload: String,
-    /// Used in Near only, otherwise no bytes.
+    /// Additional field for the future, in case we need to override something
     pub metadata: Option<String>,
 }
 
