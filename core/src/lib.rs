@@ -13,6 +13,7 @@ use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
+use serde_valid::Validate;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -26,10 +27,23 @@ pub struct ProofModel {
 /// For a specific chain:
 /// * `threshold` is the number of servers that need to give the same response to be able to accept it
 /// * `servers` is the available RPCs
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[validate(custom = validate_chain_config)]
 pub struct ChainValidationConfig {
     pub threshold: usize,
+    #[validate(unique_items)]
     pub servers: Vec<String>,
+}
+
+fn validate_chain_config(
+    cfg: &ChainValidationConfig,
+) -> Result<(), serde_valid::validation::Error> {
+    if cfg.threshold <= cfg.servers.len() / 2 {
+        return Err(serde_valid::validation::Error::Custom(
+            "threshold must be greater than half of servers.len()".into(),
+        ));
+    }
+    Ok(())
 }
 
 /// The logic that prevents signing arbitrary messages.

@@ -14,13 +14,13 @@ async-trait = { workspace = true }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_valid = { workspace = true }
 
 sha2 = { workspace = true }
 hex = { workspace = true }
 bs58 = { workspace = true }
 base64 = { workspace = true }
 
-log = { workspace = true }
 tracing = { workspace = true }
 
 reqwest = { workspace = true }
@@ -28,7 +28,6 @@ reqwest = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 
-futures = { workspace = true }
 futures-util = { workspace = true }
 
 once_cell = { workspace = true }
