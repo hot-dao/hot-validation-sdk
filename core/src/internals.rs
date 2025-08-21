@@ -20,7 +20,7 @@ use std::time::Duration;
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
 pub const MPC_GET_WALLET_METHOD: &str = "get_wallet";
-pub const TIMEOUT: Duration = Duration::from_secs(10);
+pub const TIMEOUT: Duration = Duration::from_secs(2);
 
 pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
     let uid_bytes = hex::decode(uid)?;
