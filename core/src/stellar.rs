@@ -124,21 +124,17 @@ impl ThresholdVerifier<StellarSingleVerifier> {
     ) -> Result<bool> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor =
-            move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Option<bool>> {
+            move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
                 let auth = auth_contract_id.clone();
                 let method_name = method_name.to_string();
                 Box::pin(async move {
-                    match verifier.verify(&auth, method_name, input).await {
-                        Ok(true) => Some(true),
-                        Ok(false) => {
-                            tracing::warn!("Verification failed for {}", verifier.get_endpoint());
-                            Some(false)
-                        }
-                        Err(e) => {
-                            tracing::warn!("{}", e);
-                            None
-                        }
-                    }
+                    verifier
+                        .verify(&auth, method_name, input)
+                        .await
+                        .context(format!(
+                            "Error calling stellar `verify` with {}",
+                            verifier.sanitized_endpoint()
+                        ))
                 })
             };
 

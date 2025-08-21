@@ -163,16 +163,13 @@ impl ThresholdVerifier<NearSingleVerifier> {
         let _timer = metrics::performance::RPC_GET_AUTH_METHODS_DURATION.start_timer();
 
         let functor =
-            |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Option<WalletAuthMethods>> {
+            |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
                 let wallet_id = wallet_id.to_string();
                 Box::pin(async move {
-                    match verifier.get_wallet(wallet_id).await {
-                        Ok(model) => Some(model),
-                        Err(err) => {
-                            tracing::error!("Error calling `get_wallet`: {:?}", err);
-                            None
-                        }
-                    }
+                    verifier.get_wallet(wallet_id).await.context(format!(
+                        "Error calling `get_wallet` with {}",
+                        verifier.sanitized_endpoint()
+                    ))
                 })
             };
 
@@ -186,17 +183,14 @@ impl ThresholdVerifier<NearSingleVerifier> {
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Option<HotVerifyResult>> {
+        let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
             let auth = auth_contract_id.clone();
             let args = args.clone();
             Box::pin(async move {
-                match verifier.verify(&auth, method_name, args).await {
-                    Ok(result) => Some(result),
-                    Err(e) => {
-                        tracing::warn!("{}", e);
-                        None
-                    }
-                }
+                verifier
+                    .verify(&auth, method_name, args)
+                    .await
+                    .context(format!("Error calling near `verify` with {}", verifier.sanitized_endpoint()))
             })
         };
 

@@ -8,6 +8,7 @@ use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -235,6 +236,13 @@ pub struct VerifyArgs {
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String;
+
+    fn sanitized_endpoint(&self) -> String {
+        let endpoint = self.get_endpoint();
+        Url::parse(&endpoint)
+            .map(|e| e.host().map(|h| h.to_string()).unwrap_or_default())
+            .unwrap_or_default()
+    }
 }
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
@@ -254,7 +262,7 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
     pub(crate) async fn threshold_call<F, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,
-        F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, Option<R>>,
+        F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, Result<R>>,
     {
         let threshold = self.threshold;
         let total = self.verifiers.len();
@@ -264,22 +272,31 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
             .map(|caller| functor.clone()(caller))
             .buffer_unordered(total);
 
-        while let Some(opt_response) = responses.next().await {
-            if let Some(response) = opt_response {
-                let entry = counts.entry(response.clone()).or_insert(0);
-                *entry += 1;
+        let mut errors = vec![];
+        while let Some(result_response) = responses.next().await {
+            match result_response {
+                Ok(response) => {
+                    let entry = counts.entry(response.clone()).or_insert(0);
+                    *entry += 1;
 
-                // as soon as any variant reaches the threshold, return it
-                if *entry >= threshold {
-                    return Ok(response);
+                    // as soon as any variant reaches the threshold, return it
+                    if *entry >= threshold {
+                        return Ok(response);
+                    }
                 }
+                Err(err) => errors.push(err),
             }
         }
 
+        if !errors.is_empty() {
+            tracing::warn!("threshold call encountered errors: {:?}", errors);
+        };
+
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
-            "No consensus for threshold call, got: {:?}",
-            counts
+            "No consensus for threshold call, got: {:?}, errors: {:?}",
+            counts,
+            errors
         ))
     }
 }
@@ -288,6 +305,7 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
 mod tests {
     use super::*;
 
+    use anyhow::Result;
     use async_trait::async_trait;
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
@@ -326,10 +344,10 @@ mod tests {
             verifiers,
         };
 
-        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Option<u8>> {
+        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Result<u8>> {
             Box::pin(async move {
                 sleep(v.delay).await;
-                v.resp
+                v.resp.ok_or(anyhow!("No response"))
             })
         };
 
@@ -358,10 +376,10 @@ mod tests {
             verifiers,
         };
 
-        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Option<u8>> {
+        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Result<u8>> {
             Box::pin(async move {
                 sleep(v.delay).await;
-                v.resp
+                v.resp.ok_or(anyhow!("No response"))
             })
         };
 
@@ -390,10 +408,10 @@ mod tests {
             verifiers,
         };
 
-        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Option<u8>> {
+        let functor = |v: Arc<DummyVerifier>| -> BoxFuture<'static, Result<u8>> {
             Box::pin(async move {
                 sleep(v.delay).await;
-                v.resp
+                v.resp.ok_or(anyhow!("No response"))
             })
         };
 
@@ -434,22 +452,10 @@ mod tests {
             args: VerifyArgs,
         ) -> anyhow::Result<bool> {
             let auth_contract_id = Arc::new(auth_contract_id.to_string());
-            let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Option<bool>> {
+            let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Result<bool>> {
                 let auth = auth_contract_id.clone();
                 let args = args.clone();
-                Box::pin(async move {
-                    match verifier.verify(&auth, args).await {
-                        Ok(true) => Some(true),
-                        Ok(false) => {
-                            tracing::warn!("Verification failed for {}", verifier.get_endpoint());
-                            Some(false)
-                        }
-                        Err(e) => {
-                            tracing::warn!("{}", e);
-                            None
-                        }
-                    }
-                })
+                Box::pin(async move { verifier.verify(&auth, args).await })
             };
 
             let result = self.threshold_call(functor).await?;
