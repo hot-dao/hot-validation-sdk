@@ -4,6 +4,8 @@ mod metrics;
 mod near;
 mod stellar;
 
+pub use hot_validation_primitives::*;
+
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::metrics::Metrics;
@@ -11,7 +13,6 @@ use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
-use hot_validation_primitives::ChainId;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::collections::HashMap;
