@@ -59,12 +59,21 @@ struct RpcRequest {
 }
 
 impl RpcRequest {
-    pub fn build(call_obj: Value) -> Self {
+    pub fn build_block_number() -> Self {
+        RpcRequest {
+            jsonrpc: "2.0".into(),
+            id: "dontcare".into(),
+            method: "eth_blockNumber".into(),
+            params: json!([]),
+        }
+    }
+
+    pub fn build_eth_call(call_obj: Value, block_number: u64) -> Self {
         RpcRequest {
             jsonrpc: "2.0".into(),
             id: "dontcare".into(),
             method: "eth_call".into(),
-            params: json!([call_obj, "latest"]),
+            params: json!([call_obj, format!("0x{:x}", block_number)]),
         }
     }
 }
@@ -105,12 +114,21 @@ impl EvmSingleVerifier {
         }
     }
 
+    async fn get_block_number(&self) -> Result<u64> {
+        let rpc = RpcRequest::build_block_number();
+        let raw = self.call_rpc(&rpc).await?;
+        let block_number = u64::from_str_radix(raw.trim_start_matches("0x"), 16)?;
+        Ok(block_number)
+    }
+
     async fn verify(
         &self,
         auth_contract_id: &str,
         method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
+        let block_number = self.get_block_number().await?;
+
         let args: Vec<DynSolValue> = From::from(input);
 
         let data = INTERFACE.encode_input(&method_name, &args)?;
@@ -118,7 +136,14 @@ impl EvmSingleVerifier {
 
         // Build and send RPC request
         let call_obj = json!({"to": auth_contract_id, "data": data_hex});
-        let rpc = RpcRequest::build(call_obj);
+
+        // Ideally, we would want to use `safe` or `final` block here,
+        // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 2`,
+        // because in practice most reverts happen in the next block,
+        // so taking some delta from the latest block is good enough.
+        let actual_block_number = block_number.checked_sub(2).expect("block number underflow");
+
+        let rpc = RpcRequest::build_eth_call(call_obj, actual_block_number);
         let raw = self.call_rpc(&rpc).await?;
         let bytes = hex::decode(raw.trim_start_matches("0x"))?;
 
