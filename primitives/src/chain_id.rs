@@ -37,7 +37,7 @@ impl From<ChainId> for u64 {
         match value {
             ChainId::Near => 0,
             ChainId::Solana => 1001,
-            ChainId::Ton => 1117,
+            ChainId::Ton => 1111,
             ChainId::Stellar => 1100,
             ChainId::Evm(value) => value,
         }
@@ -50,7 +50,7 @@ impl From<u64> for ChainId {
             0 => ChainId::Near,
             1001 => ChainId::Solana,
             1100 => ChainId::Stellar,
-            1117 => ChainId::Ton,
+            1111 => ChainId::Ton,
             _ => ChainId::Evm(value),
         }
     }
