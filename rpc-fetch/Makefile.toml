@@ -1,0 +1,11 @@
+[tasks.test]
+env_files = ["tests-data/env"]
+command = "cargo"
+args = [
+    "run",
+    "--",
+    "--config",
+    "tests-data/config.yaml",
+    "--output",
+    "tests-data/rpc_config.yaml"
+]
