@@ -3,7 +3,11 @@ name = "hot-validation-rpc-fetch"
 edition.workspace = true
 version.workspace = true
 repository.workspace = true
+
 [dependencies]
+hot-validation-rpc-healthcheck = { workspace = true }
+hot-validation-primitives = { workspace = true }
+
 clap = { workspace = true, features = ["derive", "env"] }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }

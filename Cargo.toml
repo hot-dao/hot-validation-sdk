@@ -3,7 +3,8 @@ resolver = "3"
 members = [
     "core",
     "primitives",
-    "rpc-fetch"
+    "rpc-fetch",
+    "rpc-healthcheck",
 ]
 
 [workspace.package]
@@ -14,6 +15,7 @@ rust-version = "1.85.0"
 
 [workspace.dependencies]
 hot-validation-primitives.path = "primitives"
+hot-validation-rpc-healthcheck.path = "rpc-healthcheck"
 
 anyhow = "1.0.98"
 async-trait = "0.1.88"

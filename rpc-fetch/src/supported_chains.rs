@@ -22,6 +22,16 @@ pub enum ChainId {
     Aurora = 1313161554,
 }
 
+impl From<ChainId> for hot_validation_primitives::ChainId {
+    fn from(value: ChainId) -> Self {
+        match value {
+            ChainId::Near => hot_validation_primitives::ChainId::Near,
+            ChainId::Stellar => hot_validation_primitives::ChainId::Stellar,
+            _ => hot_validation_primitives::ChainId::Evm(value.into()),
+        }
+    }
+}
+
 pub trait SlugFromChainId {
     fn slug(chain_id: ChainId) -> Option<String>;
 }

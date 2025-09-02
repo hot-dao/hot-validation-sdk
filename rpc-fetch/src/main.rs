@@ -6,10 +6,11 @@ use crate::providers::ankr::AnkrProvider;
 use crate::supported_chains::ChainId;
 use anyhow::Result;
 use clap::{Parser, arg};
-use log::{info, warn};
+use hot_validation_rpc_healthcheck::healthcheck_many;
+use log::{error, info, warn};
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -71,7 +72,7 @@ async fn main() -> Result<()> {
 
     let mut config: HashMap<ChainId, Vec<String>> = HashMap::new();
 
-    if let Some(config_file) = fs::read_to_string(args.config).ok() {
+    if let Ok(config_file) = fs::read_to_string(args.config) {
         let data: RpcConfig = serde_yaml::from_str(&config_file)?;
         config.extend(data.0);
     }
@@ -79,7 +80,20 @@ async fn main() -> Result<()> {
     for provider in providers {
         let endpoints = provider.fetch_endpoints().await?;
         for (chain_id, ep) in endpoints {
-            config.entry(chain_id).or_insert_with(Vec::new).push(ep);
+            config.entry(chain_id).or_default().push(ep);
+        }
+    }
+
+    let client = reqwest::Client::new();
+    for (chain_id, endpoints) in config.iter() {
+        let statuses = healthcheck_many(&client, (*chain_id).into(), endpoints)
+            .await
+            .into_iter()
+            .filter_map(|r| r.err())
+            .collect::<Vec<_>>();
+        if !statuses.is_empty() {
+            error!("Failed to healthcheck {:?}: {:?}", chain_id, statuses);
+            return Err(anyhow::anyhow!("Failed to healthcheck"));
         }
     }
 
