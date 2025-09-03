@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use hot_validation_primitives::ChainValidationConfig;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -97,6 +98,24 @@ async fn main() -> Result<()> {
         }
     }
 
+    let config = {
+        let mut data = HashMap::new();
+        for (chain_id, endpoints) in config.iter_mut() {
+            let len = endpoints.len();
+            let threshold = if len > 3 {
+                3
+            } else {
+                len
+            };
+            let validation_config = ChainValidationConfig {
+                threshold,
+                servers: endpoints.clone(),
+            };
+            data.insert(chain_id, validation_config);
+        };
+        data
+    };
+    
     let yaml = serde_yaml::to_string(&config)?;
 
     if let Some(parent) = Path::new(&args.output).parent() {
