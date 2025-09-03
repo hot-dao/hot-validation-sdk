@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
+use crate::ChainId;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
@@ -7,6 +9,9 @@ pub struct ProofModel {
     pub message_body: String,
     pub user_payloads: Vec<String>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ValidationConfig(pub HashMap<ChainId, ChainValidationConfig>);
 
 /// For a specific chain:
 /// * `threshold` is the number of servers that need to give the same response to be able to accept it
