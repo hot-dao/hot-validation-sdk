@@ -3912,9 +3912,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-client"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4fd03cd847719c336f020f80ce538abd0c114ddaa9e4d1fd61741e98307a4ef"
+checksum = "22b6aedf1a1bfd0d79df5d37b98488a9ff9bc76fc79cece62d4639583c069cdd"
 dependencies = [
  "futures",
  "hex",

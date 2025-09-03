@@ -73,7 +73,7 @@ impl StellarSingleVerifier {
             .add_operation(operation)
             .build();
 
-        let simulation = self.client.simulate_transaction(tx, None).await?;
+        let simulation = self.client.simulate_transaction(&tx, None).await?;
 
         // if there was an RPC‐side error, show it:
         if let Some(err) = simulation.error {
