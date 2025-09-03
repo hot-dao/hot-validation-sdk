@@ -6,6 +6,7 @@ use crate::providers::ankr::AnkrProvider;
 use crate::supported_chains::ChainId;
 use anyhow::Result;
 use clap::{Parser, arg};
+use hot_validation_primitives::ChainValidationConfig;
 use hot_validation_rpc_healthcheck::healthcheck_many;
 use log::{error, info, warn};
 use providers::quicknode::QuicknodeProvider;
@@ -13,7 +14,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use hot_validation_primitives::ChainValidationConfig;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -104,17 +104,13 @@ async fn main() -> Result<()> {
         let mut data = HashMap::new();
         for (chain_id, endpoints) in config.iter_mut() {
             let len = endpoints.len();
-            let threshold = if len > 3 {
-                3
-            } else {
-                len
-            };
+            let threshold = if len > 3 { 3 } else { len };
             let validation_config = ChainValidationConfig {
                 threshold,
                 servers: endpoints.clone(),
             };
             data.insert(chain_id, validation_config);
-        };
+        }
         data
     };
 
