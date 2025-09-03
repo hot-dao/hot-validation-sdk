@@ -26,7 +26,7 @@ jobs:
     env:
       DOCKER_HOST: tcp://dind:2375
       DOCKER_BUILDKIT: "1"
-      IMAGE: ghcr.io/${{ github.repository }}
+      IMAGE: ghcr.io/${{ github.repository }}/rpc-fetch
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -53,5 +53,5 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=${{ github.event.inputs.network }}
-          cache-to: type=gha,scope=${{ github.event.inputs.network }},mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
