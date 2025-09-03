@@ -76,6 +76,8 @@ async fn main() -> Result<()> {
     if let Ok(config_file) = fs::read_to_string(args.config) {
         let data: RpcConfig = serde_yaml::from_str(&config_file)?;
         config.extend(data.0);
+    } else {
+        warn!("No config file provided");
     }
 
     for provider in providers {
@@ -115,7 +117,7 @@ async fn main() -> Result<()> {
         };
         data
     };
-    
+
     let yaml = serde_yaml::to_string(&config)?;
 
     if let Some(parent) = Path::new(&args.output).parent() {
