@@ -142,7 +142,7 @@ impl Validation {
         message_hex: String,
         user_payload: String,
     ) -> Result<()> {
-        let _timer = metrics::performance::RPC_SINGLE_VERIFY_DURATION.start_timer();
+        let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
         // TODO: DRY
         let status = match auth_method.chain_id {

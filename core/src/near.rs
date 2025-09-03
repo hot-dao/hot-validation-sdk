@@ -160,7 +160,7 @@ impl ThresholdVerifier<NearSingleVerifier> {
         self: Arc<Self>,
         wallet_id: &str,
     ) -> Result<WalletAuthMethods> {
-        let _timer = metrics::performance::RPC_GET_AUTH_METHODS_DURATION.start_timer();
+        let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
 
         let functor =
             |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {

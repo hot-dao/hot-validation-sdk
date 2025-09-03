@@ -8,44 +8,13 @@ pub use hot_validation_primitives::*;
 
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
-use crate::metrics::Metrics;
 use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
-use serde::{Deserialize, Serialize};
-use serde_valid::Validate;
+use hot_validation_rpc_healthcheck::observer::Observer;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-/// Collection of arguments for each auth method.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]
-pub struct ProofModel {
-    pub message_body: String,
-    pub user_payloads: Vec<String>,
-}
-
-/// For a specific chain:
-/// * `threshold` is the number of servers that need to give the same response to be able to accept it
-/// * `servers` is the available RPCs
-#[derive(Clone, Debug, Serialize, Deserialize, Validate)]
-#[validate(custom = validate_chain_config)]
-pub struct ChainValidationConfig {
-    pub threshold: usize,
-    #[validate(unique_items)]
-    pub servers: Vec<String>,
-}
-
-fn validate_chain_config(
-    cfg: &ChainValidationConfig,
-) -> Result<(), serde_valid::validation::Error> {
-    if cfg.threshold <= cfg.servers.len() / 2 {
-        return Err(serde_valid::validation::Error::Custom(
-            "threshold must be greater than half of servers.len()".into(),
-        ));
-    }
-    Ok(())
-}
 
 /// The logic that prevents signing arbitrary messages.
 #[derive(Clone)]
@@ -53,12 +22,12 @@ pub struct Validation {
     near: Arc<ThresholdVerifier<NearSingleVerifier>>,
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
-    metrics: Arc<Metrics>,
+    health_check_observer: Arc<Observer>,
 }
 
 impl Validation {
-    pub fn metrics(&self) -> Arc<Metrics> {
-        self.metrics.clone()
+    pub fn metrics(&self) -> Arc<Observer> {
+        self.health_check_observer.clone()
     }
 
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
@@ -97,13 +66,13 @@ impl Validation {
             })
             .collect();
 
-        let metrics = Arc::new(Metrics::new(configs));
+        let health_check_observer = Arc::new(Observer::new(configs));
 
         let validation = Self {
             near: near_validation,
             evm: evm_validation,
             stellar: stellar_validation,
-            metrics,
+            health_check_observer,
         };
         Ok(validation)
     }
@@ -114,7 +83,7 @@ impl Validation {
         message_hex: String,
         proof: ProofModel,
     ) -> Result<()> {
-        let _timer = metrics::performance::RPC_VERIFY_TOTAL_DURATION.start_timer();
+        let _timer = metrics::RPC_VERIFY_TOTAL_DURATION.start_timer();
 
         let wallet_id = uid_to_wallet_id(&uid).context("Couldn't convert uid to wallet_id")?;
         let wallet = self

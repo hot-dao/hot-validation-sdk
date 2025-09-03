@@ -1915,13 +1915,13 @@ dependencies = [
  "futures-util",
  "hex",
  "hot-validation-primitives",
+ "hot-validation-rpc-healthcheck",
  "lazy_static",
  "once_cell",
  "prometheus",
  "reqwest 0.12.22",
  "serde",
  "serde_json",
- "serde_valid",
  "sha2",
  "soroban-client",
  "tokio",
@@ -1944,6 +1944,7 @@ dependencies = [
  "serde",
  "serde-hex",
  "serde_json",
+ "serde_valid",
  "stellar-xdr",
 ]
 
@@ -1973,10 +1974,13 @@ dependencies = [
  "anyhow",
  "futures-util",
  "hot-validation-primitives",
+ "lazy_static",
+ "prometheus",
  "reqwest 0.12.22",
  "serde_json",
  "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]

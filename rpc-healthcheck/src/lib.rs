@@ -1,5 +1,7 @@
+pub mod observer;
+
 use anyhow::Result;
-use futures_util::{stream, StreamExt};
+use futures_util::{StreamExt, stream};
 use hot_validation_primitives::ChainId;
 use reqwest::{Client, Url};
 use serde_json::json;
@@ -39,10 +41,14 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
     }
 }
 
+/// An RPC url with removed secret
+#[derive(Debug, Clone)]
+pub struct SafeUrl(String);
+
 /// We have an RPC server URL like "https://foo-bar.near-mainnet.quiknode.pro/123123".
 /// We want to extract the domain part so that we can use it as a label.
 /// It will fail on something like "foo.co.uk", but that's good enough for now.
-pub(crate) fn get_two_part_domain(url: &str) -> String {
+pub(crate) fn get_two_part_domain(url: &str) -> SafeUrl {
     let host = Url::parse(url)
         .map(|url| url.domain().unwrap_or("None").to_string())
         .unwrap_or("None".to_string());
@@ -50,19 +56,22 @@ pub(crate) fn get_two_part_domain(url: &str) -> String {
     let mut iter = host.split('.');
     let domain2 = iter.next_back().unwrap_or("None");
     let domain1 = iter.next_back().unwrap_or("None");
-    format!("{domain1}.{domain2}")
+    SafeUrl(format!("{domain1}.{domain2}"))
 }
 
 #[derive(Debug, Clone)]
 pub struct FailedServer {
-    pub server: String,
+    pub server: SafeUrl,
     pub error: String,
 }
 
 impl FailedServer {
     pub fn new(server: String, error: String) -> Self {
         let extract = get_two_part_domain(&server);
-        Self { server: extract, error }
+        Self {
+            server: extract,
+            error,
+        }
     }
 }
 
@@ -70,7 +79,7 @@ pub async fn healthcheck_many(
     client: &Client,
     chain_id: ChainId,
     servers: &[String],
-) -> Vec<Result<(), FailedServer>> {
+) -> Vec<Result<SafeUrl, FailedServer>> {
     let payload = build_payload(chain_id);
 
     let results = stream::iter(servers.iter().cloned())
@@ -87,7 +96,7 @@ pub async fn healthcheck_many(
                     .map_err(|e| FailedServer::new(server.clone(), e.to_string()))?
                     .error_for_status()
                     .map_err(|e| FailedServer::new(server.clone(), e.to_string()))?;
-                Ok(())
+                Ok(get_two_part_domain(&server))
             }
         })
         .buffer_unordered(MAX_CONCURRENT_REQUESTS)
@@ -99,13 +108,13 @@ pub async fn healthcheck_many(
 
 #[cfg(test)]
 mod tests {
-    use super::{healthcheck_many, FailedServer};
-    use anyhow::{bail, Result};
+    use super::{FailedServer, SafeUrl, healthcheck_many};
+    use anyhow::{Result, bail};
     use hot_validation_primitives::ChainId;
     use reqwest::Client;
 
     /// Helper: pass if any endpoint succeeds; fail with aggregated errors otherwise.
-    fn assert_any_ok(results: Vec<Result<(), FailedServer>>) -> Result<()> {
+    fn assert_any_ok(results: Vec<Result<SafeUrl, FailedServer>>) -> Result<()> {
         let (oks, errs): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
         if !oks.is_empty() {
             Ok(())
