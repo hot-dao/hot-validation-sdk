@@ -1,7 +1,6 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
 use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
-use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
 use soroban_client::account::{Account, AccountBehavior};
@@ -88,7 +87,6 @@ impl StellarSingleVerifier {
     }
 }
 
-#[async_trait]
 impl SingleVerifier for StellarSingleVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()

@@ -232,7 +232,7 @@ pub struct VerifyArgs {
 }
 
 /// An interface to a particular RPC server.
-#[async_trait]
+#[async_trait] // TODO: Remove
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String;

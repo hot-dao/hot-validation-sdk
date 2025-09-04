@@ -3,6 +3,7 @@ mod internals;
 mod metrics;
 mod near;
 mod stellar;
+mod ton;
 
 pub use hot_validation_primitives::*;
 
