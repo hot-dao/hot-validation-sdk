@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use crate::ChainId;
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
-use crate::ChainId;
+use std::collections::HashMap;
 
 /// Collection of arguments for each auth method.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Eq, Hash)]

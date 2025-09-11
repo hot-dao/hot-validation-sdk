@@ -95,7 +95,9 @@ impl NearSingleVerifier {
             let value = value
                 .get("result")
                 .context(format!("missing result: {}", value))?;
-            let value = value.get("result").context("missing result in result")?;
+            let value = value
+                .get("result")
+                .context(format!("missing result: {}", value))?;
             let value = serde_json::from_value::<Vec<u8>>(value.clone())?;
             Ok(value)
         } else {
@@ -116,8 +118,10 @@ impl NearSingleVerifier {
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&args)?);
         let rpc_args = RpcRequest::build(auth_contract_id.to_string(), method_name, args_base64);
         let json = serde_json::to_value(&rpc_args)?;
-        let verify_result = self.call_rpc(json).await?;
-        let verify_result = serde_json::from_slice::<HotVerifyResult>(verify_result.as_slice())?;
+        let bytes = self.call_rpc(json).await?;
+        let value = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
+        let verify_result = serde_json::from_value::<HotVerifyResult>(value.clone())
+            .context(format!("Failed to deserialize verify result: {}", value))?;
         Ok(verify_result)
     }
 }

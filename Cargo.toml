@@ -67,6 +67,8 @@ env_logger = "0.11"
 
 tonlib-core = "0.26.1"
 
+primitive-types = { version = "0.13.1", default-features = false }
+
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }

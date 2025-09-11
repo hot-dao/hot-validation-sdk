@@ -17,6 +17,9 @@ alloy-primitives.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-sol-types.workspace = true
 serde_valid = { workspace = true }
+serde_json = { workspace = true }
+tonlib-core = { workspace = true }
+base64 = { workspace = true }
 
 
 [dev-dependencies]
