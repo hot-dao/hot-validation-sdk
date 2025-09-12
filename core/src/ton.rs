@@ -28,21 +28,24 @@ impl TonSingleVerifier {
         stack: Vec<StackItem>,
     ) -> Result<StackItem> {
         let json = json!({
-            "address": address.to_base64_url(),
-            "method": method,
-            "stack": stack,
+            "method": "runGetMethod",
+            "params": {
+                "address": address.to_base64_url(),
+                "method": method,
+                "stack": stack,
+            },
+            "id": "dontcare",
+            "jsonrpc": "2.0",       
         });
-        let url = format!("{}/runGetMethod", self.server);
 
         let json: serde_json::Value = self
             .client
-            .post(url)
+            .post(self.server.clone())
             .json(&json)
             .send()
             .await?
             .json()
             .await?;
-
         let stack =
             serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
                 .context(format!("Failed to parse stack from response {}", json))?;
@@ -269,7 +272,7 @@ mod tests {
 
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         let treasury_address =
