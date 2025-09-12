@@ -29,7 +29,9 @@ impl SlugFromChainId for AlchemyProvider {
             ChainId::Scroll => Some("scroll-mainnet".to_string()),
             ChainId::BeraChain => Some("berachain-mainnet".to_string()),
 
-            ChainId::Near | ChainId::Stellar | ChainId::Kava | ChainId::Aurora => None,
+            ChainId::Ton | ChainId::Near | ChainId::Stellar | ChainId::Kava | ChainId::Aurora => {
+                None
+            }
         }
     }
 }
