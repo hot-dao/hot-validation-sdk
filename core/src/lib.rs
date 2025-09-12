@@ -63,7 +63,7 @@ impl Validation {
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
-                    let verifier = ThresholdVerifier::new_evm(config, client.clone());
+                    let verifier = ThresholdVerifier::new_evm(config, client.clone(), id);
                     Arc::new(verifier)
                 };
                 (id, threshold_verifier)
@@ -198,7 +198,7 @@ mod tests {
                 ChainId::TON_V2,
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://toncenter.com/api/v2".to_string()],
+                    servers: vec!["https://toncenter.com/api/v2/jsonRPC".to_string()],
                 },
             ),
         ]);

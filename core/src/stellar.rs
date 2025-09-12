@@ -1,8 +1,10 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
 use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
+use hot_validation_primitives::ChainId;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -66,6 +68,9 @@ impl StellarSingleVerifier {
         method_name: String,
         input: StellarInputData,
     ) -> Result<bool> {
+        VERIFY_TOTAL_ATTEMPTS
+            .with_label_values(&[&ChainId::Stellar.to_string()])
+            .inc();
         let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
@@ -80,6 +85,9 @@ impl StellarSingleVerifier {
         }
         // extract the return‐value:
         if let Some((ScVal::Bool(b), _auths)) = simulation.to_result() {
+            VERIFY_SUCCESS_ATTEMPTS
+                .with_label_values(&[&ChainId::Stellar.to_string()])
+                .inc();
             Ok(b)
         } else {
             anyhow::bail!("unexpected simulation result: {:?}", simulation);
@@ -123,11 +131,10 @@ impl ThresholdVerifier<StellarSingleVerifier> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor =
             move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
-                let auth = auth_contract_id.clone();
                 let method_name = method_name.to_string();
                 Box::pin(async move {
                     verifier
-                        .verify(&auth, method_name, input)
+                        .verify(&auth_contract_id, method_name, input)
                         .await
                         .context(format!(
                             "Error calling stellar `verify` with {}",

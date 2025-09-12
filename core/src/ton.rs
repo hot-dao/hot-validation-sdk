@@ -1,10 +1,11 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier};
+use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::ton::{Action, ResponseStackItem, StackItem, TonInputData};
-use hot_validation_primitives::ChainValidationConfig;
+use hot_validation_primitives::{ChainId, ChainValidationConfig};
 use primitive_types::U128;
 use serde_json::json;
 use std::str::FromStr;
@@ -38,14 +39,19 @@ impl TonSingleVerifier {
             "jsonrpc": "2.0",
         });
 
-        let json: serde_json::Value = self
+        let response = self
             .client
             .post(self.server.clone())
             .json(&json)
             .send()
-            .await?
-            .json()
             .await?;
+
+        response
+            .error_for_status_ref()
+            .context("Failed to call ton server")?;
+
+        let json: serde_json::Value = response.json().await?;
+
         let stack =
             serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
                 .context(format!("Failed to parse stack from response {}", json))?;
@@ -69,6 +75,10 @@ impl TonSingleVerifier {
         method_name: &str,
         input: TonInputData,
     ) -> Result<bool> {
+        VERIFY_TOTAL_ATTEMPTS
+            .with_label_values(&[&ChainId::TON_V2.to_string()])
+            .inc();
+
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
         let child_address = {
             let item = self
@@ -122,6 +132,9 @@ impl TonSingleVerifier {
             }
         };
 
+        VERIFY_SUCCESS_ATTEMPTS
+            .with_label_values(&[&ChainId::TON_V2.to_string()])
+            .inc();
         Ok(true)
     }
 }
@@ -196,7 +209,7 @@ mod tests {
 
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         let address =
@@ -221,7 +234,7 @@ mod tests {
 
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         let stack_item = verifier
@@ -237,7 +250,7 @@ mod tests {
     async fn deposit_fist_and_second_call_combined() -> Result<()> {
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         verifier
@@ -296,7 +309,7 @@ mod tests {
 
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         let stack_item = verifier
@@ -312,7 +325,7 @@ mod tests {
     async fn completed_withdrawal_fist_and_second_call_combined() -> Result<()> {
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2".to_string(),
+            "https://toncenter.com/api/v2/jsonRPC".to_string(),
         );
 
         verifier

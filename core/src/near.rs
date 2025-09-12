@@ -2,6 +2,7 @@ use crate::internals::{
     GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
+use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
 use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -9,6 +10,7 @@ use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::HotVerifyResult;
+use hot_validation_primitives::ChainId;
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -64,6 +66,9 @@ impl NearSingleVerifier {
     }
 
     async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
+        VERIFY_TOTAL_ATTEMPTS
+            .with_label_values(&[&ChainId::Near.to_string()])
+            .inc();
         let method_args = GetWalletArgs { wallet_id };
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&method_args)?);
         let rpc_args = RpcRequest::build(
@@ -76,6 +81,9 @@ impl NearSingleVerifier {
             .await
             .context(format!("get_wallet failed when calling {}", self.server))?;
         let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
+        VERIFY_SUCCESS_ATTEMPTS
+            .with_label_values(&[&ChainId::Near.to_string()])
+            .inc();
         Ok(wallet_model)
     }
 
@@ -111,12 +119,12 @@ impl NearSingleVerifier {
 
     async fn verify(
         &self,
-        auth_contract_id: &str,
+        auth_contract_id: String,
         method_name: String,
-        args: VerifyArgs,
+        args: &VerifyArgs,
     ) -> Result<HotVerifyResult> {
-        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&args)?);
-        let rpc_args = RpcRequest::build(auth_contract_id.to_string(), method_name, args_base64);
+        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(args)?);
+        let rpc_args = RpcRequest::build(auth_contract_id, method_name, args_base64);
         let json = serde_json::to_value(&rpc_args)?;
         let bytes = self.call_rpc(json).await?;
         let value = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
@@ -182,17 +190,15 @@ impl ThresholdVerifier<NearSingleVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str, // TODO: As String
+        auth_contract_id: String,
         method_name: String,
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
+        let args = Arc::new(args);
         let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
-            let auth = auth_contract_id.clone();
-            let args = args.clone();
             Box::pin(async move {
                 verifier
-                    .verify(&auth, method_name, args)
+                    .verify(auth_contract_id, method_name, &args)
                     .await
                     .context(format!("Error calling near `verify` with {}", verifier.sanitized_endpoint()))
             })
@@ -227,7 +233,11 @@ mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                &args,
+            )
             .await
             .unwrap();
     }
@@ -251,7 +261,11 @@ mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                &args,
+            )
             .await
             .unwrap();
     }
@@ -275,7 +289,11 @@ mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                &args,
+            )
             .await
             .unwrap();
     }
@@ -298,7 +316,11 @@ mod tests {
         };
 
         let result = rpc_caller
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                &args,
+            )
             .await?
             .as_result()?;
         assert!(!result);
@@ -330,7 +352,11 @@ mod tests {
         };
 
         rpc_validation
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                args,
+            )
             .await
             .unwrap();
     }
@@ -362,7 +388,11 @@ mod tests {
         };
 
         rpc_validation
-            .verify(auth_contract_id, HOT_VERIFY_METHOD_NAME.to_string(), args)
+            .verify(
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                args,
+            )
             .await
             .unwrap();
     }

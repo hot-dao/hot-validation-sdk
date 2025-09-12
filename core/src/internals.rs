@@ -9,6 +9,8 @@ use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_primitives::bridge::ton::TonInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
+use rand::prelude::SliceRandom;
+use rand::rng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -21,7 +23,7 @@ use std::time::Duration;
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
 pub const MPC_GET_WALLET_METHOD: &str = "get_wallet";
-pub const TIMEOUT: Duration = Duration::from_secs(2);
+pub const TIMEOUT: Duration = Duration::from_millis(750);
 
 pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
     let uid_bytes = hex::decode(uid)?;
@@ -65,7 +67,7 @@ impl Validation {
         let status = self
             .near
             .clone()
-            .verify(auth_method.account_id.as_str(), method_name, verify_args)
+            .verify(auth_method.account_id.clone(), method_name, verify_args)
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
 
@@ -290,6 +292,10 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
         let total = self.verifiers.len();
 
         let mut counts: HashMap<R, usize> = HashMap::new();
+        let mut rng = rng();
+
+        let mut verifiers = self.verifiers.clone();
+        verifiers.shuffle(&mut rng);
         let mut responses = stream::iter(self.verifiers.iter().cloned())
             .map(|caller| functor.clone()(caller))
             .buffer_unordered(total);
