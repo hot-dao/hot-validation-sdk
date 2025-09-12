@@ -123,11 +123,10 @@ impl ThresholdVerifier<StellarSingleVerifier> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor =
             move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
-                let auth = auth_contract_id.clone();
                 let method_name = method_name.to_string();
                 Box::pin(async move {
                     verifier
-                        .verify(&auth, method_name, input)
+                        .verify(&auth_contract_id, method_name, input)
                         .await
                         .context(format!(
                             "Error calling stellar `verify` with {}",

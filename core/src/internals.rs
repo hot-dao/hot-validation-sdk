@@ -65,7 +65,7 @@ impl Validation {
         let status = self
             .near
             .clone()
-            .verify(auth_method.account_id.as_str(), method_name, verify_args)
+            .verify(auth_method.account_id.clone(), method_name, verify_args)
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
 
