@@ -35,7 +35,7 @@ impl TonSingleVerifier {
                 "stack": stack,
             },
             "id": "dontcare",
-            "jsonrpc": "2.0",       
+            "jsonrpc": "2.0",
         });
 
         let json: serde_json::Value = self
