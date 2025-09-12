@@ -27,6 +27,12 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
                 "method": "getLatestLedger"
             })
         }
+        ChainId::Ton | ChainId::TON_V2 => json!({
+                "method": "getMasterchainInfo",
+                "params": {},
+                "id": "dontcare",
+                "jsonrpc": "2.0"
+            }),
         ChainId::Evm(_) => {
             json!({
                 "jsonrpc": "2.0",
