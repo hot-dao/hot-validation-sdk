@@ -39,14 +39,19 @@ impl TonSingleVerifier {
             "jsonrpc": "2.0",
         });
 
-        let json: serde_json::Value = self
+        let response = self
             .client
             .post(self.server.clone())
             .json(&json)
             .send()
-            .await?
-            .json()
             .await?;
+
+        response
+            .error_for_status_ref()
+            .context("Failed to call ton server")?;
+
+        let json: serde_json::Value = response.json().await?;
+
         let stack =
             serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
                 .context(format!("Failed to parse stack from response {}", json))?;
