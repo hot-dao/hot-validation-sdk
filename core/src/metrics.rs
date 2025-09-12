@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use prometheus::register_histogram;
+use prometheus::{register_histogram, register_int_counter_vec};
 
 lazy_static! {
     pub static ref RPC_VERIFY_TOTAL_DURATION: prometheus::Histogram = register_histogram!(
@@ -20,6 +20,7 @@ lazy_static! {
     )
     .unwrap();
 }
+
 lazy_static! {
     pub static ref RPC_SINGLE_VERIFY_DURATION: prometheus::Histogram = register_histogram!(
         "rpc_single_verify_duration_seconds",
@@ -43,6 +44,24 @@ lazy_static! {
             // outliers
             1.5,
         ]
+    )
+    .unwrap();
+}
+
+lazy_static! {
+    pub static ref VERIFY_TOTAL_ATTEMPTS: prometheus::IntCounterVec = register_int_counter_vec!(
+        "verify_total_attempts",
+        "Total attempts to perform verify per chain",
+        &["chain_id"]
+    )
+    .unwrap();
+}
+
+lazy_static! {
+    pub static ref VERIFY_SUCCESS_ATTEMPTS: prometheus::IntCounterVec = register_int_counter_vec!(
+        "verify_success_attempts",
+        "Success attempts to perform verify per chain",
+        &["chain_id"]
     )
     .unwrap();
 }

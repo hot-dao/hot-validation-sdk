@@ -9,6 +9,8 @@ use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_primitives::bridge::ton::TonInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
+use rand::prelude::SliceRandom;
+use rand::rng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -17,8 +19,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
-use rand::{rng, thread_rng};
-use rand::prelude::SliceRandom;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";

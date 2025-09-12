@@ -63,7 +63,7 @@ impl Validation {
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
-                    let verifier = ThresholdVerifier::new_evm(config, client.clone());
+                    let verifier = ThresholdVerifier::new_evm(config, client.clone(), id);
                     Arc::new(verifier)
                 };
                 (id, threshold_verifier)

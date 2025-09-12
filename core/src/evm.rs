@@ -1,4 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
 use crate::ChainValidationConfig;
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
@@ -7,6 +8,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::ChainId;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -82,11 +84,16 @@ impl RpcRequest {
 pub(crate) struct EvmSingleVerifier {
     client: Arc<reqwest::Client>,
     server: String,
+    chain_id: ChainId,
 }
 
 impl EvmSingleVerifier {
-    pub fn new(client: Arc<reqwest::Client>, server: String) -> Self {
-        Self { client, server }
+    pub fn new(client: Arc<reqwest::Client>, server: String, chain_id: ChainId) -> Self {
+        Self {
+            client,
+            server,
+            chain_id,
+        }
     }
 
     async fn call_rpc(&self, rpc: &RpcRequest) -> Result<String> {
@@ -127,6 +134,9 @@ impl EvmSingleVerifier {
         method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
+        VERIFY_TOTAL_ATTEMPTS
+            .with_label_values(&[&self.chain_id.to_string()])
+            .inc();
         let block_number = self.get_block_number().await?;
 
         let args: Vec<DynSolValue> = From::from(input);
@@ -150,6 +160,10 @@ impl EvmSingleVerifier {
         // Decode output
         let out = INTERFACE.decode_output("hot_verify", &bytes)?;
         if let Some(DynSolValue::Bool(b)) = out.first() {
+            // TODO: replace checks with `ensure` and do return without conditions
+            VERIFY_SUCCESS_ATTEMPTS
+                .with_label_values(&[&self.chain_id.to_string()])
+                .inc();
             Ok(*b)
         } else {
             Err(anyhow::anyhow!("Unexpected output type"))
@@ -165,7 +179,11 @@ impl SingleVerifier for EvmSingleVerifier {
 }
 
 impl ThresholdVerifier<EvmSingleVerifier> {
-    pub fn new_evm(config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
+    pub fn new_evm(
+        config: ChainValidationConfig,
+        client: Arc<reqwest::Client>,
+        chain_id: ChainId,
+    ) -> Self {
         let threshold = config.threshold;
         let servers = config.servers;
         if threshold > servers.len() {
@@ -173,7 +191,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
         }
         let verifiers = servers
             .into_iter()
-            .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url)))
+            .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url, chain_id)))
             .collect();
         Self {
             threshold,
@@ -212,6 +230,7 @@ mod tests {
     use crate::ChainValidationConfig;
     use anyhow::Result;
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
+    use hot_validation_primitives::ChainId;
     use std::sync::Arc;
 
     #[tokio::test]
@@ -236,6 +255,7 @@ mod tests {
                 ],
             },
             Arc::new(reqwest::Client::new()),
+            ChainId::Evm(8453),
         );
 
         validation
