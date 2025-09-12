@@ -79,7 +79,7 @@ impl Validation {
                     )
                     .await?
                 }
-                ChainId::Ton | ChainId::TonV2 => {
+                ChainId::Ton | ChainId::TON_V2 => {
                     self.handle_ton(
                         &auth_call.contract_id,
                         &auth_call.method,
@@ -186,7 +186,7 @@ impl Validation {
                 )
                 .await?
             }
-            ChainId::Ton | ChainId::TonV2 => {
+            ChainId::Ton | ChainId::TON_V2 => {
                 unimplemented!("It's not expected to call TON as the auth method")
             }
             ChainId::Evm(_) => {

@@ -14,6 +14,8 @@ use derive_more::{Deref, From};
 use serde::ser::{SerializeMap, SerializeTuple};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::json;
+use std::str::FromStr;
+use tonlib_core::TonAddress;
 use tonlib_core::cell::{ArcCell, Cell, CellBuilder};
 use tonlib_core::tlb_types::tlb::TLB;
 
@@ -101,6 +103,12 @@ impl StackItem {
         let bytes = hex::decode(proof)?;
         let cell = CellBuilder::new().store_slice(&bytes)?.build()?;
 
+        Ok(StackItem::Slice(SerializableCell(ArcCell::new(cell))))
+    }
+
+    pub fn from_address(address: &str) -> anyhow::Result<Self> {
+        let address = TonAddress::from_str(address)?;
+        let cell = CellBuilder::new().store_address(&address)?.build()?;
         Ok(StackItem::Slice(SerializableCell(ArcCell::new(cell))))
     }
 }
@@ -211,7 +219,7 @@ impl StackItem {
 
     pub fn as_cell(&self) -> anyhow::Result<SerializableCell> {
         match self {
-            StackItem::Cell(c) => Ok(c.clone()),
+            StackItem::Cell(cell) => Ok(cell.clone()),
             _ => Err(anyhow::anyhow!("stack item is not a cell")),
         }
     }
@@ -284,8 +292,7 @@ mod tests {
                 "object": object,
             }
         ]);
-        let expected = json!(["cell", object]);
-        let item: ResponseStackItem = serde_json::from_value(json.clone())?;
+        serde_json::from_value::<ResponseStackItem>(json.clone())?;
         Ok(())
     }
 

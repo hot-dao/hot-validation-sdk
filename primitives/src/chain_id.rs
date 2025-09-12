@@ -28,7 +28,7 @@ pub enum ChainId {
 
 impl ChainId {
     /// Note: it should always go before EVM branch when pattern matching
-    pub const TonV2: Self = Self::Evm(1117);
+    pub const TON_V2: Self = Self::Evm(1117);
 }
 
 impl Display for ChainId {

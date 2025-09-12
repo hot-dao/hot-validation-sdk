@@ -71,7 +71,6 @@ impl TonSingleVerifier {
             let item = self
                 .make_call(&treasury_address, method_name, input.treasury_call_args)
                 .await?;
-
             item.as_cell()?.parser().load_address()?
         };
 
@@ -260,6 +259,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn completed_withdrawal_first_call() -> Result<()> {
+        let expected_addr = {
+            let raw = "EQCJWrtdMceshv4LiGZOtJlkP6OdQJZjpsBbgmMksobq10c0";
+            TonAddress::from_base64_url(raw)?
+        };
+
+        let item = StackItem::from_address("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I")?;
+
+        let verifier = TonSingleVerifier::new(
+            Arc::new(reqwest::Client::new()),
+            "https://toncenter.com/api/v2".to_string(),
+        );
+
+        let treasury_address =
+            TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
+        let stack_item = verifier
+            .make_call(&treasury_address, "get_user_jetton_address", vec![item])
+            .await?;
+
+        let actual_address = stack_item.as_cell()?.parser().load_address()?;
+        assert_eq!(actual_address, expected_addr);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn completed_withdrawal_second_call() -> Result<()> {
+        let addr = {
+            let raw = "EQCJWrtdMceshv4LiGZOtJlkP6OdQJZjpsBbgmMksobq10c0";
+            TonAddress::from_base64_url(raw)?
+        };
+
+        let verifier = TonSingleVerifier::new(
+            Arc::new(reqwest::Client::new()),
+            "https://toncenter.com/api/v2".to_string(),
+        );
+
+        let stack_item = verifier
+            .make_call(&addr, "get_last_withdrawn_nonce", vec![])
+            .await?;
+
+        let actual = stack_item.as_num()?;
+        assert_eq!(actual, "0x5f454cba5d80351be3");
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn completed_withdrawal_fist_and_second_call_combined() -> Result<()> {
         let verifier = TonSingleVerifier::new(
             Arc::new(reqwest::Client::new()),
@@ -269,17 +315,16 @@ mod tests {
         verifier
             .verify(
                 "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
-                "get_deposit_jetton_address",
+                "get_user_jetton_address",
                 TonInputData {
-                    treasury_call_args: vec![StackItem::from_nonce(
-                        "1753218716000000003679".to_string(),
-                    )],
-                    child_call_method: "get_last_withdrawn_nonce".to_string(),
-                    child_call_args: vec![StackItem::from_proof(
-                        "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a"
-                            .to_string(),
+                    treasury_call_args: vec![StackItem::from_address(
+                        "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
                     )?],
-                    action: Action::CheckCompletedWithdrawal { nonce: "1753218716000000003679".to_string() },
+                    child_call_method: "get_last_withdrawn_nonce".to_string(),
+                    child_call_args: vec![],
+                    action: Action::CheckCompletedWithdrawal {
+                        nonce: "1753218716000000003679".to_string(),
+                    },
                 },
             )
             .await?;

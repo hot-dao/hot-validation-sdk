@@ -72,7 +72,7 @@ impl Validation {
 
         let ton = {
             let config = configs
-                .get(&ChainId::TonV2)
+                .get(&ChainId::TON_V2)
                 .expect("No ton config (chain_id = 1117) found")
                 .clone();
             let verifier = ThresholdVerifier::new_ton(config, client.clone());
@@ -141,8 +141,8 @@ impl Validation {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
     use super::*;
+    use serde_json::json;
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
@@ -195,7 +195,7 @@ mod tests {
                 },
             ),
             (
-                ChainId::TonV2,
+                ChainId::TON_V2,
                 ChainValidationConfig {
                     threshold: 1,
                     servers: vec!["https://toncenter.com/api/v2".to_string()],
@@ -378,14 +378,16 @@ mod tests {
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
         let proof = ProofModel {
             message_body: "".to_string(),
-            user_payloads: vec![
-                json!({
-                    "ClearCompletedWithdrawal": {
+            user_payloads: vec![json!({
+                "ClearCompletedWithdrawal": {
+                    "Ton": {
+                        "user_ton_address": "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
                         "chain_id": 1117,
-                        "nonce": "1753218716000000003679"
+                        "nonce": "1753218716000000003679",
                     }
-                }).to_string()
-            ],
+                }
+            })
+            .to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
