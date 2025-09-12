@@ -17,6 +17,8 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
+use rand::{rng, thread_rng};
+use rand::prelude::SliceRandom;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -290,6 +292,10 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
         let total = self.verifiers.len();
 
         let mut counts: HashMap<R, usize> = HashMap::new();
+        let mut rng = rng();
+
+        let mut verifiers = self.verifiers.clone();
+        verifiers.shuffle(&mut rng);
         let mut responses = stream::iter(self.verifiers.iter().cloned())
             .map(|caller| functor.clone()(caller))
             .buffer_unordered(total);
