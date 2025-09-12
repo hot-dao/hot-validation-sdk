@@ -3,6 +3,7 @@ mod internals;
 mod metrics;
 mod near;
 mod stellar;
+mod ton;
 
 pub use hot_validation_primitives::*;
 
@@ -10,6 +11,7 @@ use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::near::NearSingleVerifier;
 use crate::stellar::StellarSingleVerifier;
+use crate::ton::TonSingleVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_rpc_healthcheck::observer::Observer;
@@ -22,6 +24,7 @@ pub struct Validation {
     near: Arc<ThresholdVerifier<NearSingleVerifier>>,
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
+    ton: Arc<ThresholdVerifier<TonSingleVerifier>>,
     health_check_observer: Arc<Observer>,
 }
 
@@ -43,6 +46,7 @@ impl Validation {
             Arc::new(verifier)
         };
 
+        // TODO: Logic separation
         let stellar_config = configs
             .get(&ChainId::Stellar)
             .expect("No stellar config (chain_id = 1100) found")
@@ -66,12 +70,22 @@ impl Validation {
             })
             .collect();
 
+        let ton = {
+            let config = configs
+                .get(&ChainId::TON_V2)
+                .expect("No ton config (chain_id = 1117) found")
+                .clone();
+            let verifier = ThresholdVerifier::new_ton(config, client.clone());
+            Arc::new(verifier)
+        };
+
         let health_check_observer = Arc::new(Observer::new(configs));
 
         let validation = Self {
-            near: near_validation,
+            near: near_validation, // TODO: Direct naming
             evm: evm_validation,
             stellar: stellar_validation,
+            ton,
             health_check_observer,
         };
         Ok(validation)
@@ -86,6 +100,8 @@ impl Validation {
         let _timer = metrics::RPC_VERIFY_TOTAL_DURATION.start_timer();
 
         let wallet_id = uid_to_wallet_id(&uid).context("Couldn't convert uid to wallet_id")?;
+        // TODO: unnecessary threshold call, i.e. all validation logic should be done linearly,
+        // and threshold should be checked on the result, not on intermediate steps.
         let wallet = self
             .near
             .clone()
@@ -126,6 +142,7 @@ impl Validation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
@@ -175,6 +192,13 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 1,
                     servers: vec!["https://bsc.drpc.org".to_string()],
+                },
+            ),
+            (
+                ChainId::TON_V2,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://toncenter.com/api/v2".to_string()],
                 },
             ),
         ]);
@@ -318,6 +342,52 @@ mod tests {
                 "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
                     .to_string(),
             ],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_deposit_validation_ton() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let message =
+            "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![
+                "{\"Deposit\":{\"chain_id\":1117,\"nonce\":\"1753218716000000003679\"}}"
+                    .to_string(),
+            ],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_withdraw_removal_validation_ton() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let message =
+            "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
+        let proof = ProofModel {
+            message_body: "".to_string(),
+            user_payloads: vec![json!({
+                "ClearCompletedWithdrawal": {
+                    "Ton": {
+                        "user_ton_address": "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
+                        "chain_id": 1117,
+                        "nonce": "1753218716000000003679",
+                    }
+                }
+            })
+            .to_string()],
         };
 
         validation.verify(uid, message, proof).await?;

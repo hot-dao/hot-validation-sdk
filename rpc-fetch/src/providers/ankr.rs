@@ -29,6 +29,7 @@ impl SlugFromChainId for AnkrProvider {
             ChainId::Arbitrum => Some("arbitrum".to_string()),
             ChainId::Avax => Some("avalanche".to_string()),
             ChainId::Scroll => Some("scroll".to_string()),
+            ChainId::Ton => Some("premium-http/ton_api_v2".to_string()),
 
             ChainId::Near | ChainId::Kava | ChainId::BeraChain | ChainId::Aurora => None,
         }
@@ -41,7 +42,11 @@ impl Provider for AnkrProvider {
         let mut endpoints = HashMap::new();
         for chain_id in ChainId::iter() {
             if let Some(slug) = Self::slug(chain_id) {
-                let url = format!("https://rpc.ankr.com/{}/{}", slug, &self.api_key);
+                let url = if matches!(chain_id, ChainId::Ton) {
+                    format!("https://rpc.ankr.com/{}/{}/jsonRPC", slug, &self.api_key)
+                } else {
+                    format!("https://rpc.ankr.com/{}/{}", slug, &self.api_key)
+                };
                 endpoints.insert(chain_id, url);
             }
         }

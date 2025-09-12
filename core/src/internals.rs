@@ -6,6 +6,7 @@ use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
+use hot_validation_primitives::bridge::ton::TonInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use reqwest::Url;
@@ -78,6 +79,14 @@ impl Validation {
                     )
                     .await?
                 }
+                ChainId::Ton | ChainId::TON_V2 => {
+                    self.handle_ton(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
                 ChainId::Evm(_) => {
                     self.handle_evm(
                         auth_call.chain_id,
@@ -92,9 +101,6 @@ impl Validation {
                 }
                 ChainId::Solana => {
                     unimplemented!("Solana is not supported")
-                }
-                ChainId::Ton => {
-                    unimplemented!("Ton is not supported")
                 }
             },
             HotVerifyResult::Result(status) => status,
@@ -134,6 +140,21 @@ impl Validation {
         Ok(status)
     }
 
+    async fn handle_ton(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: TonInputData,
+    ) -> Result<bool> {
+        let status = self
+            .ton
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Ton failed")?;
+        Ok(status)
+    }
+
     pub(crate) async fn verify_auth_method(
         self: Arc<Self>,
         wallet_id: String,
@@ -145,6 +166,7 @@ impl Validation {
         let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
         // TODO: DRY
+        // TODO: Hypothesis: auth method is always a NEAR contract.
         let status = match auth_method.chain_id {
             ChainId::Near => {
                 self.handle_near(
@@ -164,6 +186,9 @@ impl Validation {
                 )
                 .await?
             }
+            ChainId::Ton | ChainId::TON_V2 => {
+                unimplemented!("It's not expected to call TON as the auth method")
+            }
             ChainId::Evm(_) => {
                 self.handle_evm(
                     auth_method.chain_id,
@@ -175,9 +200,6 @@ impl Validation {
             }
             ChainId::Solana => {
                 unimplemented!("Solana is not supported")
-            }
-            ChainId::Ton => {
-                unimplemented!("Ton is not supported")
             }
         };
 
@@ -232,7 +254,7 @@ pub struct VerifyArgs {
 }
 
 /// An interface to a particular RPC server.
-#[async_trait]
+#[async_trait] // TODO: Remove
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String;

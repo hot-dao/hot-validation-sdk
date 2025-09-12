@@ -39,3 +39,9 @@ soroban-client = { workspace = true }
 alloy-json-abi.workspace = true
 alloy-dyn-abi.workspace = true
 alloy-contract.workspace = true
+
+tonlib-core = { workspace = true }
+serde-hex = { workspace = true }
+derive_more = { workspace = true, features = ["full"] }
+
+primitive-types = { workspace = true, default-features = false }

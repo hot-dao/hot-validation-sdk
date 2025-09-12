@@ -26,6 +26,11 @@ pub enum ChainId {
     Evm(u64),
 }
 
+impl ChainId {
+    /// Note: it should always go before EVM branch when pattern matching
+    pub const TON_V2: Self = Self::Evm(1117);
+}
+
 impl Display for ChainId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", <u64>::from(*self))

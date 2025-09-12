@@ -32,6 +32,7 @@ impl SlugFromChainId for QuicknodeProvider {
             ChainId::Avax => Some("avalanche-mainnet".to_string()),
             ChainId::BeraChain => Some("bera-mainnet".to_string()),
             ChainId::Scroll => Some("scroll-mainnet".to_string()),
+            ChainId::Ton => Some("ton-mainnet".to_string()),
 
             ChainId::Kava | ChainId::Aurora => None,
         }
@@ -102,6 +103,8 @@ impl Provider for QuicknodeProvider {
                 let mut ep = base_ep.replace(".quiknode.pro", &format!(".{slug}.quiknode.pro"));
                 if matches!(chain, ChainId::Avax) {
                     ep += "ext/bc/C/rpc";
+                } else if matches!(chain, ChainId::Ton) {
+                    ep += "jsonRPC";
                 }
                 map.insert(chain, ep.clone());
             }
