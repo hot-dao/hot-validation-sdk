@@ -5,22 +5,24 @@ version.workspace = true
 repository.workspace = true
 
 [dependencies]
-serde.workspace = true
-borsh = { workspace = true, features = ["derive", "unstable__schema"], optional = true }
-schemars.workspace = true
-derive_more.workspace = true
-serde-hex.workspace = true
-hex.workspace = true
-anyhow.workspace = true
-stellar-xdr.workspace = true
-alloy-primitives.workspace = true
-alloy-dyn-abi.workspace = true
-alloy-sol-types.workspace = true
-serde_valid = { workspace = true }
-serde_json = { workspace = true }
-tonlib-core = { workspace = true }
+alloy-dyn-abi = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
 base64 = { workspace = true }
-
+borsh = { workspace = true, features = [
+  "derive",
+  "unstable__schema",
+], optional = true }
+derive_more = { workspace = true }
+hex = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde-hex = { workspace = true }
+serde_json = { workspace = true }
+serde_valid = { workspace = true }
+stellar-xdr = { workspace = true }
+tonlib-core = { workspace = true }
 
 [dev-dependencies]
-serde_json.workspace = true
+serde_json = { workspace = true }

@@ -17,10 +17,10 @@ async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-sha2 = { workspace = true }
-hex = { workspace = true }
-bs58 = { workspace = true }
 base64 = { workspace = true }
+bs58 = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
 
 tracing = { workspace = true }
 
@@ -31,17 +31,17 @@ tokio-util = { workspace = true }
 
 futures-util = { workspace = true }
 
-once_cell = { workspace = true }
 lazy_static = { workspace = true }
+once_cell = { workspace = true }
 prometheus = { workspace = true }
 soroban-client = { workspace = true }
 
-tonlib-core = { workspace = true }
-serde-hex = { workspace = true }
 derive_more = { workspace = true, features = ["full"] }
+serde-hex = { workspace = true }
+tonlib-core = { workspace = true }
 
-primitive-types = { workspace = true, default-features = false }
-alloy-json-abi = { workspace = true }
-alloy-dyn-abi = { workspace = true }
 alloy-contract = { workspace = true }
+alloy-dyn-abi = { workspace = true }
+alloy-json-abi = { workspace = true }
+primitive-types = { workspace = true, default-features = false }
 rand = { workspace = true }
