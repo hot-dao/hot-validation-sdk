@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::{Parser, arg};
 use hot_validation_primitives::ChainValidationConfig;
 use hot_validation_rpc_healthcheck::healthcheck_many;
-use log::{error, info, warn};
+use tracing::{error, info, warn};
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
