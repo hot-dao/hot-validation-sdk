@@ -10,6 +10,7 @@ use hot_validation_primitives::bridge::ton::TonInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
 use rand::SeedableRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -19,7 +20,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
-use rand::rngs::StdRng;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
