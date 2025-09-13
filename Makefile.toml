@@ -1,0 +1,35 @@
+[config]
+default_to_workspace = false
+
+[tasks.fmt]
+command = "cargo"
+args = [
+    "fmt",
+    "--all"
+]
+
+[tasks.clippy]
+command = "cargo"
+args = [
+    "clippy",
+    "--all-features",
+    "--all-targets",
+    "--locked",
+    "--fix",
+    "--allow-dirty"
+]
+
+[tasks.cargo-toml-sort]
+command = "cargo"
+args = [
+    "sort",
+    "--workspace",
+    "--grouped"
+]
+
+[tasks.quality-check]
+dependencies = [
+    "fmt",
+    "clippy",
+    "cargo-toml-sort"
+]
