@@ -1,0 +1,9 @@
+[tasks.run-local]
+env = { RUST_LOG = "info,actix_web=info,tracing_actix_web=info" }
+command = "cargo"
+args = [
+    "run",
+    "--",
+    "--bind-addr=0.0.0.0:8080",
+    "--workers=1",
+]
