@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
@@ -46,7 +47,10 @@ impl From<ChainId> for u64 {
 impl TryFrom<u64> for ChainId {
     type Error = &'static str;
     fn try_from(v: u64) -> Result<Self, Self::Error> {
-        use ChainId::*;
+        use ChainId::{
+            Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Kava, MonadTestnet, Near, Optimism,
+            Polygon, Scroll, Stellar, Ton, ZkSync,
+        };
         Ok(match v {
             0 => Near,
             1 => Eth,

@@ -1,10 +1,11 @@
-use actix_web::{get, web, Responder};
+use actix_web::get;
 use actix_web::web::Json;
-use serde_json::json;
 use utoipa::ToSchema;
 
 #[derive(serde::Serialize, ToSchema)]
-struct Health { status: &'static str }
+struct Health {
+    status: &'static str,
+}
 
 #[utoipa::path(
     description = "Health check",

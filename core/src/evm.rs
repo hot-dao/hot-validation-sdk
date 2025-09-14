@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::ChainId;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -46,7 +45,7 @@ pub const HOT_VERIFY_EVM_ABI: &str = r#"
 "#;
 
 // Initialize the Interface once
-static INTERFACE: Lazy<Interface> = Lazy::new(|| {
+static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
     let abi: JsonAbi =
         serde_json::from_str(HOT_VERIFY_EVM_ABI).expect("Invalid JSON ABI for hot_verify");
     Interface::new(abi)
@@ -70,7 +69,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn build_eth_call(call_obj: Value, block_number: u64) -> Self {
+    pub fn build_eth_call(call_obj: &Value, block_number: u64) -> Self {
         RpcRequest {
             jsonrpc: "2.0".into(),
             id: "dontcare".into(),
@@ -107,9 +106,7 @@ impl EvmSingleVerifier {
 
         if resp.status().is_success() {
             let v: Value = resp.json().await?;
-            let result = v
-                .get("result")
-                .context(format!("missing result: {:?}", v))?;
+            let result = v.get("result").context(format!("missing result: {v:?}"))?;
             serde_json::from_value(result.clone())
                 .context("Failed to parse RPC result as hex string")
         } else {
@@ -131,7 +128,7 @@ impl EvmSingleVerifier {
     async fn verify(
         &self,
         auth_contract_id: &str,
-        method_name: String,
+        method_name: &str,
         input: EvmInputData,
     ) -> Result<bool> {
         VERIFY_TOTAL_ATTEMPTS
@@ -141,7 +138,7 @@ impl EvmSingleVerifier {
 
         let args: Vec<DynSolValue> = From::from(input);
 
-        let data = INTERFACE.encode_input(&method_name, &args)?;
+        let data = INTERFACE.encode_input(method_name, &args)?;
         let data_hex = format!("0x{}", hex::encode(data));
 
         // Build and send RPC request
@@ -153,7 +150,7 @@ impl EvmSingleVerifier {
         // so taking some delta from the latest block is good enough.
         let actual_block_number = block_number.checked_sub(2).expect("block number underflow");
 
-        let rpc = RpcRequest::build_eth_call(call_obj, actual_block_number);
+        let rpc = RpcRequest::build_eth_call(&call_obj, actual_block_number);
         let raw = self.call_rpc(&rpc).await?;
         let bytes = hex::decode(raw.trim_start_matches("0x"))?;
 
@@ -181,14 +178,17 @@ impl SingleVerifier for EvmSingleVerifier {
 impl ThresholdVerifier<EvmSingleVerifier> {
     pub fn new_evm(
         config: ChainValidationConfig,
-        client: Arc<reqwest::Client>,
+        client: &Arc<reqwest::Client>,
         chain_id: ChainId,
     ) -> Self {
         let threshold = config.threshold;
         let servers = config.servers;
-        if threshold > servers.len() {
-            panic!("Threshold {} > servers {}", threshold, servers.len());
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "Threshold {} > servers {}",
+            threshold,
+            servers.len()
+        );
         let verifiers = servers
             .into_iter()
             .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url, chain_id)))
@@ -211,7 +211,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
             let method_name = method_name.to_string();
             Box::pin(async move {
                 verifier
-                    .verify(&auth, method_name, input)
+                    .verify(&auth, &method_name, input)
                     .await
                     .context(format!(
                         "Error calling evm `verify` with {}",
@@ -254,7 +254,7 @@ mod tests {
                     "http://localhost:1000".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
             ChainId::Evm(8453),
         );
 

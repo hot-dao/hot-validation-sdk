@@ -1,5 +1,4 @@
 use clap::Parser;
-use tracing::{info};
 
 fn default_workers() -> usize {
     // use at least 2; auto-detect otherwise

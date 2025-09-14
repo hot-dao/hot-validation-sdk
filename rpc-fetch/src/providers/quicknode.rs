@@ -20,7 +20,6 @@ impl SlugFromChainId for QuicknodeProvider {
     fn slug(chain_id: ChainId) -> Option<String> {
         match chain_id {
             ChainId::Near => Some("near-mainnet".to_string()),
-            ChainId::Eth => None, // has to return base endpoint
             ChainId::Optimism => Some("optimism".to_string()),
             ChainId::Bsc => Some("bsc".to_string()),
             ChainId::Polygon => Some("matic".to_string()),
@@ -34,7 +33,9 @@ impl SlugFromChainId for QuicknodeProvider {
             ChainId::Scroll => Some("scroll-mainnet".to_string()),
             ChainId::Ton => Some("ton-mainnet".to_string()),
 
-            ChainId::Kava | ChainId::Aurora => None,
+            ChainId::Eth | // has to return base endpoint
+            ChainId::Kava |
+            ChainId::Aurora => None,
         }
     }
 }

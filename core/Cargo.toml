@@ -31,8 +31,6 @@ tokio-util = { workspace = true }
 
 futures-util = { workspace = true }
 
-lazy_static = { workspace = true }
-once_cell = { workspace = true }
 prometheus = { workspace = true }
 soroban-client = { workspace = true }
 

@@ -1,3 +1,5 @@
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
 mod evm;
 mod internals;
 mod metrics;
@@ -29,6 +31,7 @@ pub struct Validation {
 }
 
 impl Validation {
+    #[must_use]
     pub fn metrics(&self) -> Arc<Observer> {
         self.health_check_observer.clone()
     }
@@ -42,7 +45,7 @@ impl Validation {
             .clone();
 
         let near_validation = {
-            let verifier = ThresholdVerifier::new_near(near_config, client.clone());
+            let verifier = ThresholdVerifier::new_near(near_config, &client);
             Arc::new(verifier)
         };
 
@@ -63,7 +66,7 @@ impl Validation {
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
-                    let verifier = ThresholdVerifier::new_evm(config, client.clone(), id);
+                    let verifier = ThresholdVerifier::new_evm(config, &client.clone(), id);
                     Arc::new(verifier)
                 };
                 (id, threshold_verifier)
@@ -75,7 +78,7 @@ impl Validation {
                 .get(&ChainId::TON_V2)
                 .expect("No ton config (chain_id = 1117) found")
                 .clone();
-            let verifier = ThresholdVerifier::new_ton(config, client.clone());
+            let verifier = ThresholdVerifier::new_ton(config, &client);
             Arc::new(verifier)
         };
 
@@ -141,6 +144,7 @@ impl Validation {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::should_panic_without_expect)]
     use super::*;
     use serde_json::json;
 
@@ -245,7 +249,7 @@ mod tests {
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
@@ -287,7 +291,7 @@ mod tests {
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
@@ -302,9 +306,9 @@ mod tests {
         let validation = create_validation_object();
 
         let uid = "bfe2d1d813e759844d1f0617639c986a52427a5965a1e72392cd0f6b4d556074".to_string();
-        let message = "".to_string();
+        let message = String::new();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec!["000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string()],
         };
 
@@ -319,7 +323,7 @@ mod tests {
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"Deposit\":{\"chain_id\":56,\"nonce\":\"1754431900000000013182\"}}".to_string(),
             ],
@@ -337,7 +341,7 @@ mod tests {
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
                     .to_string(),
@@ -357,7 +361,7 @@ mod tests {
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"Deposit\":{\"chain_id\":1117,\"nonce\":\"1753218716000000003679\"}}"
                     .to_string(),
@@ -377,7 +381,7 @@ mod tests {
         let message =
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![json!({
                 "ClearCompletedWithdrawal": {
                     "Ton": {
@@ -404,7 +408,7 @@ mod tests {
             "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
 
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![r#"
                     {
                       "Withdraw": {
@@ -430,7 +434,7 @@ mod tests {
             "8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a".to_string();
 
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![r#"
                     {
                       "Withdraw": {

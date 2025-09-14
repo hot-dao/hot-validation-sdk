@@ -42,9 +42,14 @@ impl StellarSingleVerifier {
             ))
         };
 
+        let timeout_secs: i64 = TIMEOUT
+            .as_secs()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("timeout exceeds i64::MAX seconds"))?;
+
         let transaction_builder = TransactionBuilder::new(source_account, Networks::public(), None)
             .fee(100u32) // An exact value doesn't matter, it's just a placeholder.
-            .set_timeout(TIMEOUT.as_secs() as i64)
+            .set_timeout(timeout_secs)
             .map_err(|e| anyhow::anyhow!(e))?
             .clone();
 
@@ -53,19 +58,19 @@ impl StellarSingleVerifier {
 
     fn build_contract_call(
         auth_contract_id: &str,
-        method_name: String,
+        method_name: &str,
         input: StellarInputData,
     ) -> Result<xdr::Operation> {
         let contract = Contracts::new(auth_contract_id).map_err(|e| anyhow::anyhow!(e))?;
         let sc_args: Vec<ScVal> = TryFrom::try_from(input).context("Failed to convert input")?;
-        let operation = contract.call(&method_name, Some(sc_args));
+        let operation = contract.call(method_name, Some(sc_args));
         Ok(operation)
     }
 
     async fn verify(
         &self,
         auth_contract_id: &str,
-        method_name: String,
+        method_name: &str,
         input: StellarInputData,
     ) -> Result<bool> {
         VERIFY_TOTAL_ATTEMPTS
@@ -105,13 +110,12 @@ impl ThresholdVerifier<StellarSingleVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
         let servers = config.servers;
-        if threshold > servers.len() {
-            panic!(
-                "There should be at least {} servers, got {}",
-                threshold,
-                servers.len()
-            )
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "There should be at least {} servers, got {}",
+            threshold,
+            servers.len()
+        );
         let verifiers = servers
             .iter()
             .map(|s| StellarSingleVerifier::new(s.clone()).map(Arc::new))
@@ -134,7 +138,7 @@ impl ThresholdVerifier<StellarSingleVerifier> {
                 let method_name = method_name.to_string();
                 Box::pin(async move {
                     verifier
-                        .verify(&auth_contract_id, method_name, input)
+                        .verify(&auth_contract_id, &method_name, input)
                         .await
                         .context(format!(
                             "Error calling stellar `verify` with {}",
@@ -158,7 +162,7 @@ mod tests {
 
     #[tokio::test]
     async fn single_verifier() -> Result<()> {
-        let msg_hash = "".to_string();
+        let msg_hash = String::new();
         let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
         let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
@@ -166,7 +170,7 @@ mod tests {
         validation
             .verify(
                 auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
+                HOT_VERIFY_METHOD_NAME,
                 StellarInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;
@@ -176,7 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn single_verifier_bridge() -> Result<()> {
-        let msg_hash = "".to_string();
+        let msg_hash = String::new();
         let user_payload = "000000000000005f1d038ae3e890ca50c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
         let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
@@ -184,7 +188,7 @@ mod tests {
         validation
             .verify(
                 auth_contract_id,
-                HOT_VERIFY_METHOD_NAME.to_string(),
+                HOT_VERIFY_METHOD_NAME,
                 StellarInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;
@@ -194,14 +198,14 @@ mod tests {
 
     #[tokio::test]
     async fn stellar_locker_nonce_executed() -> Result<()> {
-        let nonce = 1754631474000000070075u128;
+        let nonce = 1_754_631_474_000_000_070_075_u128;
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
         let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(
                 auth_contract_id,
-                "is_executed".to_string(),
+                "is_executed",
                 StellarInputData(vec![StellarInputArg::U128(nonce)]),
             )
             .await?;

@@ -54,7 +54,7 @@ impl TonSingleVerifier {
 
         let stack =
             serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
-                .context(format!("Failed to parse stack from response {}", json))?;
+                .context(format!("Failed to parse stack from response {json}"))?;
         let stack = stack
             .into_iter()
             .map(|item| item.0)
@@ -102,7 +102,7 @@ impl TonSingleVerifier {
                     num == StackItem::SUCCESS_NUM,
                     "Expected success, got {}",
                     num
-                )
+                );
             }
             Action::CheckCompletedWithdrawal { nonce } => {
                 let item = self
@@ -128,9 +128,9 @@ impl TonSingleVerifier {
                     nonce,
                     last_used_nonce,
                     last_used_nonce
-                )
+                );
             }
-        };
+        }
 
         VERIFY_SUCCESS_ATTEMPTS
             .with_label_values(&[&ChainId::TON_V2.to_string()])
@@ -147,12 +147,15 @@ impl SingleVerifier for TonSingleVerifier {
 }
 
 impl ThresholdVerifier<TonSingleVerifier> {
-    pub fn new_ton(config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
+    pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
         let threshold = config.threshold; // TODO: Check invariand, DRY
         let servers = config.servers;
-        if threshold > servers.len() {
-            panic!("Threshold {} > servers {}", threshold, servers.len());
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "Threshold {} > servers {}",
+            threshold,
+            servers.len()
+        );
         let verifiers = servers
             .into_iter()
             .map(|url| Arc::new(TonSingleVerifier::new(client.clone(), url)))

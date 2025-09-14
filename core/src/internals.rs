@@ -42,13 +42,13 @@ impl Validation {
         message_body: String,
         user_payload: String,
     ) -> Result<bool> {
-        let message_bs58 = hex::decode(&message_hex)
-            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
-
         #[derive(Debug, Deserialize)]
         struct MethodName {
             method: String,
         }
+
+        let message_bs58 = hex::decode(&message_hex)
+            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
 
         let method_name = if let Some(metadata) = &auth_method.metadata {
             let method_name = serde_json::from_str::<MethodName>(metadata)?;
@@ -319,7 +319,7 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
 
         if !errors.is_empty() {
             tracing::warn!("threshold call encountered errors: {:?}", errors);
-        };
+        }
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
@@ -462,7 +462,7 @@ mod tests {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
-                Err(_) => Err(anyhow!("boom")),
+                Err(()) => Err(anyhow!("boom")),
             }
         }
     }

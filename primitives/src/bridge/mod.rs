@@ -1,3 +1,4 @@
+#![allow(clippy::missing_errors_doc)]
 //! Types for bridge validation, which include flows for deposit and withdrawal.
 
 pub mod evm;

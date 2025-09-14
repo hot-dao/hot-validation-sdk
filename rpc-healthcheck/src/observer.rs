@@ -1,33 +1,31 @@
 use crate::healthcheck_many;
 use hot_validation_primitives::{ChainId, ChainValidationConfig};
-use lazy_static::lazy_static;
-use prometheus::register_int_gauge_vec;
+use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::Client;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
 const METRICS_EVALUATION_INTERVAL: Duration = Duration::from_secs(30);
 
-lazy_static! {
-    pub static ref RPC_AVAILABILITY_SERVER_UP: prometheus::IntGaugeVec = register_int_gauge_vec!(
+pub static RPC_AVAILABILITY_SERVER_UP: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
         "rpc_availability_server_up",
         "1 if server is available, 0 if not",
         &["chain_id", "domain"]
     )
-    .unwrap();
-}
+    .expect("register rpc_availability_server_up")
+});
 
-lazy_static! {
-    pub static ref RPC_AVAILABILITY_THRESHOLD_DELTA: prometheus::IntGaugeVec =
-        register_int_gauge_vec!(
-            "rpc_availability_threshold_delta",
-            "Difference between available and threshold number of servers",
-            &["chain_id"]
-        )
-        .unwrap();
-}
+pub static RPC_AVAILABILITY_THRESHOLD_DELTA: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "rpc_availability_threshold_delta",
+        "Difference between available and threshold number of servers",
+        &["chain_id"]
+    )
+    .expect("register rpc_availability_threshold_delta")
+});
 
 #[derive(Clone)]
 pub struct Observer {
@@ -37,14 +35,16 @@ pub struct Observer {
 }
 
 impl Observer {
+    #[must_use]
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Self {
         Self {
             configs,
-            shutdown_token: Default::default(),
-            client: Default::default(),
+            shutdown_token: CancellationToken::default(),
+            client: Client::default(),
         }
     }
 
+    #[must_use]
     pub fn start_checker(self: Arc<Self>) -> tokio::task::JoinHandle<()> {
         let token = self.shutdown_token.child_token();
 
@@ -52,7 +52,7 @@ impl Observer {
             let mut interval = tokio::time::interval(METRICS_EVALUATION_INTERVAL);
             loop {
                 tokio::select! {
-                    _ = token.cancelled() => {
+                    () = token.cancelled() => {
                         tracing::info!("Availability checker shutting down");
                         break;
                     }
@@ -89,9 +89,10 @@ impl Observer {
                 }
             }
 
+            #[allow(clippy::cast_possible_wrap)]
             RPC_AVAILABILITY_THRESHOLD_DELTA
                 .with_label_values(&[&chain_label])
-                .set(available_serveres - config.threshold as i64)
+                .set(available_serveres - config.threshold as i64);
         }
         Ok(())
     }

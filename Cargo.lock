@@ -1663,12 +1663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2164,7 +2158,6 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "clap",
- "dotenv",
  "num_cpus",
  "prometheus",
  "serde",
@@ -2173,7 +2166,6 @@ dependencies = [
  "tracing-actix-web",
  "tracing-subscriber",
  "utoipa",
- "utoipa-actix-web",
  "utoipa-swagger-ui",
 ]
 
@@ -2193,8 +2185,6 @@ dependencies = [
  "hex",
  "hot-validation-primitives",
  "hot-validation-rpc-healthcheck",
- "lazy_static",
- "once_cell",
  "primitive-types 0.13.1",
  "prometheus",
  "rand 0.9.2",
@@ -2257,7 +2247,6 @@ dependencies = [
  "anyhow",
  "futures-util",
  "hot-validation-primitives",
- "lazy_static",
  "prometheus",
  "reqwest 0.12.22",
  "serde_json",
@@ -5150,17 +5139,6 @@ dependencies = [
  "serde",
  "serde_json",
  "utoipa-gen",
-]
-
-[[package]]
-name = "utoipa-actix-web"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7eda9c23c05af0fb812f6a177514047331dac4851a2c8e9c4b895d6d826967f"
-dependencies = [
- "actix-service",
- "actix-web",
- "utoipa",
 ]
 
 [[package]]

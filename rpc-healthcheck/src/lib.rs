@@ -41,9 +41,7 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
                 "id": 1
             })
         }
-        _ => {
-            unreachable!()
-        }
+        ChainId::Solana => unimplemented!(),
     }
 }
 
@@ -51,7 +49,7 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
 #[derive(Debug, Clone)]
 pub struct SafeUrl(String);
 
-/// We have an RPC server URL like "https://foo-bar.near-mainnet.quiknode.pro/123123".
+/// We have an RPC server URL like "<https://foo-bar.near-mainnet.quiknode.pro/123123>".
 /// We want to extract the domain part so that we can use it as a label.
 /// It will fail on something like "foo.co.uk", but that's good enough for now.
 pub(crate) fn get_two_part_domain(url: &str) -> SafeUrl {
@@ -72,8 +70,9 @@ pub struct FailedServer {
 }
 
 impl FailedServer {
-    pub fn new(server: String, error: String) -> Self {
-        let extract = get_two_part_domain(&server);
+    #[must_use]
+    pub fn new(server: &str, error: String) -> Self {
+        let extract = get_two_part_domain(server);
         Self {
             server: extract,
             error,
@@ -99,9 +98,9 @@ pub async fn healthcheck_many(
                     .timeout(TIMEOUT_DURATION)
                     .send()
                     .await
-                    .map_err(|e| FailedServer::new(server.clone(), e.to_string()))?
+                    .map_err(|e| FailedServer::new(&server, e.to_string()))?
                     .error_for_status()
-                    .map_err(|e| FailedServer::new(server.clone(), e.to_string()))?;
+                    .map_err(|e| FailedServer::new(&server, e.to_string()))?;
                 Ok(get_two_part_domain(&server))
             }
         })
@@ -122,11 +121,10 @@ mod tests {
     /// Helper: pass if any endpoint succeeds; fail with aggregated errors otherwise.
     fn assert_any_ok(results: Vec<Result<SafeUrl, FailedServer>>) -> Result<()> {
         let (oks, errs): (Vec<_>, Vec<_>) = results.into_iter().partition(Result::is_ok);
-        if !oks.is_empty() {
-            Ok(())
-        } else {
+        if oks.is_empty() {
             bail!("all endpoints failed: {}, {}", oks.len(), errs.len())
         }
+        Ok(())
     }
 
     #[tokio::test]

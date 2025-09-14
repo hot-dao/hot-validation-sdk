@@ -102,10 +102,10 @@ impl NearSingleVerifier {
             //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
             let value = value
                 .get("result")
-                .context(format!("missing result: {}", value))?;
+                .context(format!("missing result: {value}"))?;
             let value = value
                 .get("result")
-                .context(format!("missing result: {}", value))?;
+                .context(format!("missing result: {value}"))?;
             let value = serde_json::from_value::<Vec<u8>>(value.clone())?;
             Ok(value)
         } else {
@@ -129,7 +129,7 @@ impl NearSingleVerifier {
         let bytes = self.call_rpc(json).await?;
         let value = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
         let verify_result = serde_json::from_value::<HotVerifyResult>(value.clone())
-            .context(format!("Failed to deserialize verify result: {}", value))?;
+            .context(format!("Failed to deserialize verify result: {value}"))?;
         Ok(verify_result)
     }
 }
@@ -144,17 +144,16 @@ impl SingleVerifier for NearSingleVerifier {
 impl ThresholdVerifier<NearSingleVerifier> {
     pub(crate) fn new_near(
         near_validation_config: ChainValidationConfig,
-        client: Arc<reqwest::Client>,
+        client: &Arc<reqwest::Client>,
     ) -> Self {
         let threshold = near_validation_config.threshold;
         let servers = near_validation_config.servers;
-        if threshold > servers.len() {
-            panic!(
-                "There should be at least {} servers, got {}",
-                threshold,
-                servers.len()
-            )
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "There should be at least {} servers, got {}",
+            threshold,
+            servers.len()
+        );
         let callers = servers
             .iter()
             .map(|s| {
@@ -211,6 +210,7 @@ impl ThresholdVerifier<NearSingleVerifier> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::should_panic_without_expect)]
     use super::*;
     use crate::internals::{uid_to_wallet_id, AuthMethod, HOT_VERIFY_METHOD_NAME};
     use crate::ChainId;
@@ -225,7 +225,7 @@ mod tests {
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -253,7 +253,7 @@ mod tests {
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -281,7 +281,7 @@ mod tests {
         let auth_contract_id: &str = "123123.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -308,7 +308,7 @@ mod tests {
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -338,13 +338,13 @@ mod tests {
                     "https://nearrpc.aurora.dev".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -374,13 +374,13 @@ mod tests {
                     "https://hello.com".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -415,7 +415,7 @@ mod tests {
         };
 
         let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
@@ -438,7 +438,7 @@ mod tests {
         };
 
         let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
@@ -452,7 +452,7 @@ mod tests {
                     "https://nearrpc.aurora.dev".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
@@ -471,7 +471,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
@@ -488,7 +488,7 @@ mod tests {
                     "https://nearrpc.aurora.dev".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let expected = WalletAuthMethods {
@@ -507,7 +507,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[test]

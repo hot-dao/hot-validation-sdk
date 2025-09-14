@@ -8,12 +8,12 @@ use anyhow::Result;
 use clap::{Parser, arg};
 use hot_validation_primitives::ChainValidationConfig;
 use hot_validation_rpc_healthcheck::healthcheck_many;
-use tracing::{error, info, warn};
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use tracing::{error, info, warn};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -43,13 +43,13 @@ async fn main() -> Result<()> {
     let mut providers = vec![];
 
     if let Some(quicknode_api_key) = args.quicknode_api_key {
-        providers.push(Box::new(QuicknodeProvider::new(quicknode_api_key)) as Box<dyn Provider>)
+        providers.push(Box::new(QuicknodeProvider::new(quicknode_api_key)) as Box<dyn Provider>);
     } else {
         warn!("No quicknode api key provided");
     }
 
     if let Some(ankr_api_key) = args.ankr_api_key {
-        providers.push(Box::new(AnkrProvider::new(ankr_api_key)) as Box<dyn Provider>)
+        providers.push(Box::new(AnkrProvider::new(ankr_api_key)) as Box<dyn Provider>);
     } else {
         warn!("No ankr api key provided");
     }
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
         providers.push(
             Box::new(providers::alchemy::AlchemyProvider::new(alchemy_api_key))
                 as Box<dyn Provider>,
-        )
+        );
     } else {
         warn!("No alchemy api key provided");
     }
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     if let Some(infura_api_key) = args.infura_api_key {
         providers.push(
             Box::new(providers::infura::InfuraProvider::new(infura_api_key)) as Box<dyn Provider>,
-        )
+        );
     } else {
         warn!("No infura api key provided");
     }
@@ -88,11 +88,11 @@ async fn main() -> Result<()> {
     }
 
     let client = reqwest::Client::new();
-    for (chain_id, endpoints) in config.iter() {
+    for (chain_id, endpoints) in &config {
         let statuses = healthcheck_many(&client, (*chain_id).into(), endpoints)
             .await
             .into_iter()
-            .filter_map(|r| r.err())
+            .filter_map(std::result::Result::err)
             .collect::<Vec<_>>();
         if !statuses.is_empty() {
             error!("Failed to healthcheck {:?}: {:?}", chain_id, statuses);
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
 
     let config = {
         let mut data = HashMap::new();
-        for (chain_id, endpoints) in config.iter_mut() {
+        for (chain_id, endpoints) in &mut config {
             let len = endpoints.len();
             let threshold = if len > 3 { 3 } else { len };
             let validation_config = ChainValidationConfig {
