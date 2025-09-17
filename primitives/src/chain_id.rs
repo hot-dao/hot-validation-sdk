@@ -14,7 +14,7 @@ use std::fmt::Display;
     Hash,
 )]
 #[cfg_attr(
-    feature = "borsh",
+    feature = "abi",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize, borsh::BorshSchema)
 )]
 #[serde(into = "u64", from = "u64")]
