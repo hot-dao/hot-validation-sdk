@@ -17,7 +17,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct StellarSingleVerifier { // TODO: rename to StellarVerifier
+pub(crate) struct StellarSingleVerifier {
+    // TODO: rename to StellarVerifier
     client: Arc<Server>,
     server: String,
 }

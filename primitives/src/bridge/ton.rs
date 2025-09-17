@@ -30,8 +30,8 @@ pub struct TonInputData {
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 pub enum Action {
     Deposit,
-    CheckCompletedWithdrawal { 
-        nonce: String // todo: Replace with u128 wrapper
+    CheckCompletedWithdrawal {
+        nonce: String, // todo: Replace with u128 wrapper
     },
 }
 

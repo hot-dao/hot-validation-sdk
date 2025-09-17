@@ -44,8 +44,7 @@ alloy-json-abi = { workspace = true }
 primitive-types = { workspace = true, default-features = false }
 rand = { workspace = true }
 
-borsh = {  workspace = true }
+borsh = { workspace = true }
 solana-client = { workspace = true }
-solana-sdk = { workspace = true }
-solana-transaction-status = { workspace = true }
 solana-commitment-config = { workspace = true }
+solana-sdk = { workspace = true }

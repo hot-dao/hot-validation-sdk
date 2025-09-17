@@ -2,9 +2,9 @@
 //! Types for bridge validation, which include flows for deposit and withdrawal.
 
 pub mod evm;
+pub mod solana;
 pub mod stellar;
 pub mod ton;
-pub mod solana;
 
 use crate::ChainId;
 use anyhow::{Result, bail};

@@ -77,9 +77,8 @@ dependencies = [
 [tasks.quality-fix]
 description = "Auto-fix (fmt + clippy --fix), then udeps, sort, and strict clippy"
 dependencies = [
-    "fmt",
     "clippy-fix",
+    "fmt",
     "udeps",
     "cargo-toml-sort",
-    "clippy"
 ]

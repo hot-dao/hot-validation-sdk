@@ -1,18 +1,16 @@
-use std::str::FromStr;
-use std::sync::Arc;
-use borsh::{BorshDeserialize, BorshSerialize};
-use sha2::{Digest, Sha256};
-use solana_sdk::pubkey::Pubkey;
-use hot_validation_primitives::bridge::solana::{anchor, CompletedWithdrawalData, DepositData, SolanaInputData, UserAccount};
-use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::internals::{SingleVerifier, TIMEOUT};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
+use borsh::BorshDeserialize;
+use hot_validation_primitives::bridge::solana::{
+    anchor, CompletedWithdrawalData, DepositData, SolanaInputData, UserAccount,
+};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_commitment_config::CommitmentConfig;
-use solana_sdk::message::{Address, Message};
-use solana_sdk::transaction::Transaction;
-use hot_validation_primitives::ChainValidationConfig;
+use solana_sdk::message::Address;
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
@@ -44,9 +42,9 @@ impl SolanaVerifier {
     ) -> Result<()> {
         let simulation_config = Self::get_simulation_config();
         let message = deposit_data.get_message(program_id, method_name)?;
-        self
-            .client
-            .simulate_transaction_with_config(&message, simulation_config).await?;
+        self.client
+            .simulate_transaction_with_config(&message, simulation_config)
+            .await?;
         Ok(())
     }
 
@@ -57,10 +55,11 @@ impl SolanaVerifier {
     ) -> Result<()> {
         let user_pk = completed_withdrawal_data.get_user_address(program_id);
 
-        let data = self.client
+        let data = self
+            .client
             .get_account_data(&user_pk)
             .await
-            .with_context(|| format!("failed to fetch account data for {}", user_pk))?;
+            .with_context(|| format!("failed to fetch account data for {user_pk}"))?;
 
         let disc = anchor::account_discriminator("User");
         if data.len() < 8 || data[..8] != disc {
@@ -90,8 +89,14 @@ impl SolanaVerifier {
     ) -> Result<bool> {
         let program_id = Pubkey::from_str(auth_contract_id)?;
         match input {
-            SolanaInputData::Deposit(deposit_data) => self.handle_deposit(&program_id, method_name, deposit_data).await?,
-            SolanaInputData::CheckCompletedWithdrawal(completed_withdrawal_data) => self.handle_completed_withdrawal(&program_id, completed_withdrawal_data).await?,
+            SolanaInputData::Deposit(deposit_data) => {
+                self.handle_deposit(&program_id, method_name, deposit_data)
+                    .await?;
+            }
+            SolanaInputData::CheckCompletedWithdrawal(completed_withdrawal_data) => {
+                self.handle_completed_withdrawal(&program_id, completed_withdrawal_data)
+                    .await?;
+            }
         }
         Ok(true)
     }
@@ -118,34 +123,15 @@ impl SingleVerifier for SolanaVerifier {
 //     }
 // }
 
-#[derive(BorshSerialize)]
-struct HotVerifyDepositArgs {
-    msg_hash: Vec<u8>,
-    sender: Pubkey,
-    receiver: [u8; 32],
-    mint: Pubkey,
-    amount: u64,
-    nonce: u128,
-}
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use std::time::Duration;
-    use anyhow::{anyhow, Context};
-    use borsh::{BorshDeserialize, BorshSerialize};
-    use primitive_types::U128;
+    use super::SolanaVerifier;
+
+    use hot_validation_primitives::bridge::solana::{
+        CompletedWithdrawalData, DepositData, SolanaInputData,
+    };
+
     use serde_json::json;
-    use sha2::{Digest, Sha256};
-    use solana_client::nonblocking::rpc_client::RpcClient;
-    use solana_client::rpc_config::RpcSimulateTransactionConfig;
-    use solana_commitment_config::CommitmentConfig;
-    use solana_sdk::instruction::{AccountMeta, Instruction};
-    use solana_sdk::message::{Address, Message};
-    use solana_sdk::pubkey::Pubkey;
-    use solana_sdk::transaction::Transaction;
-    use hot_validation_primitives::bridge::solana::{CompletedWithdrawalData, DepositData, SolanaInputData, UserAccount};
-    use super::{SolanaVerifier};
 
     fn get_deposit_data() -> DepositData {
         let json = json!({
@@ -174,13 +160,7 @@ mod tests {
         let method_name = "hot_verify_deposit";
         let input = SolanaInputData::Deposit(get_deposit_data());
 
-        verifier
-            .verify(
-                auth_contract,
-                method_name,
-                input,
-            )
-            .await?;
+        verifier.verify(auth_contract, method_name, input).await?;
         Ok(())
     }
 
@@ -189,15 +169,11 @@ mod tests {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
         let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
         let method_name = "";
-        let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data("1749390032000000032243"));
+        let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
+            "1749390032000000032243",
+        ));
 
-        verifier
-            .verify(
-                auth_contract,
-                method_name,
-                input,
-            )
-            .await?;
+        verifier.verify(auth_contract, method_name, input).await?;
         Ok(())
     }
 
@@ -206,15 +182,11 @@ mod tests {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
         let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
         let method_name = "";
-        let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data("2749390032000000032243"));
+        let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
+            "2749390032000000032243",
+        ));
 
-        let result = verifier
-            .verify(
-                auth_contract,
-                method_name,
-                input,
-            )
-            .await;
+        let result = verifier.verify(auth_contract, method_name, input).await;
         result.expect_err("expected error");
         Ok(())
     }

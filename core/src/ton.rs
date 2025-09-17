@@ -150,7 +150,8 @@ impl ThresholdVerifier<TonSingleVerifier> {
     pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
         let threshold = config.threshold; // TODO: Check invariand, DRY
         let servers = config.servers;
-        assert!( // TODO: Remove this check, because it's not needed anymore
+        assert!(
+            // TODO: Remove this check, because it's not needed anymore
             (threshold <= servers.len()),
             "Threshold {} > servers {}",
             threshold,
