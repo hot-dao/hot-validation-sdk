@@ -70,6 +70,14 @@ tracing-actix-web = "0.7.19"
 utoipa = "5.4.0"
 utoipa-swagger-ui = "9.0.2"
 
+serde_with = "3.14.0"
+
+
+solana-client = "3.0.2"
+solana-sdk = "3.0.0"
+solana-transaction-status = "3.0.2"
+solana-commitment-config = "3.0.0"
+
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }

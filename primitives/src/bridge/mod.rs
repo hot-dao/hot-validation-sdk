@@ -4,6 +4,7 @@
 pub mod evm;
 pub mod stellar;
 pub mod ton;
+pub mod solana;
 
 use crate::ChainId;
 use anyhow::{Result, bail};

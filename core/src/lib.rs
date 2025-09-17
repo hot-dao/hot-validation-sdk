@@ -6,6 +6,7 @@ mod metrics;
 mod near;
 mod stellar;
 mod ton;
+mod solana;
 
 pub use hot_validation_primitives::*;
 
