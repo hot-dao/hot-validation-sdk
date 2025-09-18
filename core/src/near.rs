@@ -2,7 +2,7 @@ use crate::internals::{
     GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -66,9 +66,7 @@ impl NearSingleVerifier {
     }
 
     async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&ChainId::Near.to_string()])
-            .inc();
+        tick_metrics_verify_total_attempts(ChainId::Near);
         let method_args = GetWalletArgs { wallet_id };
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&method_args)?);
         let rpc_args = RpcRequest::build(
@@ -81,9 +79,7 @@ impl NearSingleVerifier {
             .await
             .context(format!("get_wallet failed when calling {}", self.server))?;
         let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
-        VERIFY_SUCCESS_ATTEMPTS
-            .with_label_values(&[&ChainId::Near.to_string()])
-            .inc();
+        tick_metrics_verify_success_attempts(ChainId::Near);
         Ok(wallet_model)
     }
 
@@ -102,10 +98,10 @@ impl NearSingleVerifier {
             //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
             let value = value
                 .get("result")
-                .context(format!("missing result: {}", value))?;
+                .context(format!("missing result: {value}"))?;
             let value = value
                 .get("result")
-                .context(format!("missing result: {}", value))?;
+                .context(format!("missing result: {value}"))?;
             let value = serde_json::from_value::<Vec<u8>>(value.clone())?;
             Ok(value)
         } else {
@@ -125,12 +121,15 @@ impl NearSingleVerifier {
     ) -> Result<HotVerifyResult> {
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(args)?);
         let rpc_args = RpcRequest::build(auth_contract_id, method_name, args_base64);
-        let json = serde_json::to_value(&rpc_args)?;
-        let bytes = self.call_rpc(json).await?;
-        let value = serde_json::from_slice::<serde_json::Value>(bytes.as_slice())?;
-        let verify_result = serde_json::from_value::<HotVerifyResult>(value.clone())
-            .context(format!("Failed to deserialize verify result: {}", value))?;
-        Ok(verify_result)
+        let rpc_args_json = serde_json::to_value(&rpc_args)?;
+        let result_bytes = self.call_rpc(rpc_args_json).await?;
+        let result_json = serde_json::from_slice::<serde_json::Value>(result_bytes.as_slice())?;
+        // There is some bs bug, where serializing from serde_json::Value doesn't work correctly
+        // with `serde_with/SerHexSeq` due to some owned bytes... so using from_slice/from_str instead.
+        let result = serde_json::from_slice::<HotVerifyResult>(result_bytes.as_slice()).context(
+            format!("Failed to deserialize verify result: {result_json}"),
+        )?;
+        Ok(result)
     }
 }
 
@@ -144,17 +143,16 @@ impl SingleVerifier for NearSingleVerifier {
 impl ThresholdVerifier<NearSingleVerifier> {
     pub(crate) fn new_near(
         near_validation_config: ChainValidationConfig,
-        client: Arc<reqwest::Client>,
+        client: &Arc<reqwest::Client>,
     ) -> Self {
         let threshold = near_validation_config.threshold;
         let servers = near_validation_config.servers;
-        if threshold > servers.len() {
-            panic!(
-                "There should be at least {} servers, got {}",
-                threshold,
-                servers.len()
-            )
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "There should be at least {} servers, got {}",
+            threshold,
+            servers.len()
+        );
         let callers = servers
             .iter()
             .map(|s| {
@@ -210,22 +208,26 @@ impl ThresholdVerifier<NearSingleVerifier> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
+    #![allow(clippy::should_panic_without_expect)]
     use super::*;
     use crate::internals::{uid_to_wallet_id, AuthMethod, HOT_VERIFY_METHOD_NAME};
     use crate::ChainId;
 
+    pub(crate) fn near_rpc() -> String {
+        dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
+    }
+
     #[tokio::test]
     async fn near_single_verifier() {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -246,14 +248,13 @@ mod tests {
     #[should_panic]
     async fn near_single_verifier_bad_wallet() {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -274,14 +275,13 @@ mod tests {
     #[should_panic]
     async fn near_single_verifier_bad_auth_contract() {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "123123.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -301,14 +301,13 @@ mod tests {
     #[tokio::test]
     async fn near_single_verifier_bad_msg_hash() -> Result<()> {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
 
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -336,15 +335,16 @@ mod tests {
                     "https://rpc.mainnet.near.org".to_string(),
                     "https://rpc.near.org".to_string(),
                     "https://nearrpc.aurora.dev".to_string(),
+                    near_rpc(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -374,13 +374,13 @@ mod tests {
                     "https://hello.com".to_string(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
         let args = VerifyArgs {
-            msg_body: "".to_string(),
+            msg_body: String::new(),
             msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
             wallet_id: Some(wallet_id),
             user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
@@ -400,8 +400,7 @@ mod tests {
     #[tokio::test]
     async fn near_single_verifier_get_wallet() {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
         let expected = WalletAuthMethods {
@@ -415,14 +414,13 @@ mod tests {
         };
 
         let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
     async fn near_single_verifier_get_wallet_with_meta() {
         let client = Arc::new(reqwest::Client::new());
-        let server_addr = "https://rpc.mainnet.near.org";
-        let rpc_caller = NearSingleVerifier::new(client, server_addr.to_string());
+        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
 
         let wallet_id =
             uid_to_wallet_id("fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496")
@@ -438,7 +436,7 @@ mod tests {
         };
 
         let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
@@ -450,9 +448,10 @@ mod tests {
                     "https://rpc.mainnet.near.org".to_string(),
                     "https://rpc.near.org".to_string(),
                     "https://nearrpc.aurora.dev".to_string(),
+                    near_rpc(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
@@ -471,14 +470,14 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[tokio::test]
     async fn threshold_verifier_get_wallet_bad_rpcs() {
         let rpc_validation = ThresholdVerifier::new_near(
             ChainValidationConfig {
-                threshold: 3,
+                threshold: 2,
                 servers: vec![
                     "https://google.com".to_string(),
                     "https://bim-bim-bom-bom.com".to_string(),
@@ -486,9 +485,10 @@ mod tests {
                     "https://hello.dev".to_string(),
                     "https://rpc.near.org".to_string(),
                     "https://nearrpc.aurora.dev".to_string(),
+                    near_rpc(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
         );
 
         let expected = WalletAuthMethods {
@@ -507,7 +507,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected)
+        assert_eq!(actual, expected);
     }
 
     #[test]

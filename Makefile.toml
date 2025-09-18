@@ -1,0 +1,84 @@
+[config]
+default_to_workspace = false
+
+# ── Setup helpers ─────────────────────────────────────────────────────────────
+[tasks._ensure-rustup-components]
+description = "Install rustfmt & clippy components if rustup is available"
+script_runner = "@shell"
+script = [
+    'if command -v rustup >/dev/null 2>&1; then rustup component add rustfmt clippy || true; fi'
+]
+
+# ── Formatting ────────────────────────────────────────────────────────────────
+[tasks.fmt]
+description = "Format Rust code with rustfmt"
+workspace = false
+dependencies = ["_ensure-rustup-components"]
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.cargo-toml-sort]
+description = "Sort dependencies/sections in Cargo.toml across the workspace"
+install_crate = { crate_name = "cargo-sort", binary = "cargo-sort" }
+command = "cargo"
+args = ["sort", "--workspace", "--grouped"]
+
+# ── Linting ──────────────────────────────────────────────────────────────────
+[tasks.clippy]
+description = "Clippy check for all targets/features (CI-safe, denies warnings)"
+workspace = false
+dependencies = ["_ensure-rustup-components"]
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--all-features",
+    "--all-targets",
+    "--locked",
+    "--",
+    "-D", "warnings"
+]
+
+[tasks.clippy-fix]
+description = "Clippy with --fix for all targets/features (local dev)"
+workspace = false
+dependencies = ["_ensure-rustup-components"]
+command = "cargo"
+args = [
+    "clippy",
+    "--workspace",
+    "--all-features",
+    "--all-targets",
+    "--locked",
+    "--fix",
+    "--allow-dirty",
+    "--",
+    "-W", "clippy::pedantic"
+]
+
+# ── Unused dependencies ──────────────────────────────────────────────────────
+[tasks.udeps]
+description = "Find unused dependencies with cargo-udeps (nightly)"
+toolchain = "nightly"
+install_crate = { crate_name = "cargo-udeps", binary = "cargo-udeps" }
+command = "cargo"
+args = ["udeps", "--workspace", "--all-targets", "--all-features"]
+
+# ── Quality aggregates ───────────────────────────────────────────────────────
+[tasks.quality-check]
+description = "Run full quality gate (fmt, clippy, udeps, Cargo.toml sort)"
+dependencies = [
+    "fmt",
+    "clippy",
+    "udeps",
+    "cargo-toml-sort"
+]
+
+[tasks.quality-fix]
+description = "Auto-fix (fmt + clippy --fix), then udeps, sort, and strict clippy"
+dependencies = [
+    "clippy-fix",
+    "fmt",
+    "udeps",
+    "cargo-toml-sort",
+]

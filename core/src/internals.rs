@@ -5,11 +5,13 @@ use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
 use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::bridge::solana::SolanaInputData;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_primitives::bridge::ton::TonInputData;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
 use rand::SeedableRng;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -19,7 +21,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
-use rand::rngs::StdRng;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -42,14 +43,15 @@ impl Validation {
         message_body: String,
         user_payload: String,
     ) -> Result<bool> {
-        let message_bs58 = hex::decode(&message_hex)
-            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
-
         #[derive(Debug, Deserialize)]
         struct MethodName {
             method: String,
         }
 
+        let message_bs58 = hex::decode(&message_hex)
+            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
+
+        // Mostly used with omni bridge workflows because there's another method name.
         let method_name = if let Some(metadata) = &auth_method.metadata {
             let method_name = serde_json::from_str::<MethodName>(metadata)?;
             method_name.method
@@ -99,11 +101,16 @@ impl Validation {
                     )
                     .await?
                 }
+                ChainId::Solana => {
+                    self.handle_solana(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
                 ChainId::Near => {
                     unimplemented!("Auth call should not lead to NEAR")
-                }
-                ChainId::Solana => {
-                    unimplemented!("Solana is not supported")
                 }
             },
             HotVerifyResult::Result(status) => status,
@@ -119,6 +126,21 @@ impl Validation {
     ) -> Result<bool> {
         let status = self
             .stellar
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Stellar failed")?;
+        Ok(status)
+    }
+
+    async fn handle_solana(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: SolanaInputData,
+    ) -> Result<bool> {
+        let status = self
+            .solana
             .clone()
             .verify(auth_contract_id, method_name, input)
             .await
@@ -202,7 +224,7 @@ impl Validation {
                 .await?
             }
             ChainId::Solana => {
-                unimplemented!("Solana is not supported")
+                unimplemented!("It's not expected to call Solana as the auth method")
             }
         };
 
@@ -259,8 +281,9 @@ pub struct VerifyArgs {
 /// An interface to a particular RPC server.
 #[async_trait] // TODO: Remove
 pub(crate) trait SingleVerifier: Send + Sync + 'static {
+    // TODO: Rename to `Verifier`
     /// An identification of the verifier (rpc endpoint). Used only for logging.
-    fn get_endpoint(&self) -> String;
+    fn get_endpoint(&self) -> String; // TODO: Can we return a reference here?
 
     fn sanitized_endpoint(&self) -> String {
         let endpoint = self.get_endpoint();
@@ -319,7 +342,7 @@ impl<T: SingleVerifier> ThresholdVerifier<T> {
 
         if !errors.is_empty() {
             tracing::warn!("threshold call encountered errors: {:?}", errors);
-        };
+        }
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
@@ -462,7 +485,7 @@ mod tests {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
-                Err(_) => Err(anyhow!("boom")),
+                Err(()) => Err(anyhow!("boom")),
             }
         }
     }

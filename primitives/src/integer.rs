@@ -1,3 +1,6 @@
+//! A helper to serialize u128 with enclosed quoutes (i.e. serialize it as a string).
+//! It's needed when dealing with NEAR JSON RPC, which handles u128 differently.
+//! This is the same as `near_sdk::U128`, but we can't import the latter because it brings `get_rand` dependency.
 use serde::{Deserialize, Deserializer, Serializer};
 use std::str::FromStr;
 
@@ -31,7 +34,7 @@ mod tests {
     }
 
     #[test]
-    fn bar() {
+    fn test_number_enclosed_with_quotes() {
         let foo = Foo { a: 123 };
         let x = serde_json::to_string(&foo).unwrap();
         assert_eq!(x, r#"{"a":"123"}"#);

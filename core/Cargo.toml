@@ -31,8 +31,6 @@ tokio-util = { workspace = true }
 
 futures-util = { workspace = true }
 
-lazy_static = { workspace = true }
-once_cell = { workspace = true }
 prometheus = { workspace = true }
 soroban-client = { workspace = true }
 
@@ -45,3 +43,10 @@ alloy-dyn-abi = { workspace = true }
 alloy-json-abi = { workspace = true }
 primitive-types = { workspace = true, default-features = false }
 rand = { workspace = true }
+
+borsh = { workspace = true }
+solana-client = { workspace = true }
+solana-commitment-config = { workspace = true }
+solana-sdk = { workspace = true }
+
+dotenv = { workspace = true }

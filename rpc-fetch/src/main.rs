@@ -1,19 +1,18 @@
 mod providers;
-mod supported_chains;
 
 use crate::providers::Provider;
 use crate::providers::ankr::AnkrProvider;
-use crate::supported_chains::ChainId;
 use anyhow::Result;
 use clap::{Parser, arg};
-use hot_validation_primitives::ChainValidationConfig;
+use hot_validation_primitives::{ChainValidationConfig, ExtendedChainId};
 use hot_validation_rpc_healthcheck::healthcheck_many;
-use log::{error, info, warn};
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use tracing::{error, info, warn};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -33,23 +32,23 @@ struct Args {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct RpcConfig(HashMap<ChainId, Vec<String>>);
+struct RpcConfig(HashMap<ExtendedChainId, Vec<String>>);
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    fmt().with_env_filter(EnvFilter::from_default_env()).init();
     let args = Args::parse();
 
     let mut providers = vec![];
 
     if let Some(quicknode_api_key) = args.quicknode_api_key {
-        providers.push(Box::new(QuicknodeProvider::new(quicknode_api_key)) as Box<dyn Provider>)
+        providers.push(Box::new(QuicknodeProvider::new(quicknode_api_key)) as Box<dyn Provider>);
     } else {
         warn!("No quicknode api key provided");
     }
 
     if let Some(ankr_api_key) = args.ankr_api_key {
-        providers.push(Box::new(AnkrProvider::new(ankr_api_key)) as Box<dyn Provider>)
+        providers.push(Box::new(AnkrProvider::new(ankr_api_key)) as Box<dyn Provider>);
     } else {
         warn!("No ankr api key provided");
     }
@@ -58,7 +57,7 @@ async fn main() -> Result<()> {
         providers.push(
             Box::new(providers::alchemy::AlchemyProvider::new(alchemy_api_key))
                 as Box<dyn Provider>,
-        )
+        );
     } else {
         warn!("No alchemy api key provided");
     }
@@ -66,12 +65,12 @@ async fn main() -> Result<()> {
     if let Some(infura_api_key) = args.infura_api_key {
         providers.push(
             Box::new(providers::infura::InfuraProvider::new(infura_api_key)) as Box<dyn Provider>,
-        )
+        );
     } else {
         warn!("No infura api key provided");
     }
 
-    let mut config: HashMap<ChainId, Vec<String>> = HashMap::new();
+    let mut config: HashMap<ExtendedChainId, Vec<String>> = HashMap::new();
 
     if let Ok(config_file) = fs::read_to_string(args.config) {
         let data: RpcConfig = serde_yaml::from_str(&config_file)?;
@@ -88,11 +87,16 @@ async fn main() -> Result<()> {
     }
 
     let client = reqwest::Client::new();
-    for (chain_id, endpoints) in config.iter() {
+    for (chain_id, endpoints) in &config {
+        info!(
+            "Healthchecking {:?}, set size {}",
+            chain_id,
+            endpoints.len()
+        );
         let statuses = healthcheck_many(&client, (*chain_id).into(), endpoints)
             .await
             .into_iter()
-            .filter_map(|r| r.err())
+            .filter_map(std::result::Result::err)
             .collect::<Vec<_>>();
         if !statuses.is_empty() {
             error!("Failed to healthcheck {:?}: {:?}", chain_id, statuses);
@@ -102,7 +106,7 @@ async fn main() -> Result<()> {
 
     let config = {
         let mut data = HashMap::new();
-        for (chain_id, endpoints) in config.iter_mut() {
+        for (chain_id, endpoints) in &mut config {
             let len = endpoints.len();
             let threshold = if len > 3 { 3 } else { len };
             let validation_config = ChainValidationConfig {

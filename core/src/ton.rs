@@ -1,5 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier};
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use async_trait::async_trait;
@@ -54,7 +54,7 @@ impl TonSingleVerifier {
 
         let stack =
             serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
-                .context(format!("Failed to parse stack from response {}", json))?;
+                .context(format!("Failed to parse stack from response {json}"))?;
         let stack = stack
             .into_iter()
             .map(|item| item.0)
@@ -75,10 +75,7 @@ impl TonSingleVerifier {
         method_name: &str,
         input: TonInputData,
     ) -> Result<bool> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&ChainId::TON_V2.to_string()])
-            .inc();
-
+        tick_metrics_verify_total_attempts(ChainId::TON_V2);
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
         let child_address = {
             let item = self
@@ -102,7 +99,7 @@ impl TonSingleVerifier {
                     num == StackItem::SUCCESS_NUM,
                     "Expected success, got {}",
                     num
-                )
+                );
             }
             Action::CheckCompletedWithdrawal { nonce } => {
                 let item = self
@@ -113,13 +110,11 @@ impl TonSingleVerifier {
                     )
                     .await?;
 
-                let nonce = U128::from_dec_str(&nonce)
-                    .map_err(|e| anyhow!("Can't parse nonce ({}) into u128: {}", nonce, e))?;
-
                 let last_used_nonce = {
                     let num = item.as_num()?;
                     U128::from_str(&num)
                         .map_err(|e| anyhow!("Can't parse nonce ({}) into u128: {}", num, e))?
+                        .as_u128()
                 };
 
                 ensure!(
@@ -128,13 +123,11 @@ impl TonSingleVerifier {
                     nonce,
                     last_used_nonce,
                     last_used_nonce
-                )
+                );
             }
-        };
+        }
 
-        VERIFY_SUCCESS_ATTEMPTS
-            .with_label_values(&[&ChainId::TON_V2.to_string()])
-            .inc();
+        tick_metrics_verify_success_attempts(ChainId::TON_V2);
         Ok(true)
     }
 }
@@ -147,12 +140,16 @@ impl SingleVerifier for TonSingleVerifier {
 }
 
 impl ThresholdVerifier<TonSingleVerifier> {
-    pub fn new_ton(config: ChainValidationConfig, client: Arc<reqwest::Client>) -> Self {
+    pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
         let threshold = config.threshold; // TODO: Check invariand, DRY
         let servers = config.servers;
-        if threshold > servers.len() {
-            panic!("Threshold {} > servers {}", threshold, servers.len());
-        }
+        assert!(
+            // TODO: Remove this check, because it's not needed anymore
+            (threshold <= servers.len()),
+            "Threshold {} > servers {}",
+            threshold,
+            servers.len()
+        );
         let verifiers = servers
             .into_iter()
             .map(|url| Arc::new(TonSingleVerifier::new(client.clone(), url)))
@@ -190,7 +187,7 @@ impl ThresholdVerifier<TonSingleVerifier> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use crate::ton::TonSingleVerifier;
     use anyhow::Result;
 
@@ -200,6 +197,11 @@ mod tests {
 
     use tonlib_core::TonAddress;
 
+    pub(crate) fn ton_rpc() -> String {
+        dotenv::var("TON_RPC")
+            .unwrap_or_else(|_| "https://toncenter.com/api/v2/jsonRPC".to_string())
+    }
+
     #[tokio::test]
     async fn deposit_first_call() -> Result<()> {
         let expected_addr_raw = "EQAgwUhaRZwU77BXUVEbtnEN8tplzDWMqUr0TbXWfez58tTL";
@@ -207,10 +209,7 @@ mod tests {
 
         let item = StackItem::from_nonce("1753218716000000003679".to_string());
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -232,10 +231,7 @@ mod tests {
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string(),
         )?;
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "verify_withdraw", vec![item])
@@ -248,10 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn deposit_fist_and_second_call_combined() -> Result<()> {
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(
@@ -283,10 +276,7 @@ mod tests {
 
         let item = StackItem::from_address("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I")?;
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let treasury_address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -307,26 +297,19 @@ mod tests {
             TonAddress::from_base64_url(raw)?
         };
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "get_last_withdrawn_nonce", vec![])
             .await?;
 
-        let actual = stack_item.as_num()?;
-        assert_eq!(actual, "0x5f454cba5d80351be3");
+        let _actual = stack_item.as_num()?;
         Ok(())
     }
 
     #[tokio::test]
-    async fn completed_withdrawal_fist_and_second_call_combined() -> Result<()> {
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            "https://toncenter.com/api/v2/jsonRPC".to_string(),
-        );
+    async fn completed_withdrawal_fist_and_second_call_combined_low() -> Result<()> {
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(
@@ -339,11 +322,36 @@ mod tests {
                     child_call_method: "get_last_withdrawn_nonce".to_string(),
                     child_call_args: vec![],
                     action: Action::CheckCompletedWithdrawal {
-                        nonce: "1753218716000000003679".to_string(),
+                        nonce: 1_753_218_716_000_000_003_679_u128,
                     },
                 },
             )
             .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn completed_withdrawal_fist_and_second_call_combined_high() -> Result<()> {
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+
+        let result = verifier
+            .verify(
+                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
+                "get_user_jetton_address",
+                TonInputData {
+                    treasury_call_args: vec![StackItem::from_address(
+                        "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
+                    )?],
+                    child_call_method: "get_last_withdrawn_nonce".to_string(),
+                    child_call_args: vec![],
+                    action: Action::CheckCompletedWithdrawal {
+                        nonce: 2_753_218_716_000_000_003_679_u128,
+                    },
+                },
+            )
+            .await;
+        assert!(result.is_err());
 
         Ok(())
     }

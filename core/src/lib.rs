@@ -1,7 +1,10 @@
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
 mod evm;
 mod internals;
 mod metrics;
 mod near;
+mod solana;
 mod stellar;
 mod ton;
 
@@ -10,6 +13,7 @@ pub use hot_validation_primitives::*;
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::near::NearSingleVerifier;
+use crate::solana::SolanaVerifier;
 use crate::stellar::StellarSingleVerifier;
 use crate::ton::TonSingleVerifier;
 use anyhow::{bail, Context, Result};
@@ -25,10 +29,12 @@ pub struct Validation {
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
     ton: Arc<ThresholdVerifier<TonSingleVerifier>>,
+    solana: Arc<ThresholdVerifier<SolanaVerifier>>,
     health_check_observer: Arc<Observer>,
 }
 
 impl Validation {
+    #[must_use]
     pub fn metrics(&self) -> Arc<Observer> {
         self.health_check_observer.clone()
     }
@@ -42,7 +48,7 @@ impl Validation {
             .clone();
 
         let near_validation = {
-            let verifier = ThresholdVerifier::new_near(near_config, client.clone());
+            let verifier = ThresholdVerifier::new_near(near_config, &client);
             Arc::new(verifier)
         };
 
@@ -63,7 +69,7 @@ impl Validation {
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
-                    let verifier = ThresholdVerifier::new_evm(config, client.clone(), id);
+                    let verifier = ThresholdVerifier::new_evm(config, &client.clone(), id);
                     Arc::new(verifier)
                 };
                 (id, threshold_verifier)
@@ -75,7 +81,15 @@ impl Validation {
                 .get(&ChainId::TON_V2)
                 .expect("No ton config (chain_id = 1117) found")
                 .clone();
-            let verifier = ThresholdVerifier::new_ton(config, client.clone());
+            let verifier = ThresholdVerifier::new_ton(config, &client);
+            Arc::new(verifier)
+        };
+
+        let solana = {
+            let config = configs
+                .get(&ChainId::Solana)
+                .expect("No solana config found");
+            let verifier = ThresholdVerifier::new_solana(config);
             Arc::new(verifier)
         };
 
@@ -86,6 +100,7 @@ impl Validation {
             evm: evm_validation,
             stellar: stellar_validation,
             ton,
+            solana,
             health_check_observer,
         };
         Ok(validation)
@@ -141,8 +156,21 @@ impl Validation {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::should_panic_without_expect)]
     use super::*;
-    use serde_json::json;
+    use crate::near::tests::near_rpc;
+    use crate::ton::tests::ton_rpc;
+    use hot_validation_primitives::bridge::{
+        Action, CompletedWithdrawal, DepositData, HotVerifyBridge,
+    };
+
+    pub(crate) fn bnb_rpc() -> String {
+        dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
+    }
+
+    pub(crate) fn base_rpc() -> String {
+        dotenv::var("BASE_RPC").unwrap_or_else(|_| "https://base.llamarpc.com".to_string())
+    }
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
@@ -151,12 +179,12 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 2,
                     servers: vec![
-                        "http://167.235.180.39:3030/".to_string(),
                         "https://rpc.near.org".to_string(),
                         "http://ffooooo-bbbaaaar:3030/".to_string(),
                         "https://nearrpc.aurora.dev".to_string(),
                         "https://1rpc.io/near".to_string(),
                         "https://allthatnode.com/protocol/near.dsrv".to_string(),
+                        near_rpc(),
                     ],
                 },
             ),
@@ -184,6 +212,7 @@ mod tests {
                     servers: vec![
                         "https://1rpc.io/base".to_string(),
                         "http://bad-rpc:8545".to_string(),
+                        base_rpc(),
                     ],
                 },
             ),
@@ -191,14 +220,24 @@ mod tests {
                 ChainId::Evm(56),
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://bsc.drpc.org".to_string()],
+                    servers: vec!["https://bsc.drpc.org".to_string(), bnb_rpc()],
                 },
             ),
             (
                 ChainId::TON_V2,
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://toncenter.com/api/v2/jsonRPC".to_string()],
+                    servers: vec![
+                        "https://toncenter.com/api/v2/jsonRPC".to_string(),
+                        ton_rpc(),
+                    ],
+                },
+            ),
+            (
+                ChainId::Solana,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
                 },
             ),
         ]);
@@ -245,7 +284,7 @@ mod tests {
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
@@ -264,12 +303,12 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 2,
                     servers: vec![
-                        "http://167.235.180.39:3030/".to_string(),
                         "https://rpc.near.org".to_string(),
                         "http://ffooooo-bbbaaaar:3030/".to_string(),
                         "https://nearrpc.aurora.dev".to_string(),
                         "https://1rpc.io/near".to_string(),
                         "https://allthatnode.com/protocol/near.dsrv".to_string(),
+                        near_rpc(),
                     ],
                 },
             ),
@@ -287,7 +326,7 @@ mod tests {
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec![
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
@@ -302,27 +341,42 @@ mod tests {
         let validation = create_validation_object();
 
         let uid = "bfe2d1d813e759844d1f0617639c986a52427a5965a1e72392cd0f6b4d556074".to_string();
-        let message = "".to_string();
+        let message = String::new();
         let proof = ProofModel {
-            message_body: "".to_string(),
+            message_body: String::new(),
             user_payloads: vec!["000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string()],
         };
 
         validation.verify(uid, message, proof).await.unwrap();
     }
 
+    /// UID for testing. It has only one auth method, which is `bridge.kuksag.tg` with `hot_verify_locker_state` method.
+    fn staging_uid() -> String {
+        "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string()
+    }
+
     #[tokio::test]
     async fn bridge_deposit_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Evm(56),
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_754_431_900_000_000_013_182,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":56,\"nonce\":\"1754431900000000013182\"}}".to_string(),
-            ],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -333,15 +387,24 @@ mod tests {
     async fn bridge_deposit_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Stellar,
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_754_531_354_365_901_458_000,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
-                    .to_string(),
-            ],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -353,15 +416,24 @@ mod tests {
     async fn bridge_deposit_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let uid = staging_uid();
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::TON_V2,
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_753_218_716_000_000_003_679,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":1117,\"nonce\":\"1753218716000000003679\"}}"
-                    .to_string(),
-            ],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -373,21 +445,21 @@ mod tests {
     async fn bridge_withdraw_removal_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let uid = staging_uid();
         let message =
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::TON_V2,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_753_218_716_000_000_003_679,
+                receiver_address: "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![json!({
-                "ClearCompletedWithdrawal": {
-                    "Ton": {
-                        "user_ton_address": "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
-                        "chain_id": 1117,
-                        "nonce": "1753218716000000003679",
-                    }
-                }
-            })
-            .to_string()],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -399,21 +471,22 @@ mod tests {
     async fn bridge_withdraw_removal_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
 
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Stellar,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_754_631_474_000_000_070_075,
+                receiver_address: "dontcare".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![r#"
-                    {
-                      "Withdraw": {
-                        "chain_id": 1100,
-                        "nonce": "1754631474000000070075"
-                      }
-                    }
-                "#
-            .to_string()],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -425,21 +498,54 @@ mod tests {
     async fn bridge_withdraw_removal_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a".to_string();
 
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Evm(56),
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_754_790_996_000_000_073_027,
+                receiver_address: "dontcare".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
-            message_body: "".to_string(),
-            user_payloads: vec![r#"
-                    {
-                      "Withdraw": {
-                        "chain_id": 56,
-                        "nonce": "1754790996000000073027"
-                      }
-                    }
-                "#
-            .to_string()],
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_deposit_validation_solana() -> Result<()> {
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_completed_withdrawal_validation_solana() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = staging_uid();
+        let message =
+            "170a154a02aa91beb4b2d29175028d8684ee38585b418f36600cdeeb6ca05a1c".to_string();
+
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Solana,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_749_390_032_000_000_032_243,
+                receiver_address: "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
+        let proof = ProofModel {
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;

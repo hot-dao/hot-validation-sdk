@@ -1,7 +1,7 @@
-use crate::providers::Provider;
-use crate::supported_chains::{ChainId, SlugFromChainId};
+use crate::providers::{Provider, SlugFromChainId};
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
+use hot_validation_primitives::ExtendedChainId;
 use serde::Deserialize;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
@@ -17,24 +17,26 @@ impl QuicknodeProvider {
 }
 
 impl SlugFromChainId for QuicknodeProvider {
-    fn slug(chain_id: ChainId) -> Option<String> {
+    fn slug(chain_id: ExtendedChainId) -> Option<String> {
         match chain_id {
-            ChainId::Near => Some("near-mainnet".to_string()),
-            ChainId::Eth => None, // has to return base endpoint
-            ChainId::Optimism => Some("optimism".to_string()),
-            ChainId::Bsc => Some("bsc".to_string()),
-            ChainId::Polygon => Some("matic".to_string()),
-            ChainId::MonadTestnet => Some("monad-testnet".to_string()),
-            ChainId::ZkSync => Some("zksync-mainnet".to_string()),
-            ChainId::Stellar => Some("stellar-mainnet".to_string()),
-            ChainId::Base => Some("base-mainnet".to_string()),
-            ChainId::Arbitrum => Some("arbitrum-mainnet".to_string()),
-            ChainId::Avax => Some("avalanche-mainnet".to_string()),
-            ChainId::BeraChain => Some("bera-mainnet".to_string()),
-            ChainId::Scroll => Some("scroll-mainnet".to_string()),
-            ChainId::Ton => Some("ton-mainnet".to_string()),
+            ExtendedChainId::Near => Some("near-mainnet".to_string()),
+            ExtendedChainId::Optimism => Some("optimism".to_string()),
+            ExtendedChainId::Bsc => Some("bsc".to_string()),
+            ExtendedChainId::Polygon => Some("matic".to_string()),
+            ExtendedChainId::MonadTestnet => Some("monad-testnet".to_string()),
+            ExtendedChainId::ZkSync => Some("zksync-mainnet".to_string()),
+            ExtendedChainId::Stellar => Some("stellar-mainnet".to_string()),
+            ExtendedChainId::Base => Some("base-mainnet".to_string()),
+            ExtendedChainId::Arbitrum => Some("arbitrum-mainnet".to_string()),
+            ExtendedChainId::Avax => Some("avalanche-mainnet".to_string()),
+            ExtendedChainId::BeraChain => Some("bera-mainnet".to_string()),
+            ExtendedChainId::Scroll => Some("scroll-mainnet".to_string()),
+            ExtendedChainId::Ton => Some("ton-mainnet".to_string()),
+            ExtendedChainId::Solana => Some("solana-mainnet".to_string()),
 
-            ChainId::Kava | ChainId::Aurora => None,
+            ExtendedChainId::Eth | // has to return base endpoint
+            ExtendedChainId::Kava |
+            ExtendedChainId::Aurora => None,
         }
     }
 }
@@ -92,18 +94,18 @@ impl QuicknodeProvider {
 
 #[async_trait]
 impl Provider for QuicknodeProvider {
-    async fn fetch_endpoints(&self) -> Result<HashMap<ChainId, String>> {
+    async fn fetch_endpoints(&self) -> Result<HashMap<ExtendedChainId, String>> {
         let base_ep = self.get_eth_mainnet_endpoint().await?;
         let mut map = HashMap::new();
 
-        for chain in ChainId::iter() {
-            if matches!(chain, ChainId::Eth) {
+        for chain in ExtendedChainId::iter() {
+            if matches!(chain, ExtendedChainId::Eth) {
                 map.insert(chain, base_ep.clone());
             } else if let Some(slug) = Self::slug(chain) {
                 let mut ep = base_ep.replace(".quiknode.pro", &format!(".{slug}.quiknode.pro"));
-                if matches!(chain, ChainId::Avax) {
+                if matches!(chain, ExtendedChainId::Avax) {
                     ep += "ext/bc/C/rpc";
-                } else if matches!(chain, ChainId::Ton) {
+                } else if matches!(chain, ExtendedChainId::Ton) {
                     ep += "jsonRPC";
                 }
                 map.insert(chain, ep.clone());

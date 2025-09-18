@@ -34,6 +34,7 @@ impl From<EvmInputArg> for DynSolValue {
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Eq, PartialEq, Hash, Clone)]
+#[serde(transparent)]
 pub struct EvmInputData(pub Vec<EvmInputArg>);
 
 impl EvmInputData {
@@ -50,5 +51,71 @@ impl EvmInputData {
 impl From<EvmInputData> for Vec<DynSolValue> {
     fn from(data: EvmInputData) -> Self {
         data.0.into_iter().map(DynSolValue::from).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::bridge::evm::{EvmInputArg, EvmInputData};
+    use crate::bridge::{HotVerifyAuthCall, HotVerifyResult};
+    use serde_json::json;
+
+    #[test]
+    fn bytes_and_bytes32_take_0x_hex() {
+        // bytes
+        let v: super::EvmInputArg =
+            serde_json::from_str(r#"{ "type":"bytes", "value":"0x74657374" }"#).unwrap();
+        if let super::EvmInputArg::Bytes(b) = v {
+            assert_eq!(b, b"test");
+        } else {
+            panic!()
+        }
+
+        // bytes32 (short -> ok, will be padded later when converting to DynSolValue)
+        let v: super::EvmInputArg =
+            serde_json::from_str(r#"{ "type":"bytes32", "value":"0x74657374" }"#).unwrap();
+        if let super::EvmInputArg::FixedBytes(b) = v {
+            assert_eq!(b, b"test");
+        } else {
+            panic!()
+        }
+    }
+
+    #[test]
+    fn check_evm_bridge_validation_format() {
+        let input = r#"[{"type":"bytes32","value":"0x00"}]"#;
+        let _input: Vec<EvmInputArg> = serde_json::from_str(input).unwrap();
+
+        let input = json!([
+         {
+           "type": "bytes32",
+           "value": "0x74657374"
+         },
+         {
+           "type": "bytes",
+           "value": "0x5075766b334752376276426d4a71673253647a73344432414647415733725871396977704a7261426b474a"
+         },
+         {
+           "type": "bytes",
+           "value": "0x000000000000000000000000000000000000000000000000000000000001d97c00"
+         },
+         {
+           "type": "bytes",
+           "value": "0x00"
+         }
+        ]);
+
+        serde_json::from_str::<Vec<EvmInputArg>>(&input.to_string()).unwrap();
+        serde_json::from_str::<EvmInputData>(&input.clone().to_string()).unwrap();
+
+        let x = json!({
+            "chain_id": 56,
+            "contract_id": "0x233c5370CCfb3cD7409d9A3fb98ab94dE94Cb4Cd",
+            "input": input,
+            "method": "hot_verify"
+        });
+        serde_json::from_str::<HotVerifyAuthCall>(&x.to_string()).unwrap();
+        serde_json::from_str::<HotVerifyResult>(&x.to_string()).unwrap();
     }
 }

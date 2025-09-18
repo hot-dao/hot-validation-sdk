@@ -5,7 +5,7 @@
 //!     3. We call the child contract to verify the proof.
 //! This is because there's no developer-friendly hash-map support on TON at the moment.
 //!
-//! This logic implements TOP API V2 data format for `runGetMethod`: https://toncenter.com/api/v2/
+//! This logic implements TOP API V2 data format for `runGetMethod`: <https://toncenter.com/api/v2>/
 
 use anyhow::Context;
 use base64::Engine;
@@ -30,7 +30,11 @@ pub struct TonInputData {
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 pub enum Action {
     Deposit,
-    CheckCompletedWithdrawal { nonce: String },
+    CheckCompletedWithdrawal {
+        #[serde(with = "crate::integer::u128_string")]
+        #[schemars(with = "String")]
+        nonce: u128,
+    },
 }
 
 #[derive(Debug, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
@@ -95,6 +99,7 @@ impl Serialize for SerializableCell {
 }
 
 impl StackItem {
+    #[must_use]
     pub fn from_nonce(nonce: String) -> Self {
         StackItem::Num(nonce)
     }
@@ -159,7 +164,7 @@ impl<'de> Deserialize<'de> for ResponseStackItem {
                 };
 
                 if expected.data() != actual.data() {
-                    Err(de::Error::custom("cell data mismatch"))?
+                    Err(de::Error::custom("cell data mismatch"))?;
                 }
                 match tag.as_str() {
                     "cell" => Ok(ResponseStackItem(StackItem::Cell(actual))),

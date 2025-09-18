@@ -1,5 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::ChainValidationConfig;
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::ChainId;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -46,7 +45,7 @@ pub const HOT_VERIFY_EVM_ABI: &str = r#"
 "#;
 
 // Initialize the Interface once
-static INTERFACE: Lazy<Interface> = Lazy::new(|| {
+static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
     let abi: JsonAbi =
         serde_json::from_str(HOT_VERIFY_EVM_ABI).expect("Invalid JSON ABI for hot_verify");
     Interface::new(abi)
@@ -70,7 +69,7 @@ impl RpcRequest {
         }
     }
 
-    pub fn build_eth_call(call_obj: Value, block_number: u64) -> Self {
+    pub fn build_eth_call(call_obj: &Value, block_number: u64) -> Self {
         RpcRequest {
             jsonrpc: "2.0".into(),
             id: "dontcare".into(),
@@ -107,9 +106,7 @@ impl EvmSingleVerifier {
 
         if resp.status().is_success() {
             let v: Value = resp.json().await?;
-            let result = v
-                .get("result")
-                .context(format!("missing result: {:?}", v))?;
+            let result = v.get("result").context(format!("missing result: {v:?}"))?;
             serde_json::from_value(result.clone())
                 .context("Failed to parse RPC result as hex string")
         } else {
@@ -131,17 +128,15 @@ impl EvmSingleVerifier {
     async fn verify(
         &self,
         auth_contract_id: &str,
-        method_name: String,
+        method_name: &str,
         input: EvmInputData,
     ) -> Result<bool> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&self.chain_id.to_string()])
-            .inc();
+        tick_metrics_verify_total_attempts(self.chain_id);
         let block_number = self.get_block_number().await?;
 
         let args: Vec<DynSolValue> = From::from(input);
 
-        let data = INTERFACE.encode_input(&method_name, &args)?;
+        let data = INTERFACE.encode_input(method_name, &args)?;
         let data_hex = format!("0x{}", hex::encode(data));
 
         // Build and send RPC request
@@ -153,7 +148,7 @@ impl EvmSingleVerifier {
         // so taking some delta from the latest block is good enough.
         let actual_block_number = block_number.checked_sub(2).expect("block number underflow");
 
-        let rpc = RpcRequest::build_eth_call(call_obj, actual_block_number);
+        let rpc = RpcRequest::build_eth_call(&call_obj, actual_block_number);
         let raw = self.call_rpc(&rpc).await?;
         let bytes = hex::decode(raw.trim_start_matches("0x"))?;
 
@@ -161,9 +156,7 @@ impl EvmSingleVerifier {
         let out = INTERFACE.decode_output("hot_verify", &bytes)?;
         if let Some(DynSolValue::Bool(b)) = out.first() {
             // TODO: replace checks with `ensure` and do return without conditions
-            VERIFY_SUCCESS_ATTEMPTS
-                .with_label_values(&[&self.chain_id.to_string()])
-                .inc();
+            tick_metrics_verify_success_attempts(self.chain_id);
             Ok(*b)
         } else {
             Err(anyhow::anyhow!("Unexpected output type"))
@@ -181,14 +174,17 @@ impl SingleVerifier for EvmSingleVerifier {
 impl ThresholdVerifier<EvmSingleVerifier> {
     pub fn new_evm(
         config: ChainValidationConfig,
-        client: Arc<reqwest::Client>,
+        client: &Arc<reqwest::Client>,
         chain_id: ChainId,
     ) -> Self {
         let threshold = config.threshold;
         let servers = config.servers;
-        if threshold > servers.len() {
-            panic!("Threshold {} > servers {}", threshold, servers.len());
-        }
+        assert!(
+            (threshold <= servers.len()),
+            "Threshold {} > servers {}",
+            threshold,
+            servers.len()
+        );
         let verifiers = servers
             .into_iter()
             .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url, chain_id)))
@@ -211,7 +207,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
             let method_name = method_name.to_string();
             Box::pin(async move {
                 verifier
-                    .verify(&auth, method_name, input)
+                    .verify(&auth, &method_name, input)
                     .await
                     .context(format!(
                         "Error calling evm `verify` with {}",
@@ -227,9 +223,9 @@ impl ThresholdVerifier<EvmSingleVerifier> {
 mod tests {
     use crate::evm::EvmInputData;
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
+    use crate::tests::base_rpc;
     use crate::ChainValidationConfig;
     use anyhow::Result;
-    use hot_validation_primitives::bridge::HotVerifyAuthCall;
     use hot_validation_primitives::ChainId;
     use std::sync::Arc;
 
@@ -252,9 +248,10 @@ mod tests {
                     "http://localhost:1000".to_string(),
                     "https://1rpc.io/base".to_string(),
                     "http://localhost:1000".to_string(),
+                    base_rpc(),
                 ],
             },
-            Arc::new(reqwest::Client::new()),
+            &Arc::new(reqwest::Client::new()),
             ChainId::Evm(8453),
         );
 
@@ -266,34 +263,5 @@ mod tests {
             )
             .await?;
         Ok(())
-    }
-
-    #[test]
-    fn check_evm_bridge_validation_format() {
-        let x = r#"{
-        "chain_id": 56,
-        "contract_id": "0x233c5370CCfb3cD7409d9A3fb98ab94dE94Cb4Cd",
-        "input": [
-         {
-           "type": "bytes32",
-           "value": "0x74657374"
-         },
-         {
-           "type": "bytes",
-           "value": "0x5075766b334752376276426d4a71673253647a73344432414647415733725871396977704a7261426b474a"
-         },
-         {
-           "type": "bytes",
-           "value": "0x000000000000000000000000000000000000000000000000000000000001d97c00"
-         },
-         {
-           "type": "bytes",
-           "value": "0x"
-         }
-        ],
-        "method": "hot_verify"
-        }"#
-            .to_string();
-        serde_json::from_str::<HotVerifyAuthCall>(&x).unwrap();
     }
 }
