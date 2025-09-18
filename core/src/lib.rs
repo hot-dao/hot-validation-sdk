@@ -205,7 +205,10 @@ mod tests {
                 ChainId::TON_V2,
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://toncenter.com/api/v2/jsonRPC".to_string()],
+                    servers: vec![
+                        "https://toncenter.com/api/v2/jsonRPC".to_string(),
+                        ton_rpc()
+                    ],
                 },
             ),
         ]);

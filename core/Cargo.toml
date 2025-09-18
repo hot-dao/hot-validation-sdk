@@ -48,3 +48,5 @@ borsh = { workspace = true }
 solana-client = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
+
+dotenv = { workspace = true }
