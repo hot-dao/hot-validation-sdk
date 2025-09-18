@@ -128,7 +128,9 @@ impl NearSingleVerifier {
         let rpc_args_json = serde_json::to_value(&rpc_args)?;
         let result_bytes = self.call_rpc(rpc_args_json).await?;
         let result_json = serde_json::from_slice::<serde_json::Value>(result_bytes.as_slice())?;
-        let result = serde_json::from_value::<HotVerifyResult>(result_json.clone())
+        // There is some bs bug, where serializing from serde_json::Value doesn't work correctly
+        // with `serde_with/SerHexSeq` due to some owned bytes... so using from_slice/from_str instead.
+        let result = serde_json::from_slice::<HotVerifyResult>(result_bytes.as_slice())
             .context(format!("Failed to deserialize verify result: {result_json}"))?;
         Ok(result)
     }

@@ -442,9 +442,11 @@ mod tests {
             message_body: String::new(),
             user_payloads: vec![r#"
                     {
-                      "Withdraw": {
-                        "chain_id": 1100,
-                        "nonce": "1754631474000000070075"
+                      "ClearCompletedWithdrawal": {
+                        "Default": {
+                            "chain_id": 1100,
+                            "nonce": "1754631474000000070075"
+                          }
                       }
                     }
                 "#
@@ -468,9 +470,11 @@ mod tests {
             message_body: String::new(),
             user_payloads: vec![r#"
                     {
-                      "Withdraw": {
-                        "chain_id": 56,
-                        "nonce": "1754790996000000073027"
+                      "ClearCompletedWithdrawal": {
+                        "Default": {
+                            "chain_id": 56,
+                            "nonce": "1754790996000000073027"
+                          }
                       }
                     }
                 "#

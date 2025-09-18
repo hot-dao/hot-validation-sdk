@@ -74,11 +74,8 @@ mod tests {
 
     #[test]
     fn check_evm_bridge_validation_format() {
-        let input = json!([
-          { "type": "bytes32", "value": "0x00" }
-        ]);
-        serde_json::from_value::<Vec<EvmInputArg>>(input).unwrap();
-
+        let input = r#"[{"type":"bytes32","value":"0x00"}]"#;
+        let input: Vec<EvmInputArg> = serde_json::from_str(input).unwrap();
 
         let input = json!([
          {
@@ -99,8 +96,8 @@ mod tests {
          }
         ]);
 
-        serde_json::from_value::<Vec<EvmInputArg>>(input.clone()).unwrap();
-        serde_json::from_value::<EvmInputData>(input.clone()).unwrap();
+        serde_json::from_str::<Vec<EvmInputArg>>(&input.to_string()).unwrap();
+        serde_json::from_str::<EvmInputData>(&input.clone().to_string()).unwrap();
 
         let x = json!({
             "chain_id": 56,
@@ -108,7 +105,7 @@ mod tests {
             "input": input,
             "method": "hot_verify"
         });
-        serde_json::from_value::<HotVerifyAuthCall>(x.clone()).unwrap();
-        serde_json::from_value::<HotVerifyResult>(x).unwrap();
+        serde_json::from_str::<HotVerifyAuthCall>(&x.to_string()).unwrap();
+        serde_json::from_str::<HotVerifyResult>(&x.to_string()).unwrap();
     }
 }
