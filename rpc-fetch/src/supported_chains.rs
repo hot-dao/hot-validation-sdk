@@ -13,6 +13,7 @@ pub enum ChainId {
     Polygon = 137,
     MonadTestnet = 143,
     ZkSync = 324,
+    Solana = 1001,
     Stellar = 1100,
     Ton = 1117,
     Kava = 2222,
@@ -29,6 +30,8 @@ impl From<ChainId> for hot_validation_primitives::ChainId {
         match value {
             ChainId::Near => hot_validation_primitives::ChainId::Near,
             ChainId::Stellar => hot_validation_primitives::ChainId::Stellar,
+            ChainId::Solana => hot_validation_primitives::ChainId::Solana,
+            ChainId::Ton => hot_validation_primitives::ChainId::TON_V2,
             _ => hot_validation_primitives::ChainId::Evm(value.into()),
         }
     }
@@ -49,7 +52,7 @@ impl TryFrom<u64> for ChainId {
     fn try_from(v: u64) -> Result<Self, Self::Error> {
         use ChainId::{
             Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Kava, MonadTestnet, Near, Optimism,
-            Polygon, Scroll, Stellar, Ton, ZkSync,
+            Polygon, Scroll, Solana, Stellar, Ton, ZkSync,
         };
         Ok(match v {
             0 => Near,
@@ -59,6 +62,7 @@ impl TryFrom<u64> for ChainId {
             137 => Polygon,
             143 => MonadTestnet,
             324 => ZkSync,
+            1001 => Solana,
             1100 => Stellar,
             1117 => Ton,
             2222 => Kava,

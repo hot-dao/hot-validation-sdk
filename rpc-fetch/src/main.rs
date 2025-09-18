@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tracing::{error, info, warn};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -37,7 +38,7 @@ struct RpcConfig(HashMap<ChainId, Vec<String>>);
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    fmt().with_env_filter(EnvFilter::from_default_env()).init();
     let args = Args::parse();
 
     let mut providers = vec![];
@@ -89,6 +90,11 @@ async fn main() -> Result<()> {
 
     let client = reqwest::Client::new();
     for (chain_id, endpoints) in &config {
+        info!(
+            "Healthchecking {:?}, set size {}",
+            chain_id,
+            endpoints.len()
+        );
         let statuses = healthcheck_many(&client, (*chain_id).into(), endpoints)
             .await
             .into_iter()

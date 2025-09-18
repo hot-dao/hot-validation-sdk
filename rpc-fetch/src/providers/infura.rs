@@ -33,6 +33,7 @@ impl SlugFromChainId for InfuraProvider {
             | ChainId::Kava
             | ChainId::BeraChain
             | ChainId::Aurora
+            | ChainId::Solana
             | ChainId::Ton => None,
         }
     }

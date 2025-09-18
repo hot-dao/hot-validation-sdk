@@ -32,6 +32,7 @@ impl SlugFromChainId for QuicknodeProvider {
             ChainId::BeraChain => Some("bera-mainnet".to_string()),
             ChainId::Scroll => Some("scroll-mainnet".to_string()),
             ChainId::Ton => Some("ton-mainnet".to_string()),
+            ChainId::Solana => Some("solana-mainnet".to_string()),
 
             ChainId::Eth | // has to return base endpoint
             ChainId::Kava |

@@ -33,6 +33,13 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
             "id": "dontcare",
             "jsonrpc": "2.0"
         }),
+        ChainId::Solana => {
+            json!({
+              "jsonrpc":"2.0",
+              "id":1,
+              "method":"getBlockHeight"
+            })
+        }
         ChainId::Evm(_) => {
             json!({
                 "jsonrpc": "2.0",
@@ -41,7 +48,6 @@ fn build_payload(chain_id: ChainId) -> serde_json::Value {
                 "id": 1
             })
         }
-        ChainId::Solana => unimplemented!(),
     }
 }
 
@@ -168,6 +174,14 @@ mod tests {
             "https://mainnet.optimism.io".to_string(),
         ];
         let results = healthcheck_many(&client, ChainId::Evm(10), &servers).await;
+        assert_any_ok(results)
+    }
+
+    #[tokio::test]
+    async fn solana_healthcheck_many() -> Result<()> {
+        let client = Client::new();
+        let servers = vec!["https://api.mainnet-beta.solana.com".to_string()];
+        let results = healthcheck_many(&client, ChainId::Solana, &servers).await;
         assert_any_ok(results)
     }
 }

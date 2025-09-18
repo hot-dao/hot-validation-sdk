@@ -1,6 +1,6 @@
 [tasks.test]
 env_files = ["tests-data/env"]
-env = { "RUST_LOG" = "DEBUG" }
+env = { "RUST_LOG" = "INFO" }
 command = "cargo"
 args = [
   "run",

@@ -30,8 +30,10 @@ impl SlugFromChainId for AnkrProvider {
             ChainId::Avax => Some("avalanche".to_string()),
             ChainId::Scroll => Some("scroll".to_string()),
             ChainId::Ton => Some("premium-http/ton_api_v2".to_string()),
+            ChainId::Solana => Some("solana".to_string()),
+            ChainId::Kava => Some("kava_rpc".to_string()),
 
-            ChainId::Near | ChainId::Kava | ChainId::BeraChain | ChainId::Aurora => None,
+            ChainId::Near | ChainId::BeraChain | ChainId::Aurora => None,
         }
     }
 }
