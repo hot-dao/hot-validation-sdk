@@ -31,7 +31,9 @@ pub struct TonInputData {
 pub enum Action {
     Deposit,
     CheckCompletedWithdrawal {
-        nonce: String, // todo: Replace with u128 wrapper
+        #[serde(with = "crate::integer::u128_string")]
+        #[schemars(with = "String")]
+        nonce: u128,
     },
 }
 

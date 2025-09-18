@@ -113,13 +113,11 @@ impl TonSingleVerifier {
                     )
                     .await?;
 
-                let nonce = U128::from_dec_str(&nonce)
-                    .map_err(|e| anyhow!("Can't parse nonce ({}) into u128: {}", nonce, e))?;
-
                 let last_used_nonce = {
                     let num = item.as_num()?;
                     U128::from_str(&num)
                         .map_err(|e| anyhow!("Can't parse nonce ({}) into u128: {}", num, e))?
+                        .as_u128()
                 };
 
                 ensure!(
@@ -315,7 +313,7 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn completed_withdrawal_fist_and_second_call_combined() -> Result<()> {
+    async fn completed_withdrawal_fist_and_second_call_combined_low() -> Result<()> {
         let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
@@ -329,11 +327,36 @@ pub(crate) mod tests {
                     child_call_method: "get_last_withdrawn_nonce".to_string(),
                     child_call_args: vec![],
                     action: Action::CheckCompletedWithdrawal {
-                        nonce: "1753218716000000003679".to_string(),
+                        nonce: 1_753_218_716_000_000_003_679_u128,
                     },
                 },
             )
             .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn completed_withdrawal_fist_and_second_call_combined_high() -> Result<()> {
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+
+        let result = verifier
+            .verify(
+                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
+                "get_user_jetton_address",
+                TonInputData {
+                    treasury_call_args: vec![StackItem::from_address(
+                        "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
+                    )?],
+                    child_call_method: "get_last_withdrawn_nonce".to_string(),
+                    child_call_args: vec![],
+                    action: Action::CheckCompletedWithdrawal {
+                        nonce: 2_753_218_716_000_000_003_679_u128,
+                    },
+                },
+            )
+            .await;
+        assert!(result.is_err());
 
         Ok(())
     }
