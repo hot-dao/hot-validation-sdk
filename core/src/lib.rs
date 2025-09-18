@@ -159,9 +159,14 @@ impl Validation {
 mod tests {
     #![allow(clippy::should_panic_without_expect)]
     use super::*;
-    use serde_json::json;
     use crate::near::tests::near_rpc;
     use crate::ton::tests::ton_rpc;
+    use serde_json::json;
+
+    pub(crate) fn bnb_rpc() -> String {
+        dotenv::var("BNB_RPC")
+            .unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
+    }
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
@@ -210,7 +215,10 @@ mod tests {
                 ChainId::Evm(56),
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://bsc.drpc.org".to_string()],
+                    servers: vec![
+                        "https://bsc.drpc.org".to_string(),
+                        bnb_rpc(),
+                    ],
                 },
             ),
             (
@@ -219,7 +227,7 @@ mod tests {
                     threshold: 1,
                     servers: vec![
                         "https://toncenter.com/api/v2/jsonRPC".to_string(),
-                        ton_rpc()
+                        ton_rpc(),
                     ],
                 },
             ),
@@ -227,8 +235,7 @@ mod tests {
                 ChainId::Solana,
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec![
-                        "https://api.mainnet-beta.solana.com".to_string()],
+                    servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
                 },
             ),
         ]);
