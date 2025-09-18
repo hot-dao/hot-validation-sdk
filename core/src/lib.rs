@@ -148,6 +148,7 @@ mod tests {
     #![allow(clippy::should_panic_without_expect)]
     use super::*;
     use serde_json::json;
+    use crate::ton::tests::ton_rpc;
 
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
@@ -156,12 +157,12 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 2,
                     servers: vec![
-                        "http://167.235.180.39:3030/".to_string(),
                         "https://rpc.near.org".to_string(),
                         "http://ffooooo-bbbaaaar:3030/".to_string(),
                         "https://nearrpc.aurora.dev".to_string(),
                         "https://1rpc.io/near".to_string(),
                         "https://allthatnode.com/protocol/near.dsrv".to_string(),
+                        near_rpc(),
                     ],
                 },
             ),
@@ -269,12 +270,12 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 2,
                     servers: vec![
-                        "http://167.235.180.39:3030/".to_string(),
                         "https://rpc.near.org".to_string(),
                         "http://ffooooo-bbbaaaar:3030/".to_string(),
                         "https://nearrpc.aurora.dev".to_string(),
                         "https://1rpc.io/near".to_string(),
                         "https://allthatnode.com/protocol/near.dsrv".to_string(),
+                        near_rpc(),
                     ],
                 },
             ),
