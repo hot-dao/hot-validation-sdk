@@ -112,6 +112,19 @@ pub struct CompletedWithdrawal {
     pub receiver_address: String,
 }
 
+impl CompletedWithdrawal {
+    /// Note: This challenge binds the omni bridge nonce, thus we don't have to bind any other data
+    /// to avoid collisions.
+    #[must_use]
+    pub fn build_challenge_for_removal(nonce: u128) -> [u8; 32] {
+        let mut stream = RlpStream::new_list(2);
+        stream.append(&b"CLEAR_HOT_BRIDGE_NONCE".to_vec());
+        stream.append(&nonce.to_be_bytes().as_ref());
+        let data = stream.out();
+        sha2::Sha256::digest(&data).into()
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(untagged)] // for back compatability reasons, because there's at first there was a `bool` option only
@@ -158,5 +171,24 @@ impl HotVerifyResult {
                 bail!("Expected result, got auth call")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::bridge::CompletedWithdrawal;
+    use rlp::RlpStream;
+    use sha2::Digest;
+
+    #[test]
+    fn completed_withdrawal_challenge_consistency() {
+        let nonce = 42u128;
+        let mut stream = RlpStream::new_list(2);
+        stream.append(&b"CLEAR_HOT_BRIDGE_NONCE".to_vec());
+        stream.append(&nonce.to_be_bytes().as_ref());
+        let expected = sha2::Sha256::digest(stream.out());
+
+        let actual = CompletedWithdrawal::build_challenge_for_removal(nonce);
+        assert_eq!(expected.as_slice(), actual.as_slice());
     }
 }
