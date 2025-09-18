@@ -130,8 +130,9 @@ impl NearSingleVerifier {
         let result_json = serde_json::from_slice::<serde_json::Value>(result_bytes.as_slice())?;
         // There is some bs bug, where serializing from serde_json::Value doesn't work correctly
         // with `serde_with/SerHexSeq` due to some owned bytes... so using from_slice/from_str instead.
-        let result = serde_json::from_slice::<HotVerifyResult>(result_bytes.as_slice())
-            .context(format!("Failed to deserialize verify result: {result_json}"))?;
+        let result = serde_json::from_slice::<HotVerifyResult>(result_bytes.as_slice()).context(
+            format!("Failed to deserialize verify result: {result_json}"),
+        )?;
         Ok(result)
     }
 }
@@ -220,7 +221,7 @@ pub(crate) mod tests {
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
     }
-    
+
     #[tokio::test]
     async fn near_single_verifier() {
         let client = Arc::new(reqwest::Client::new());

@@ -189,8 +189,8 @@ mod tests {
     use crate::bridge::solana::DepositData;
     use anyhow::Result;
     use serde_json::json;
-    use std::str::FromStr;
     use solana_pubkey::Pubkey;
+    use std::str::FromStr;
 
     fn get_deposit_data() -> DepositData {
         let json = json!({

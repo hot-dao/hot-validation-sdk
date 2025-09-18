@@ -2,19 +2,19 @@ use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use borsh::BorshDeserialize;
+use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::solana::{
     anchor, CompletedWithdrawalData, DepositData, SolanaInputData, UserAccount,
 };
+use hot_validation_primitives::ChainValidationConfig;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_commitment_config::CommitmentConfig;
 use solana_sdk::message::Address;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
-use futures_util::future::BoxFuture;
-use solana_sdk::transaction::Transaction;
-use hot_validation_primitives::ChainValidationConfig;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
@@ -115,7 +115,7 @@ impl SingleVerifier for SolanaVerifier {
 }
 
 impl ThresholdVerifier<SolanaVerifier> {
-    pub fn new_solana(config: ChainValidationConfig) -> Self {
+    pub fn new_solana(config: &ChainValidationConfig) -> Self {
         let verifiers = config
             .servers
             .iter()

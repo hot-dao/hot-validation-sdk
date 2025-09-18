@@ -205,7 +205,8 @@ pub(crate) mod tests {
     use tonlib_core::TonAddress;
 
     pub(crate) fn ton_rpc() -> String {
-        dotenv::var("TON_RPC").unwrap_or_else(|_| "https://toncenter.com/api/v2/jsonRPC".to_string())
+        dotenv::var("TON_RPC")
+            .unwrap_or_else(|_| "https://toncenter.com/api/v2/jsonRPC".to_string())
     }
 
     #[tokio::test]
@@ -215,10 +216,7 @@ pub(crate) mod tests {
 
         let item = StackItem::from_nonce("1753218716000000003679".to_string());
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -240,10 +238,7 @@ pub(crate) mod tests {
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string(),
         )?;
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "verify_withdraw", vec![item])
@@ -256,10 +251,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn deposit_fist_and_second_call_combined() -> Result<()> {
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(
@@ -291,10 +283,7 @@ pub(crate) mod tests {
 
         let item = StackItem::from_address("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I")?;
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let treasury_address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -315,10 +304,7 @@ pub(crate) mod tests {
             TonAddress::from_base64_url(raw)?
         };
 
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "get_last_withdrawn_nonce", vec![])
@@ -330,10 +316,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn completed_withdrawal_fist_and_second_call_combined() -> Result<()> {
-        let verifier = TonSingleVerifier::new(
-            Arc::new(reqwest::Client::new()),
-            ton_rpc(),
-        );
+        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(

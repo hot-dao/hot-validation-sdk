@@ -88,8 +88,7 @@ impl Validation {
         let solana = {
             let config = configs
                 .get(&ChainId::Solana)
-                .expect("No solana config found")
-                .clone();
+                .expect("No solana config found");
             let verifier = ThresholdVerifier::new_solana(config);
             Arc::new(verifier)
         };
@@ -164,8 +163,7 @@ mod tests {
     use serde_json::json;
 
     pub(crate) fn bnb_rpc() -> String {
-        dotenv::var("BNB_RPC")
-            .unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
+        dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
     }
 
     fn create_validation_object() -> Arc<Validation> {
@@ -215,10 +213,7 @@ mod tests {
                 ChainId::Evm(56),
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec![
-                        "https://bsc.drpc.org".to_string(),
-                        bnb_rpc(),
-                    ],
+                    servers: vec!["https://bsc.drpc.org".to_string(), bnb_rpc()],
                 },
             ),
             (

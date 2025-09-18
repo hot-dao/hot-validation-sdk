@@ -56,26 +56,36 @@ impl From<EvmInputData> for Vec<DynSolValue> {
 
 #[cfg(test)]
 mod tests {
-    use serde::de::DeserializeOwned;
-    use serde_json::{json, Deserializer, Value};
+
     use crate::bridge::evm::{EvmInputArg, EvmInputData};
     use crate::bridge::{HotVerifyAuthCall, HotVerifyResult};
+    use serde_json::json;
 
     #[test]
     fn bytes_and_bytes32_take_0x_hex() {
         // bytes
-        let v: super::EvmInputArg = serde_json::from_str(r#"{ "type":"bytes", "value":"0x74657374" }"#).unwrap();
-        match v { super::EvmInputArg::Bytes(b) => assert_eq!(b, b"test"), _ => panic!() }
+        let v: super::EvmInputArg =
+            serde_json::from_str(r#"{ "type":"bytes", "value":"0x74657374" }"#).unwrap();
+        if let super::EvmInputArg::Bytes(b) = v {
+            assert_eq!(b, b"test");
+        } else {
+            panic!()
+        }
 
         // bytes32 (short -> ok, will be padded later when converting to DynSolValue)
-        let v: super::EvmInputArg = serde_json::from_str(r#"{ "type":"bytes32", "value":"0x74657374" }"#).unwrap();
-        match v { super::EvmInputArg::FixedBytes(b) => assert_eq!(b, b"test"), _ => panic!() }
+        let v: super::EvmInputArg =
+            serde_json::from_str(r#"{ "type":"bytes32", "value":"0x74657374" }"#).unwrap();
+        if let super::EvmInputArg::FixedBytes(b) = v {
+            assert_eq!(b, b"test");
+        } else {
+            panic!()
+        }
     }
 
     #[test]
     fn check_evm_bridge_validation_format() {
         let input = r#"[{"type":"bytes32","value":"0x00"}]"#;
-        let input: Vec<EvmInputArg> = serde_json::from_str(input).unwrap();
+        let _input: Vec<EvmInputArg> = serde_json::from_str(input).unwrap();
 
         let input = json!([
          {

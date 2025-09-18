@@ -45,6 +45,7 @@ pub struct HotVerifyAuthCall {
     pub input: InputData,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(untagged)] // for back compatability reasons
 pub enum HotVerifyResult {
