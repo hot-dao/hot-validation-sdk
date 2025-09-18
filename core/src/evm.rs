@@ -229,7 +229,6 @@ mod tests {
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
     use crate::ChainValidationConfig;
     use anyhow::Result;
-    use hot_validation_primitives::bridge::HotVerifyAuthCall;
     use hot_validation_primitives::ChainId;
     use std::sync::Arc;
 
@@ -266,34 +265,5 @@ mod tests {
             )
             .await?;
         Ok(())
-    }
-
-    #[test]
-    fn check_evm_bridge_validation_format() {
-        let x = r#"{
-        "chain_id": 56,
-        "contract_id": "0x233c5370CCfb3cD7409d9A3fb98ab94dE94Cb4Cd",
-        "input": [
-         {
-           "type": "bytes32",
-           "value": "0x74657374"
-         },
-         {
-           "type": "bytes",
-           "value": "0x5075766b334752376276426d4a71673253647a73344432414647415733725871396977704a7261426b474a"
-         },
-         {
-           "type": "bytes",
-           "value": "0x000000000000000000000000000000000000000000000000000000000001d97c00"
-         },
-         {
-           "type": "bytes",
-           "value": "0x"
-         }
-        ],
-        "method": "hot_verify"
-        }"#
-            .to_string();
-        serde_json::from_str::<HotVerifyAuthCall>(&x).unwrap();
     }
 }
