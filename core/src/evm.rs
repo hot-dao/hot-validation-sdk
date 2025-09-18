@@ -227,6 +227,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
 mod tests {
     use crate::evm::EvmInputData;
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
+    use crate::tests::base_rpc;
     use crate::ChainValidationConfig;
     use anyhow::Result;
     use hot_validation_primitives::ChainId;
@@ -251,6 +252,7 @@ mod tests {
                     "http://localhost:1000".to_string(),
                     "https://1rpc.io/base".to_string(),
                     "http://localhost:1000".to_string(),
+                    base_rpc(),
                 ],
             },
             &Arc::new(reqwest::Client::new()),

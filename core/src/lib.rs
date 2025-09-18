@@ -166,6 +166,10 @@ mod tests {
         dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
     }
 
+    pub(crate) fn base_rpc() -> String {
+        dotenv::var("BASE_RPC").unwrap_or_else(|_| "https://base.llamarpc.com".to_string())
+    }
+
     fn create_validation_object() -> Arc<Validation> {
         let configs = HashMap::from([
             (
@@ -206,6 +210,7 @@ mod tests {
                     servers: vec![
                         "https://1rpc.io/base".to_string(),
                         "http://bad-rpc:8545".to_string(),
+                        base_rpc(),
                     ],
                 },
             ),
