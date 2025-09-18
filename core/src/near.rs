@@ -2,7 +2,7 @@ use crate::internals::{
     GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
@@ -66,9 +66,7 @@ impl NearSingleVerifier {
     }
 
     async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&ChainId::Near.to_string()])
-            .inc();
+        tick_metrics_verify_total_attempts(ChainId::Near);
         let method_args = GetWalletArgs { wallet_id };
         let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&method_args)?);
         let rpc_args = RpcRequest::build(
@@ -81,9 +79,7 @@ impl NearSingleVerifier {
             .await
             .context(format!("get_wallet failed when calling {}", self.server))?;
         let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
-        VERIFY_SUCCESS_ATTEMPTS
-            .with_label_values(&[&ChainId::Near.to_string()])
-            .inc();
+        tick_metrics_verify_success_attempts(ChainId::Near);
         Ok(wallet_model)
     }
 

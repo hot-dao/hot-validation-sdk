@@ -1,5 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
@@ -74,9 +74,7 @@ impl StellarSingleVerifier {
         method_name: &str,
         input: StellarInputData,
     ) -> Result<bool> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&ChainId::Stellar.to_string()])
-            .inc();
+        tick_metrics_verify_total_attempts(ChainId::Stellar);
         let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
@@ -91,9 +89,7 @@ impl StellarSingleVerifier {
         }
         // extract the return‐value:
         if let Some((ScVal::Bool(b), _auths)) = simulation.to_result() {
-            VERIFY_SUCCESS_ATTEMPTS
-                .with_label_values(&[&ChainId::Stellar.to_string()])
-                .inc();
+            tick_metrics_verify_success_attempts(ChainId::Stellar);
             Ok(b)
         } else {
             anyhow::bail!("unexpected simulation result: {:?}", simulation);

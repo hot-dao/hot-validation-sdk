@@ -1,12 +1,10 @@
 mod providers;
-mod supported_chains;
 
 use crate::providers::Provider;
 use crate::providers::ankr::AnkrProvider;
-use crate::supported_chains::ChainId;
 use anyhow::Result;
 use clap::{Parser, arg};
-use hot_validation_primitives::ChainValidationConfig;
+use hot_validation_primitives::{ChainValidationConfig, ExtendedChainId};
 use hot_validation_rpc_healthcheck::healthcheck_many;
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
@@ -34,7 +32,7 @@ struct Args {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct RpcConfig(HashMap<ChainId, Vec<String>>);
+struct RpcConfig(HashMap<ExtendedChainId, Vec<String>>);
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,7 +70,7 @@ async fn main() -> Result<()> {
         warn!("No infura api key provided");
     }
 
-    let mut config: HashMap<ChainId, Vec<String>> = HashMap::new();
+    let mut config: HashMap<ExtendedChainId, Vec<String>> = HashMap::new();
 
     if let Ok(config_file) = fs::read_to_string(args.config) {
         let data: RpcConfig = serde_yaml::from_str(&config_file)?;

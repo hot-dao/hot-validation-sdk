@@ -2793,6 +2793,8 @@ dependencies = [
  "solana-message",
  "solana-pubkey",
  "stellar-xdr",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "tonlib-core",
 ]
 

@@ -1,5 +1,5 @@
 use crate::healthcheck_many;
-use hot_validation_primitives::{ChainId, ChainValidationConfig};
+use hot_validation_primitives::{ChainId, ChainValidationConfig, ExtendedChainId};
 use prometheus::{IntGaugeVec, register_int_gauge_vec};
 use reqwest::Client;
 use std::collections::HashMap;
@@ -70,7 +70,9 @@ impl Observer {
         for (&chain_id, config) in &self.configs {
             let availability = healthcheck_many(&self.client, chain_id, &config.servers).await;
 
-            let chain_label = chain_id.to_string();
+            let chain_label = ExtendedChainId::try_from(chain_id)
+                .map(|extended_chain_id| extended_chain_id.to_string())
+                .unwrap_or(chain_id.to_string());
 
             let mut available_serveres = 0;
             for result in &availability {

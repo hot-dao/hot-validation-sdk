@@ -1,5 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::ChainValidationConfig;
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
@@ -131,9 +131,7 @@ impl EvmSingleVerifier {
         method_name: &str,
         input: EvmInputData,
     ) -> Result<bool> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&self.chain_id.to_string()])
-            .inc();
+        tick_metrics_verify_total_attempts(self.chain_id);
         let block_number = self.get_block_number().await?;
 
         let args: Vec<DynSolValue> = From::from(input);
@@ -158,9 +156,7 @@ impl EvmSingleVerifier {
         let out = INTERFACE.decode_output("hot_verify", &bytes)?;
         if let Some(DynSolValue::Bool(b)) = out.first() {
             // TODO: replace checks with `ensure` and do return without conditions
-            VERIFY_SUCCESS_ATTEMPTS
-                .with_label_values(&[&self.chain_id.to_string()])
-                .inc();
+            tick_metrics_verify_success_attempts(self.chain_id);
             Ok(*b)
         } else {
             Err(anyhow::anyhow!("Unexpected output type"))

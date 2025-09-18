@@ -1,5 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier};
-use crate::metrics::{VERIFY_SUCCESS_ATTEMPTS, VERIFY_TOTAL_ATTEMPTS};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use async_trait::async_trait;
@@ -75,10 +75,7 @@ impl TonSingleVerifier {
         method_name: &str,
         input: TonInputData,
     ) -> Result<bool> {
-        VERIFY_TOTAL_ATTEMPTS
-            .with_label_values(&[&ChainId::TON_V2.to_string()])
-            .inc();
-
+        tick_metrics_verify_total_attempts(ChainId::TON_V2);
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
         let child_address = {
             let item = self
@@ -130,9 +127,7 @@ impl TonSingleVerifier {
             }
         }
 
-        VERIFY_SUCCESS_ATTEMPTS
-            .with_label_values(&[&ChainId::TON_V2.to_string()])
-            .inc();
+        tick_metrics_verify_success_attempts(ChainId::TON_V2);
         Ok(true)
     }
 }

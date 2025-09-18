@@ -1,4 +1,5 @@
 use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use borsh::BorshDeserialize;
@@ -7,7 +8,7 @@ use hot_validation_primitives::bridge::solana::{
     anchor, DepositWithProof, SolanaInputData, UserAccount,
 };
 use hot_validation_primitives::bridge::CompletedWithdrawal;
-use hot_validation_primitives::ChainValidationConfig;
+use hot_validation_primitives::{ChainId, ChainValidationConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_commitment_config::CommitmentConfig;
@@ -93,6 +94,7 @@ impl SolanaVerifier {
         method_name: &str,
         input: SolanaInputData,
     ) -> Result<bool> {
+        tick_metrics_verify_total_attempts(ChainId::Solana);
         let program_id = Pubkey::from_str(auth_contract_id)?;
         match input {
             SolanaInputData::Deposit(deposit_with_proof) => {
@@ -104,6 +106,7 @@ impl SolanaVerifier {
                     .await?;
             }
         }
+        tick_metrics_verify_success_attempts(ChainId::Solana);
         Ok(true)
     }
 }
