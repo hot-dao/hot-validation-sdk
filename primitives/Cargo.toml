@@ -17,6 +17,7 @@ borsh = { workspace = true, features = ["derive"] }
 bs58 = { workspace = true }
 derive_more = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
+rlp = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde-hex = { workspace = true }
@@ -28,6 +29,5 @@ solana-message = { workspace = true }
 solana-pubkey = { workspace = true, features = ["curve25519"] }
 stellar-xdr = { workspace = true }
 tonlib-core = { workspace = true }
-
 [dev-dependencies]
 serde_json = { workspace = true }

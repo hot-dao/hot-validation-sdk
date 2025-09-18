@@ -34,6 +34,7 @@ tokio-util = "0.7.14"
 
 futures = "0.3.31"
 futures-util = "0.3.31"
+rlp = "0.6.1"
 
 derive_more = { version = "2.0.1", features = ["full"] }
 prometheus = "0.13.4"

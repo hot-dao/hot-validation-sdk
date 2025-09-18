@@ -160,7 +160,9 @@ mod tests {
     use super::*;
     use crate::near::tests::near_rpc;
     use crate::ton::tests::ton_rpc;
-    use serde_json::json;
+    use hot_validation_primitives::bridge::{
+        Action, CompletedWithdrawal, DepositData, HotVerifyBridge,
+    };
 
     pub(crate) fn bnb_rpc() -> String {
         dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
@@ -360,11 +362,21 @@ mod tests {
         let uid = staging_uid();
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Evm(56),
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_754_431_900_000_000_013_182,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":56,\"nonce\":\"1754431900000000013182\"}}".to_string(),
-            ],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -378,12 +390,21 @@ mod tests {
         let uid = staging_uid();
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Stellar,
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_754_531_354_365_901_458_000,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":1100,\"nonce\":\"1754531354365901458000\"}}"
-                    .to_string(),
-            ],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -398,12 +419,21 @@ mod tests {
         let uid = staging_uid();
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::TON_V2,
+            action: Action::Deposit(DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1_753_218_716_000_000_003_679,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![
-                "{\"Deposit\":{\"chain_id\":1117,\"nonce\":\"1753218716000000003679\"}}"
-                    .to_string(),
-            ],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -418,18 +448,18 @@ mod tests {
         let uid = staging_uid();
         let message =
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::TON_V2,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_753_218_716_000_000_003_679,
+                receiver_address: "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![json!({
-                "ClearCompletedWithdrawal": {
-                    "Ton": {
-                        "user_ton_address": "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
-                        "chain_id": 1117,
-                        "nonce": "1753218716000000003679",
-                    }
-                }
-            })
-            .to_string()],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -445,19 +475,18 @@ mod tests {
         let message =
             "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
 
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Stellar,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_754_631_474_000_000_070_075,
+                receiver_address: "dontcare".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![r#"
-                    {
-                      "ClearCompletedWithdrawal": {
-                        "Default": {
-                            "chain_id": 1100,
-                            "nonce": "1754631474000000070075"
-                          }
-                      }
-                    }
-                "#
-            .to_string()],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -473,19 +502,18 @@ mod tests {
         let message =
             "8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a".to_string();
 
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Evm(56),
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_754_790_996_000_000_073_027,
+                receiver_address: "dontcare".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
         let proof = ProofModel {
             message_body: String::new(),
-            user_payloads: vec![r#"
-                    {
-                      "ClearCompletedWithdrawal": {
-                        "Default": {
-                            "chain_id": 56,
-                            "nonce": "1754790996000000073027"
-                          }
-                      }
-                    }
-                "#
-            .to_string()],
+            user_payloads: vec![json.to_string()],
         };
 
         validation.verify(uid, message, proof).await?;
@@ -493,15 +521,35 @@ mod tests {
         Ok(())
     }
 
-    // #[tokio::test]
-    // async fn bridge_deposit_validation_solana() -> Result<()> {
-    //
-    //     Ok(())
-    // }
-    //
-    // #[tokio::test]
-    // async fn bridge_completed_withdrawal_validation_solana() -> Result<()> {
-    //
-    //     Ok(())
-    // }
+    #[tokio::test]
+    async fn bridge_deposit_validation_solana() -> Result<()> {
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_completed_withdrawal_validation_solana() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = staging_uid();
+        let message =
+            "170a154a02aa91beb4b2d29175028d8684ee38585b418f36600cdeeb6ca05a1c".to_string();
+
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Solana,
+            action: Action::ClearCompletedWithdrawal(CompletedWithdrawal {
+                nonce: 1_749_390_032_000_000_032_243,
+                receiver_address: "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string(),
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
+        let proof = ProofModel {
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
 }

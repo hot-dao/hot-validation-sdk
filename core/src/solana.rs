@@ -4,8 +4,9 @@ use async_trait::async_trait;
 use borsh::BorshDeserialize;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::solana::{
-    anchor, CompletedWithdrawalData, DepositData, SolanaInputData, UserAccount,
+    anchor, DepositWithProof, SolanaInputData, UserAccount,
 };
+use hot_validation_primitives::bridge::CompletedWithdrawal;
 use hot_validation_primitives::ChainValidationConfig;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
@@ -42,7 +43,7 @@ impl SolanaVerifier {
         &self,
         program_id: &Address,
         method_name: &str,
-        deposit_data: DepositData,
+        deposit_data: DepositWithProof,
     ) -> Result<()> {
         let simulation_config = Self::get_simulation_config();
         let message = deposit_data.get_message(program_id, method_name)?;
@@ -56,9 +57,9 @@ impl SolanaVerifier {
     async fn handle_completed_withdrawal(
         &self,
         program_id: &Address,
-        completed_withdrawal_data: CompletedWithdrawalData,
+        completed_withdrawal_data: CompletedWithdrawal,
     ) -> Result<()> {
-        let user_pk = completed_withdrawal_data.get_user_address(program_id);
+        let user_pk = completed_withdrawal_data.get_user_address(program_id)?;
 
         let data = self
             .client
@@ -94,8 +95,8 @@ impl SolanaVerifier {
     ) -> Result<bool> {
         let program_id = Pubkey::from_str(auth_contract_id)?;
         match input {
-            SolanaInputData::Deposit(deposit_data) => {
-                self.handle_deposit(&program_id, method_name, deposit_data)
+            SolanaInputData::Deposit(deposit_with_proof) => {
+                self.handle_deposit(&program_id, method_name, deposit_with_proof)
                     .await?;
             }
             SolanaInputData::CheckCompletedWithdrawal(completed_withdrawal_data) => {
@@ -157,28 +158,40 @@ impl ThresholdVerifier<SolanaVerifier> {
 mod tests {
     use super::SolanaVerifier;
 
-    use hot_validation_primitives::bridge::solana::{
-        CompletedWithdrawalData, DepositData, SolanaInputData,
-    };
+    use hot_validation_primitives::bridge::solana::{DepositWithProof, SolanaInputData};
 
+    use hot_validation_primitives::bridge::{CompletedWithdrawal, DepositData};
     use serde_json::json;
 
     fn get_deposit_data() -> DepositData {
         let json = json!({
-            "proof": "47b8b751a0d90d113e4e16678ebda646a01a02d376f49f666ddd17ee9f383c2f",
-            "sender": "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho",
-            "receiver": "BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V",
-            "mint": "BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z",
-            "amount": 10_000_000,
-            "nonce": "1757984522000007228"
-        });
+                "sender": "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho",
+                "receiver": "BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V",
+                "token_id": "BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z",
+                "amount": "10000000",
+                "nonce": "1757984522000007228"
+            }
+        );
         serde_json::from_value(json).unwrap()
     }
 
-    fn get_completed_withdrawal_data(nonce: &str) -> CompletedWithdrawalData {
+    fn get_deposit_with_proof() -> DepositWithProof {
+        let deposit_data = get_deposit_data();
+        let proof: [u8; 32] =
+            hex::decode("47b8b751a0d90d113e4e16678ebda646a01a02d376f49f666ddd17ee9f383c2f")
+                .unwrap()
+                .try_into()
+                .unwrap();
+        DepositWithProof {
+            proof,
+            deposit_data,
+        }
+    }
+
+    fn get_completed_withdrawal_data(nonce: &str) -> CompletedWithdrawal {
         let json = json!({
             "nonce": nonce,
-            "receiver": "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho",
+            "receiver_address": "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho",
         });
         serde_json::from_value(json).unwrap()
     }
@@ -188,7 +201,7 @@ mod tests {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
         let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
         let method_name = "hot_verify_deposit";
-        let input = SolanaInputData::Deposit(get_deposit_data());
+        let input = SolanaInputData::Deposit(get_deposit_with_proof());
 
         verifier.verify(auth_contract, method_name, input).await?;
         Ok(())
