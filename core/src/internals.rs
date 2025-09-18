@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
+use hot_validation_primitives::bridge::solana::SolanaInputData;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -50,6 +51,7 @@ impl Validation {
         let message_bs58 = hex::decode(&message_hex)
             .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
 
+        // Mostly used with omni bridge workflows because there's another method name. 
         let method_name = if let Some(metadata) = &auth_method.metadata {
             let method_name = serde_json::from_str::<MethodName>(metadata)?;
             method_name.method
@@ -99,11 +101,16 @@ impl Validation {
                     )
                     .await?
                 }
+                ChainId::Solana => {
+                    self.handle_solana(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                        .await?
+                }
                 ChainId::Near => {
                     unimplemented!("Auth call should not lead to NEAR")
-                }
-                ChainId::Solana => {
-                    unimplemented!("Solana is not supported")
                 }
             },
             HotVerifyResult::Result(status) => status,
@@ -119,6 +126,21 @@ impl Validation {
     ) -> Result<bool> {
         let status = self
             .stellar
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Stellar failed")?;
+        Ok(status)
+    }
+
+    async fn handle_solana(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: SolanaInputData,
+    ) -> Result<bool> {
+        let status = self
+            .solana
             .clone()
             .verify(auth_contract_id, method_name, input)
             .await
@@ -202,7 +224,7 @@ impl Validation {
                 .await?
             }
             ChainId::Solana => {
-                unimplemented!("Solana is not supported")
+                unimplemented!("It's not expected to call Solana as the auth method")
             }
         };
 

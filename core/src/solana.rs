@@ -114,19 +114,44 @@ impl SingleVerifier for SolanaVerifier {
     }
 }
 
-// impl ThresholdVerifier<SolanaVerifier> {
-//     pub fn new_solana(config: ChainValidationConfig) -> Self {
-//         let verifiers = config
-//             .servers
-//             .iter()
-//             .map(|server| Arc::new(SolanaVerifier::new(server.clone())))
-//             .collect::<Vec<_>>();
-//         Self {
-//             threshold: config.threshold,
-//             verifiers,
-//         }
-//     }
-// }
+impl ThresholdVerifier<SolanaVerifier> {
+    pub fn new_solana(config: ChainValidationConfig) -> Self {
+        let verifiers = config
+            .servers
+            .iter()
+            .map(|server| Arc::new(SolanaVerifier::new(server.clone())))
+            .collect::<Vec<_>>();
+        Self {
+            threshold: config.threshold,
+            verifiers,
+        }
+    }
+
+    pub async fn verify(
+        &self,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: SolanaInputData,
+    ) -> Result<bool> {
+        let auth_contract_id = Arc::new(auth_contract_id.to_string());
+        let functor = move |verifier: Arc<SolanaVerifier>| -> BoxFuture<'static, Result<bool>> {
+            let auth = auth_contract_id.clone();
+            let method_name = method_name.to_string();
+            Box::pin(async move {
+                verifier
+                    .verify(&auth, &method_name, input)
+                    .await
+                    .context(format!(
+                        "Error calling solana `verify` with {}",
+                        verifier.sanitized_endpoint()
+                    ))
+            })
+        };
+
+        let result = self.threshold_call(functor).await?;
+        Ok(result)
+    }
+}
 
 #[cfg(test)]
 mod tests {

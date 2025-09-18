@@ -13,6 +13,7 @@ pub use hot_validation_primitives::*;
 use crate::evm::EvmSingleVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
 use crate::near::NearSingleVerifier;
+use crate::solana::SolanaVerifier;
 use crate::stellar::StellarSingleVerifier;
 use crate::ton::TonSingleVerifier;
 use anyhow::{bail, Context, Result};
@@ -28,6 +29,7 @@ pub struct Validation {
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
     ton: Arc<ThresholdVerifier<TonSingleVerifier>>,
+    solana: Arc<ThresholdVerifier<SolanaVerifier>>,
     health_check_observer: Arc<Observer>,
 }
 
@@ -83,6 +85,15 @@ impl Validation {
             Arc::new(verifier)
         };
 
+        let solana = {
+            let config = configs
+                .get(&ChainId::Solana)
+                .expect("No solana config found")
+                .clone();
+            let verifier = ThresholdVerifier::new_solana(config);
+            Arc::new(verifier)
+        };
+
         let health_check_observer = Arc::new(Observer::new(configs));
 
         let validation = Self {
@@ -90,6 +101,7 @@ impl Validation {
             evm: evm_validation,
             stellar: stellar_validation,
             ton,
+            solana,
             health_check_observer,
         };
         Ok(validation)
@@ -209,6 +221,14 @@ mod tests {
                         "https://toncenter.com/api/v2/jsonRPC".to_string(),
                         ton_rpc()
                     ],
+                },
+            ),
+            (
+                ChainId::Solana,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec![
+                        "https://api.mainnet-beta.solana.com".to_string()],
                 },
             ),
         ]);
@@ -461,4 +481,16 @@ mod tests {
 
         Ok(())
     }
+
+    // #[tokio::test]
+    // async fn bridge_deposit_validation_solana() -> Result<()> {
+    //
+    //     Ok(())
+    // }
+    //
+    // #[tokio::test]
+    // async fn bridge_completed_withdrawal_validation_solana() -> Result<()> {
+    //
+    //     Ok(())
+    // }
 }

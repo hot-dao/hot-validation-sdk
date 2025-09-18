@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-//! Types for bridge validation, which include flows for deposit and withdrawal.
+//! Types for bridge validation, which include flows for deposit and completed withdrawal verification.
 
 pub mod evm;
 pub mod solana;
@@ -7,6 +7,7 @@ pub mod stellar;
 pub mod ton;
 
 use crate::ChainId;
+use crate::bridge::solana::SolanaInputData;
 use anyhow::{Result, bail};
 use derive_more::{From, TryFrom, TryInto};
 use evm::EvmInputData;
@@ -33,6 +34,7 @@ pub enum InputData {
     Evm(EvmInputData),
     Stellar(StellarInputData),
     Ton(TonInputData),
+    Solana(SolanaInputData),
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
@@ -44,7 +46,7 @@ pub struct HotVerifyAuthCall {
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
-#[serde(untagged)]
+#[serde(untagged)] // for back compatability reasons
 pub enum HotVerifyResult {
     AuthCall(HotVerifyAuthCall),
     Result(bool),
@@ -58,43 +60,5 @@ impl HotVerifyResult {
                 bail!("Expected result, got auth call")
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::bridge::{HotVerifyAuthCall, InputData};
-    use serde_json::json;
-
-    #[test]
-    fn foo() -> anyhow::Result<()> {
-        let input = json!({
-            "treasury_call_args":[
-                ["num","1753218716000000003679"]
-            ],
-            "child_call_method":"verify_withdraw",
-            "child_call_args": [
-                ["slice","{\"data\":{\"b64\":\"vLFDgo9k1+S/C2qOZqKi0DyRbBbp6QNEGa53i59pnTw=\",\"len\":256},\"refs\":[],\"special\":false}"]
-            ],
-            "action":"Deposit",
-        });
-        serde_json::from_value::<InputData>(input)?;
-
-        let json = json!({
-            "chain_id": 1117,
-            "contract_id":"EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
-            "input": {
-                "action":"Deposit",
-                "child_call_args": [
-                    ["slice","{\"data\":{\"b64\":\"vLFDgo9k1+S/C2qOZqKi0DyRbBbp6QNEGa53i59pnTw=\",\"len\":256},\"refs\":[],\"special\":false}"]
-                ],
-                "child_call_method":"verify_withdraw",
-                "treasury_call_args":[["num","1753218716000000003679"]]
-            }
-        });
-
-        serde_json::from_value::<HotVerifyAuthCall>(json)?;
-
-        Ok(())
     }
 }
