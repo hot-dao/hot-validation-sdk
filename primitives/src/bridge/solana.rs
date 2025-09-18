@@ -4,12 +4,9 @@ use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as};
-use solana_sdk::instruction::{AccountMeta, Instruction};
-use solana_sdk::message::{Address, Message};
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::transaction::Transaction;
+use solana_message::{AccountMeta, Address, Instruction, Message};
+use solana_pubkey::Pubkey;
 
-#[serde_as]
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 pub enum SolanaInputData {
     Deposit(DepositData),
@@ -177,13 +174,13 @@ impl DepositData {
         })
     }
 
-    pub fn get_message(&self, program_id: &Address, method_name: &str) -> Result<Transaction> {
+    pub fn get_message(&self, program_id: &Address, method_name: &str) -> Result<Message> {
         // We dont care about specific signer here, since there's no signature checking.
         // But we need to provide an existent signer.
         let signer_pubkey = Pubkey::from(self.sender);
         let ix = self.get_instruction(program_id, method_name)?;
         let msg = Message::new(&[ix], Some(&signer_pubkey));
-        Ok(Transaction::new_unsigned(msg))
+        Ok(msg)
     }
 }
 
@@ -192,8 +189,8 @@ mod tests {
     use crate::bridge::solana::DepositData;
     use anyhow::Result;
     use serde_json::json;
-    use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
+    use solana_pubkey::Pubkey;
 
     fn get_deposit_data() -> DepositData {
         let json = json!({

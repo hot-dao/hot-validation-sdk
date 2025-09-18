@@ -1,4 +1,4 @@
-use crate::internals::{SingleVerifier, TIMEOUT};
+use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
 use borsh::BorshDeserialize;
@@ -11,6 +11,10 @@ use solana_commitment_config::CommitmentConfig;
 use solana_sdk::message::Address;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
+use std::sync::Arc;
+use futures_util::future::BoxFuture;
+use solana_sdk::transaction::Transaction;
+use hot_validation_primitives::ChainValidationConfig;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
@@ -42,8 +46,9 @@ impl SolanaVerifier {
     ) -> Result<()> {
         let simulation_config = Self::get_simulation_config();
         let message = deposit_data.get_message(program_id, method_name)?;
+        let tx = Transaction::new_unsigned(message);
         self.client
-            .simulate_transaction_with_config(&message, simulation_config)
+            .simulate_transaction_with_config(&tx, simulation_config)
             .await?;
         Ok(())
     }
