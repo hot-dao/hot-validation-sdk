@@ -148,6 +148,7 @@ mod tests {
     #![allow(clippy::should_panic_without_expect)]
     use super::*;
     use serde_json::json;
+    use crate::near::tests::near_rpc;
     use crate::ton::tests::ton_rpc;
 
     fn create_validation_object() -> Arc<Validation> {
@@ -317,11 +318,16 @@ mod tests {
         validation.verify(uid, message, proof).await.unwrap();
     }
 
+    /// UID for testing. It has only one auth method, which is `bridge.kuksag.tg` with `hot_verify_locker_state` method.
+    fn staging_uid() -> String {
+        "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string()
+    }
+
     #[tokio::test]
     async fn bridge_deposit_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
         let proof = ProofModel {
@@ -339,7 +345,7 @@ mod tests {
     async fn bridge_deposit_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let proof = ProofModel {
@@ -359,7 +365,7 @@ mod tests {
     async fn bridge_deposit_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let uid = staging_uid();
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
         let proof = ProofModel {
@@ -379,7 +385,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "f44a64989027d8fea9037e190efe7ad830b9646acac406402f8771bec83d5b36".to_string();
+        let uid = staging_uid();
         let message =
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
         let proof = ProofModel {
@@ -405,7 +411,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
 
@@ -431,7 +437,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = "9d02632f3fe9d7b89504e6d00174c1d4402900a23020c7f96d289c2f1a5af533".to_string();
+        let uid = staging_uid();
         let message =
             "8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a".to_string();
 
