@@ -42,7 +42,11 @@ pub static RPC_GET_AUTH_METHODS_DURATION: LazyLock<prometheus::Histogram> = Lazy
     .expect("register rpc_get_auth_methods_duration_seconds")
 });
 
-// TODO: Make it per deposit/completed_withdrawal
+#[inline]
+fn chain_label(chain_id: ChainId) -> String {
+    ExtendedChainId::try_from(chain_id).map_or_else(|_| chain_id.to_string(), |x| x.to_string())
+}
+
 pub static VERIFY_TOTAL_ATTEMPTS: LazyLock<prometheus::IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!(
         "verify_total_attempts",
@@ -53,9 +57,7 @@ pub static VERIFY_TOTAL_ATTEMPTS: LazyLock<prometheus::IntCounterVec> = LazyLock
 });
 
 pub fn tick_metrics_verify_total_attempts(chain_id: ChainId) {
-    let chain_label = ExtendedChainId::try_from(chain_id)
-        .map(|extended_chain_id| extended_chain_id.to_string())
-        .unwrap_or(chain_id.to_string());
+    let chain_label = chain_label(chain_id);
     VERIFY_TOTAL_ATTEMPTS
         .with_label_values(&[&chain_label])
         .inc();
@@ -70,11 +72,8 @@ pub static VERIFY_SUCCESS_ATTEMPTS: LazyLock<prometheus::IntCounterVec> = LazyLo
     .expect("register verify_success_attempts")
 });
 
-// TODO: Make it automatic on `drop`
 pub fn tick_metrics_verify_success_attempts(chain_id: ChainId) {
-    let chain_label = ExtendedChainId::try_from(chain_id)
-        .map(|extended_chain_id| extended_chain_id.to_string())
-        .unwrap_or(chain_id.to_string());
+    let chain_label = chain_label(chain_id);
     VERIFY_SUCCESS_ATTEMPTS
         .with_label_values(&[&chain_label])
         .inc();
