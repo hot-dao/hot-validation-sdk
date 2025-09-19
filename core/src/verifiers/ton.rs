@@ -1,6 +1,6 @@
 use crate::internals::ThresholdVerifier;
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
-use crate::verifiers::Verifier;
+use crate::verifiers::VerifierTag;
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use futures_util::future::BoxFuture;
@@ -132,7 +132,7 @@ impl TonVerifier {
     }
 }
 
-impl Verifier for TonVerifier {
+impl VerifierTag for TonVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }

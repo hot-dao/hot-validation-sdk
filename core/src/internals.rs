@@ -1,4 +1,4 @@
-use crate::verifiers::Verifier;
+use crate::verifiers::VerifierTag;
 use crate::{metrics, Validation};
 use anyhow::Result;
 use anyhow::{anyhow, Context};
@@ -279,12 +279,12 @@ pub struct VerifyArgs {
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T: Verifier> {
+pub(crate) struct ThresholdVerifier<T: VerifierTag> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
 
-impl<T: Verifier> ThresholdVerifier<T> {
+impl<T: VerifierTag> ThresholdVerifier<T> {
     /// We can request data from a `SingleVerifier`. Each verifier casts a vote on the data it has returned.
     /// We collect all the votes and return a data with at least `threshold` votes.
     /// This logic was abstracted because we might call `verify`, `get_wallet_auth` or something else in the future.
@@ -352,7 +352,7 @@ mod tests {
         resp: Option<u8>,
     }
 
-    impl Verifier for DummyVerifier {
+    impl VerifierTag for DummyVerifier {
         fn get_endpoint(&self) -> String {
             "dummy".into()
         }
@@ -473,7 +473,7 @@ mod tests {
         }
     }
 
-    impl Verifier for BoolVerifier {
+    impl VerifierTag for BoolVerifier {
         fn get_endpoint(&self) -> String {
             "bool".into()
         }

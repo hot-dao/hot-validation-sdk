@@ -6,9 +6,8 @@ pub mod solana;
 pub mod stellar;
 pub mod ton;
 
-/// An interface to a particular RPC server.
-pub(crate) trait Verifier: Send + Sync + 'static {
-    /// An identification of the verifier (rpc endpoint). Used only for logging.
+/// An identification of the verifier (rpc endpoint). Used only for logging.
+pub(crate) trait VerifierTag: Send + Sync + 'static {
     fn get_endpoint(&self) -> String; // TODO: Can we return a reference here?
 
     fn sanitized_endpoint(&self) -> String {
