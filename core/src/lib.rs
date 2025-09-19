@@ -10,12 +10,12 @@ mod ton;
 
 pub use hot_validation_primitives::*;
 
-use crate::evm::EvmSingleVerifier;
+use crate::evm::EvmVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
-use crate::near::NearSingleVerifier;
+use crate::near::NearVerifier;
 use crate::solana::SolanaVerifier;
-use crate::stellar::StellarSingleVerifier;
-use crate::ton::TonSingleVerifier;
+use crate::stellar::StellarVerifier;
+use crate::ton::TonVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_rpc_healthcheck::observer::Observer;
@@ -25,10 +25,10 @@ use std::sync::Arc;
 /// The logic that prevents signing arbitrary messages.
 #[derive(Clone)]
 pub struct Validation {
-    near: Arc<ThresholdVerifier<NearSingleVerifier>>,
-    evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmSingleVerifier>>>,
-    stellar: Arc<ThresholdVerifier<StellarSingleVerifier>>,
-    ton: Arc<ThresholdVerifier<TonSingleVerifier>>,
+    near: Arc<ThresholdVerifier<NearVerifier>>,
+    evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmVerifier>>>,
+    stellar: Arc<ThresholdVerifier<StellarVerifier>>,
+    ton: Arc<ThresholdVerifier<TonVerifier>>,
     solana: Arc<ThresholdVerifier<SolanaVerifier>>,
     health_check_observer: Arc<Observer>,
 }

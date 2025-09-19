@@ -1,4 +1,4 @@
-use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::internals::{ThresholdVerifier, Verifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
@@ -17,13 +17,12 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct StellarSingleVerifier {
-    // TODO: rename to StellarVerifier
+pub(crate) struct StellarVerifier {
     client: Arc<Server>,
     server: String,
 }
 
-impl StellarSingleVerifier {
+impl StellarVerifier {
     pub fn new(server: String) -> Result<Self> {
         let client = Arc::new(Server::new(&server, Options::default())?);
         Ok(Self { client, server })
@@ -97,13 +96,13 @@ impl StellarSingleVerifier {
     }
 }
 
-impl SingleVerifier for StellarSingleVerifier {
+impl Verifier for StellarVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }
 }
 
-impl ThresholdVerifier<StellarSingleVerifier> {
+impl ThresholdVerifier<StellarVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
         let servers = config.servers;
@@ -115,7 +114,7 @@ impl ThresholdVerifier<StellarSingleVerifier> {
         );
         let verifiers = servers
             .iter()
-            .map(|s| StellarSingleVerifier::new(s.clone()).map(Arc::new))
+            .map(|s| StellarVerifier::new(s.clone()).map(Arc::new))
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             threshold,
@@ -130,19 +129,18 @@ impl ThresholdVerifier<StellarSingleVerifier> {
         input: StellarInputData,
     ) -> Result<bool> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor =
-            move |verifier: Arc<StellarSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
-                let method_name = method_name.to_string();
-                Box::pin(async move {
-                    verifier
-                        .verify(&auth_contract_id, &method_name, input)
-                        .await
-                        .context(format!(
-                            "Error calling stellar `verify` with {}",
-                            verifier.sanitized_endpoint()
-                        ))
-                })
-            };
+        let functor = move |verifier: Arc<StellarVerifier>| -> BoxFuture<'static, Result<bool>> {
+            let method_name = method_name.to_string();
+            Box::pin(async move {
+                verifier
+                    .verify(&auth_contract_id, &method_name, input)
+                    .await
+                    .context(format!(
+                        "Error calling stellar `verify` with {}",
+                        verifier.sanitized_endpoint()
+                    ))
+            })
+        };
 
         let result = self.threshold_call(functor).await?;
         Ok(result)
@@ -152,7 +150,7 @@ impl ThresholdVerifier<StellarSingleVerifier> {
 #[cfg(test)]
 mod tests {
     use crate::internals::HOT_VERIFY_METHOD_NAME;
-    use crate::stellar::{StellarInputData, StellarSingleVerifier};
+    use crate::stellar::{StellarInputData, StellarVerifier};
     use anyhow::Result;
     use hot_validation_primitives::bridge::stellar::StellarInputArg;
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
@@ -162,7 +160,7 @@ mod tests {
         let msg_hash = String::new();
         let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
-        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
+        let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(
@@ -180,7 +178,7 @@ mod tests {
         let msg_hash = String::new();
         let user_payload = "000000000000005f1d038ae3e890ca50c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
-        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
+        let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(
@@ -197,7 +195,7 @@ mod tests {
     async fn stellar_locker_nonce_executed() -> Result<()> {
         let nonce = 1_754_631_474_000_000_070_075_u128;
         let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
-        let validation = StellarSingleVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
+        let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(

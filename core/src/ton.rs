@@ -1,4 +1,4 @@
-use crate::internals::{SingleVerifier, ThresholdVerifier};
+use crate::internals::{ThresholdVerifier, Verifier};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
@@ -12,12 +12,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tonlib_core::TonAddress;
 
-pub struct TonSingleVerifier {
+pub struct TonVerifier {
     client: Arc<reqwest::Client>,
     server: String,
 }
 
-impl TonSingleVerifier {
+impl TonVerifier {
     fn new(client: Arc<reqwest::Client>, server: String) -> Self {
         Self { client, server }
     }
@@ -133,13 +133,13 @@ impl TonSingleVerifier {
 }
 
 #[async_trait]
-impl SingleVerifier for TonSingleVerifier {
+impl Verifier for TonVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }
 }
 
-impl ThresholdVerifier<TonSingleVerifier> {
+impl ThresholdVerifier<TonVerifier> {
     pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
         let threshold = config.threshold; // TODO: Check invariand, DRY
         let servers = config.servers;
@@ -152,7 +152,7 @@ impl ThresholdVerifier<TonSingleVerifier> {
         );
         let verifiers = servers
             .into_iter()
-            .map(|url| Arc::new(TonSingleVerifier::new(client.clone(), url)))
+            .map(|url| Arc::new(TonVerifier::new(client.clone(), url)))
             .collect();
         Self {
             threshold,
@@ -167,7 +167,7 @@ impl ThresholdVerifier<TonSingleVerifier> {
         input: TonInputData,
     ) -> Result<bool> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<TonSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
+        let functor = move |verifier: Arc<TonVerifier>| -> BoxFuture<'static, Result<bool>> {
             let auth = auth_contract_id.clone();
             let method_name = method_name.to_string();
             Box::pin(async move {
@@ -188,7 +188,7 @@ impl ThresholdVerifier<TonSingleVerifier> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::ton::TonSingleVerifier;
+    use crate::ton::TonVerifier;
     use anyhow::Result;
 
     use hot_validation_primitives::bridge::ton::{Action, StackItem, TonInputData};
@@ -209,7 +209,7 @@ pub(crate) mod tests {
 
         let item = StackItem::from_nonce("1753218716000000003679".to_string());
 
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -231,7 +231,7 @@ pub(crate) mod tests {
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string(),
         )?;
 
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "verify_withdraw", vec![item])
@@ -244,7 +244,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn deposit_fist_and_second_call_combined() -> Result<()> {
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(
@@ -276,7 +276,7 @@ pub(crate) mod tests {
 
         let item = StackItem::from_address("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I")?;
 
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let treasury_address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
@@ -297,7 +297,7 @@ pub(crate) mod tests {
             TonAddress::from_base64_url(raw)?
         };
 
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let stack_item = verifier
             .make_call(&addr, "get_last_withdrawn_nonce", vec![])
@@ -309,7 +309,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn completed_withdrawal_fist_and_second_call_combined_low() -> Result<()> {
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         verifier
             .verify(
@@ -333,7 +333,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn completed_withdrawal_fist_and_second_call_combined_high() -> Result<()> {
-        let verifier = TonSingleVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let result = verifier
             .verify(

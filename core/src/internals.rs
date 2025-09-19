@@ -280,8 +280,7 @@ pub struct VerifyArgs {
 
 /// An interface to a particular RPC server.
 #[async_trait] // TODO: Remove
-pub(crate) trait SingleVerifier: Send + Sync + 'static {
-    // TODO: Rename to `Verifier`
+pub(crate) trait Verifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String; // TODO: Can we return a reference here?
 
@@ -295,12 +294,12 @@ pub(crate) trait SingleVerifier: Send + Sync + 'static {
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T: SingleVerifier> {
+pub(crate) struct ThresholdVerifier<T: Verifier> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
 
-impl<T: SingleVerifier> ThresholdVerifier<T> {
+impl<T: Verifier> ThresholdVerifier<T> {
     /// We can request data from a `SingleVerifier`. Each verifier casts a vote on the data it has returned.
     /// We collect all the votes and return a data with at least `threshold` votes.
     /// This logic was abstracted because we might call `verify`, `get_wallet_auth` or something else in the future.
@@ -369,7 +368,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl SingleVerifier for DummyVerifier {
+    impl Verifier for DummyVerifier {
         fn get_endpoint(&self) -> String {
             "dummy".into()
         }
@@ -491,7 +490,7 @@ mod tests {
     }
 
     #[async_trait]
-    impl SingleVerifier for BoolVerifier {
+    impl Verifier for BoolVerifier {
         fn get_endpoint(&self) -> String {
             "bool".into()
         }

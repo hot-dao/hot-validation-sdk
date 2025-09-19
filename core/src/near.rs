@@ -1,5 +1,5 @@
 use crate::internals::{
-    GetWalletArgs, SingleVerifier, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
+    GetWalletArgs, ThresholdVerifier, Verifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
@@ -55,12 +55,12 @@ impl RpcRequest {
 }
 
 #[derive(Clone)]
-pub(crate) struct NearSingleVerifier {
+pub(crate) struct NearVerifier {
     client: Arc<reqwest::Client>,
     server: String,
 }
 
-impl NearSingleVerifier {
+impl NearVerifier {
     fn new(client: Arc<reqwest::Client>, server: String) -> Self {
         Self { client, server }
     }
@@ -134,13 +134,13 @@ impl NearSingleVerifier {
 }
 
 #[async_trait]
-impl SingleVerifier for NearSingleVerifier {
+impl Verifier for NearVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }
 }
 
-impl ThresholdVerifier<NearSingleVerifier> {
+impl ThresholdVerifier<NearVerifier> {
     pub(crate) fn new_near(
         near_validation_config: ChainValidationConfig,
         client: &Arc<reqwest::Client>,
@@ -156,7 +156,7 @@ impl ThresholdVerifier<NearSingleVerifier> {
         let callers = servers
             .iter()
             .map(|s| {
-                let verifier = NearSingleVerifier::new(client.clone(), s.clone());
+                let verifier = NearVerifier::new(client.clone(), s.clone());
                 Arc::new(verifier)
             })
             .collect();
@@ -173,7 +173,7 @@ impl ThresholdVerifier<NearSingleVerifier> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
 
         let functor =
-            |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
+            |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
                 let wallet_id = wallet_id.to_string();
                 Box::pin(async move {
                     verifier.get_wallet(wallet_id).await.context(format!(
@@ -193,14 +193,18 @@ impl ThresholdVerifier<NearSingleVerifier> {
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
         let args = Arc::new(args);
-        let functor = move |verifier: Arc<NearSingleVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
-            Box::pin(async move {
-                verifier
-                    .verify(auth_contract_id, method_name, &args)
-                    .await
-                    .context(format!("Error calling near `verify` with {}", verifier.sanitized_endpoint()))
-            })
-        };
+        let functor =
+            move |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
+                Box::pin(async move {
+                    verifier
+                        .verify(auth_contract_id, method_name, &args)
+                        .await
+                        .context(format!(
+                            "Error calling near `verify` with {}",
+                            verifier.sanitized_endpoint()
+                        ))
+                })
+            };
 
         let result = self.threshold_call(functor).await?;
         Ok(result)
@@ -221,7 +225,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn near_single_verifier() {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
@@ -248,7 +252,7 @@ pub(crate) mod tests {
     #[should_panic]
     async fn near_single_verifier_bad_wallet() {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
@@ -275,7 +279,7 @@ pub(crate) mod tests {
     #[should_panic]
     async fn near_single_verifier_bad_auth_contract() {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "123123.auth.hot.tg";
@@ -301,7 +305,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn near_single_verifier_bad_msg_hash() -> Result<()> {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
         let auth_contract_id: &str = "keys.auth.hot.tg";
@@ -400,7 +404,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn near_single_verifier_get_wallet() {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
         let expected = WalletAuthMethods {
@@ -420,7 +424,7 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn near_single_verifier_get_wallet_with_meta() {
         let client = Arc::new(reqwest::Client::new());
-        let rpc_caller = NearSingleVerifier::new(client, near_rpc());
+        let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id =
             uid_to_wallet_id("fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496")

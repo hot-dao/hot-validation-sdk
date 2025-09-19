@@ -1,4 +1,4 @@
-use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::internals::{ThresholdVerifier, Verifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::ChainValidationConfig;
 use alloy_contract::Interface;
@@ -80,13 +80,13 @@ impl RpcRequest {
 }
 
 #[derive(Clone)]
-pub(crate) struct EvmSingleVerifier {
+pub(crate) struct EvmVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,
 }
 
-impl EvmSingleVerifier {
+impl EvmVerifier {
     pub fn new(client: Arc<reqwest::Client>, server: String, chain_id: ChainId) -> Self {
         Self {
             client,
@@ -165,13 +165,13 @@ impl EvmSingleVerifier {
 }
 
 #[async_trait]
-impl SingleVerifier for EvmSingleVerifier {
+impl Verifier for EvmVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }
 }
 
-impl ThresholdVerifier<EvmSingleVerifier> {
+impl ThresholdVerifier<EvmVerifier> {
     pub fn new_evm(
         config: ChainValidationConfig,
         client: &Arc<reqwest::Client>,
@@ -187,7 +187,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
         );
         let verifiers = servers
             .into_iter()
-            .map(|url| Arc::new(EvmSingleVerifier::new(client.clone(), url, chain_id)))
+            .map(|url| Arc::new(EvmVerifier::new(client.clone(), url, chain_id)))
             .collect();
         Self {
             threshold,
@@ -202,7 +202,7 @@ impl ThresholdVerifier<EvmSingleVerifier> {
         input: EvmInputData,
     ) -> Result<bool> {
         let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<EvmSingleVerifier>| -> BoxFuture<'static, Result<bool>> {
+        let functor = move |verifier: Arc<EvmVerifier>| -> BoxFuture<'static, Result<bool>> {
             let auth = auth_contract_id.clone();
             let method_name = method_name.to_string();
             Box::pin(async move {

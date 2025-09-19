@@ -1,4 +1,4 @@
-use crate::internals::{SingleVerifier, ThresholdVerifier, TIMEOUT};
+use crate::internals::{ThresholdVerifier, Verifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
@@ -112,7 +112,7 @@ impl SolanaVerifier {
 }
 
 #[async_trait]
-impl SingleVerifier for SolanaVerifier {
+impl Verifier for SolanaVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
     }
