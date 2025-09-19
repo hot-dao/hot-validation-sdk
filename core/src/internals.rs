@@ -1,6 +1,6 @@
 use crate::verifiers::VerifierTag;
 use crate::{metrics, Validation};
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use anyhow::{anyhow, Context};
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
@@ -200,7 +200,7 @@ impl Validation {
                     message_body,
                     user_payload,
                 )
-                .await?
+                    .await?
             }
             ChainId::Stellar => {
                 self.handle_stellar(
@@ -208,7 +208,7 @@ impl Validation {
                     HOT_VERIFY_METHOD_NAME,
                     StellarInputData::from_parts(message_hex, user_payload)?,
                 )
-                .await?
+                    .await?
             }
             ChainId::Ton | ChainId::TON_V2 => {
                 unimplemented!("It's not expected to call TON as the auth method")
@@ -220,21 +220,19 @@ impl Validation {
                     HOT_VERIFY_METHOD_NAME,
                     EvmInputData::from_parts(message_hex, user_payload)?,
                 )
-                .await?
+                    .await?
             }
             ChainId::Solana => {
                 unimplemented!("It's not expected to call Solana as the auth method")
             }
         };
 
-        if status {
-            Ok(())
-        } else {
-            Err(anyhow!(
-                "Authentication method {:?} returned False",
-                auth_method
-            ))
-        }
+        ensure!(
+            status,
+            "Authentication method {:?} returned False",
+            auth_method
+        );
+        Ok(())
     }
 }
 
