@@ -2,8 +2,9 @@ use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_t
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{
-    metrics, ChainValidationConfig, GetWalletArgs, VerifyArgs, WalletAuthMethods,
-    MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT, TIMEOUT,
+    metrics, AuthMethod, ChainValidationConfig, GetWalletArgs, Validation, VerifyArgs,
+    WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
+    TIMEOUT,
 };
 use anyhow::{Context, Result};
 use base64::prelude::BASE64_STANDARD;
@@ -11,7 +12,7 @@ use base64::Engine;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Serialize)]
@@ -207,6 +208,91 @@ impl ThresholdVerifier<NearVerifier> {
 
         let result = self.threshold_call(functor).await?;
         Ok(result)
+    }
+}
+
+impl Validation {
+    pub(crate) async fn handle_near(
+        self: Arc<Self>,
+        wallet_id: String,
+        auth_method: &AuthMethod,
+        message_hex: String,
+        message_body: String,
+        user_payload: String,
+    ) -> Result<bool> {
+        #[derive(Debug, Deserialize)]
+        struct MethodName {
+            method: String,
+        }
+
+        let message_bs58 = hex::decode(&message_hex)
+            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
+
+        // Mostly used with omni bridge workflows because there's another method name.
+        let method_name = if let Some(metadata) = &auth_method.metadata {
+            let method_name = serde_json::from_str::<MethodName>(metadata)?;
+            method_name.method
+        } else {
+            HOT_VERIFY_METHOD_NAME.to_string()
+        };
+
+        let verify_args = VerifyArgs {
+            wallet_id: Some(wallet_id.clone()),
+            msg_hash: message_bs58,
+            metadata: auth_method.metadata.clone(),
+            user_payload: user_payload.clone(),
+            msg_body: message_body.clone(),
+        };
+
+        let status = self
+            .near
+            .clone()
+            .verify(auth_method.account_id.clone(), method_name, verify_args)
+            .await
+            .context("Could not get HotVerifyResult from NEAR")?;
+
+        let status = match status {
+            HotVerifyResult::AuthCall(auth_call) => match auth_call.chain_id {
+                ChainId::Stellar => {
+                    self.handle_stellar(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Ton | ChainId::TON_V2 => {
+                    self.handle_ton(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Evm(_) => {
+                    self.handle_evm(
+                        auth_call.chain_id,
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Solana => {
+                    self.handle_solana(
+                        &auth_call.contract_id,
+                        &auth_call.method,
+                        auth_call.input.try_into()?,
+                    )
+                    .await?
+                }
+                ChainId::Near => {
+                    unimplemented!("Auth call should not lead to NEAR")
+                }
+            },
+            HotVerifyResult::Result(status) => status,
+        };
+        Ok(status)
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::TIMEOUT;
+use crate::{Validation, TIMEOUT};
 use anyhow::{anyhow, ensure, Context, Result};
 use borsh::BorshDeserialize;
 use futures_util::future::BoxFuture;
@@ -154,6 +154,23 @@ impl ThresholdVerifier<SolanaVerifier> {
 
         let result = self.threshold_call(functor).await?;
         Ok(result)
+    }
+}
+
+impl Validation {
+    pub(crate) async fn handle_solana(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: SolanaInputData,
+    ) -> Result<bool> {
+        let status = self
+            .solana
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Stellar failed")?;
+        Ok(status)
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
+use crate::Validation;
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use futures_util::future::BoxFuture;
@@ -182,6 +183,23 @@ impl ThresholdVerifier<TonVerifier> {
 
         let result = self.threshold_call(functor).await?;
         Ok(result)
+    }
+}
+
+impl Validation {
+    pub(crate) async fn handle_ton(
+        self: Arc<Self>,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: TonInputData,
+    ) -> Result<bool> {
+        let status = self
+            .ton
+            .clone()
+            .verify(auth_contract_id, method_name, input)
+            .await
+            .context("Validation on Ton failed")?;
+        Ok(status)
     }
 }
 

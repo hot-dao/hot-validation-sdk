@@ -2,7 +2,6 @@
 #![allow(clippy::missing_errors_doc)]
 mod verifiers;
 
-mod internals;
 mod metrics;
 mod threshold_verifier;
 
@@ -16,6 +15,8 @@ use crate::verifiers::stellar::StellarVerifier;
 use crate::verifiers::ton::TonVerifier;
 use anyhow::{ensure, Context, Result};
 use futures_util::future::try_join_all;
+use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_rpc_healthcheck::observer::Observer;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -197,6 +198,62 @@ impl Validation {
         .await;
 
         result?;
+        Ok(())
+    }
+
+    pub(crate) async fn verify_auth_method(
+        self: Arc<Self>,
+        wallet_id: String,
+        auth_method: AuthMethod,
+        message_body: String,
+        message_hex: String,
+        user_payload: String,
+    ) -> Result<()> {
+        let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
+
+        // TODO: auth method is always a NEAR contract, expect for legacy workflows, so we need to get
+        //  rid of non-Near branches, when we are dealt with legacy.
+        let status = match auth_method.chain_id {
+            ChainId::Near => {
+                self.handle_near(
+                    wallet_id,
+                    &auth_method,
+                    message_hex,
+                    message_body,
+                    user_payload,
+                )
+                .await?
+            }
+            ChainId::Stellar => {
+                self.handle_stellar(
+                    &auth_method.account_id,
+                    HOT_VERIFY_METHOD_NAME,
+                    StellarInputData::from_parts(message_hex, user_payload)?,
+                )
+                .await?
+            }
+            ChainId::Ton | ChainId::TON_V2 => {
+                unimplemented!("It's not expected to call TON as the auth method")
+            }
+            ChainId::Evm(_) => {
+                self.handle_evm(
+                    auth_method.chain_id,
+                    &auth_method.account_id,
+                    HOT_VERIFY_METHOD_NAME,
+                    EvmInputData::from_parts(message_hex, user_payload)?,
+                )
+                .await?
+            }
+            ChainId::Solana => {
+                unimplemented!("It's not expected to call Solana as the auth method")
+            }
+        };
+
+        ensure!(
+            status,
+            "Authentication method {:?} returned False",
+            auth_method
+        );
         Ok(())
     }
 }

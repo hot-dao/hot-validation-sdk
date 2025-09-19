@@ -1,7 +1,7 @@
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{ChainValidationConfig, TIMEOUT};
+use crate::{ChainValidationConfig, Validation, TIMEOUT};
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
@@ -215,6 +215,25 @@ impl ThresholdVerifier<EvmVerifier> {
             })
         };
         self.threshold_call(functor).await
+    }
+}
+
+impl Validation {
+    pub(crate) async fn handle_evm(
+        self: Arc<Self>,
+        chain_id: ChainId,
+        auth_contract_id: &str,
+        method_name: &str,
+        input: EvmInputData,
+    ) -> Result<bool> {
+        let validation = self.evm.get(&chain_id).ok_or(anyhow::anyhow!(
+            "EVM validation is not configured for chain {:?}",
+            chain_id
+        ))?;
+        let status = validation
+            .verify(auth_contract_id, method_name, input)
+            .await?;
+        Ok(status)
     }
 }
 
