@@ -13,7 +13,7 @@ use crate::verifiers::near::NearVerifier;
 use crate::verifiers::solana::SolanaVerifier;
 use crate::verifiers::stellar::StellarVerifier;
 use crate::verifiers::ton::TonVerifier;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_rpc_healthcheck::observer::Observer;
 use std::collections::HashMap;
@@ -116,13 +116,12 @@ impl Validation {
             .await
             .context("Couldn't get wallet info")?;
 
-        if proof.user_payloads.len() != wallet.access_list.len() {
-            bail!(
-                "Length of provided user payloads ({}) doesn't match with required wallet authorization ({})",
-                proof.user_payloads.len(),
-                wallet.access_list.len()
-            );
-        }
+        ensure!(
+            proof.user_payloads.len() == wallet.access_list.len(),
+            "Length of provided user payloads ({}) doesn't match with required wallet authorization ({})",
+            proof.user_payloads.len(),
+            wallet.access_list.len()
+        );
 
         let result = try_join_all(
             wallet
