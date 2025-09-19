@@ -109,8 +109,6 @@ impl Validation {
         let _timer = metrics::RPC_VERIFY_TOTAL_DURATION.start_timer();
 
         let wallet_id = uid_to_wallet_id(&uid).context("Couldn't convert uid to wallet_id")?;
-        // TODO: unnecessary threshold call, i.e. all validation logic should be done linearly,
-        // and threshold should be checked on the result, not on intermediate steps.
         let wallet = self
             .near
             .clone()
