@@ -1,6 +1,7 @@
-use crate::internals::{ThresholdVerifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
+use crate::TIMEOUT;
 use anyhow::{anyhow, ensure, Context, Result};
 use borsh::BorshDeserialize;
 use futures_util::future::BoxFuture;

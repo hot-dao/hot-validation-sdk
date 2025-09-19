@@ -1,7 +1,7 @@
-use crate::internals::{ThresholdVerifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::ChainValidationConfig;
+use crate::{ChainValidationConfig, TIMEOUT};
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
@@ -150,8 +150,8 @@ impl ThresholdVerifier<StellarVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::internals::HOT_VERIFY_METHOD_NAME;
     use crate::verifiers::stellar::StellarVerifier;
+    use crate::HOT_VERIFY_METHOD_NAME;
     use anyhow::Result;
     use hot_validation_primitives::bridge::stellar::{StellarInputArg, StellarInputData};
     use hot_validation_primitives::bridge::HotVerifyAuthCall;

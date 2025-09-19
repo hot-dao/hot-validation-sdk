@@ -1,5 +1,5 @@
-use crate::internals::ThresholdVerifier;
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};

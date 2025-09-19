@@ -1,10 +1,10 @@
-use crate::internals::{
-    GetWalletArgs, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
-    MPC_HOT_WALLET_CONTRACT, TIMEOUT,
-};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{metrics, ChainValidationConfig, VerifyArgs};
+use crate::{
+    metrics, ChainValidationConfig, GetWalletArgs, VerifyArgs, WalletAuthMethods,
+    MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT, TIMEOUT,
+};
 use anyhow::{Context, Result};
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
@@ -214,8 +214,7 @@ impl ThresholdVerifier<NearVerifier> {
 pub(crate) mod tests {
     #![allow(clippy::should_panic_without_expect)]
     use super::*;
-    use crate::internals::{uid_to_wallet_id, AuthMethod, HOT_VERIFY_METHOD_NAME};
-    use crate::ChainId;
+    use crate::{uid_to_wallet_id, AuthMethod, ChainId, HOT_VERIFY_METHOD_NAME};
 
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())

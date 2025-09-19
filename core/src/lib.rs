@@ -4,20 +4,76 @@ mod verifiers;
 
 mod internals;
 mod metrics;
+mod threshold_verifier;
 
 pub use hot_validation_primitives::*;
 
-use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::evm::EvmVerifier;
 use crate::verifiers::near::NearVerifier;
 use crate::verifiers::solana::SolanaVerifier;
 use crate::verifiers::stellar::StellarVerifier;
 use crate::verifiers::ton::TonVerifier;
-use anyhow::{bail, ensure, Context, Result};
+use anyhow::{ensure, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_rpc_healthcheck::observer::Observer;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
+
+pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
+pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
+pub const MPC_GET_WALLET_METHOD: &str = "get_wallet";
+pub const TIMEOUT: Duration = Duration::from_millis(750);
+
+// TODO: Put in common primitives
+pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
+    let uid_bytes = hex::decode(uid)?;
+    let sha256_bytes = Sha256::new_with_prefix(uid_bytes).finalize();
+    let uid_b58 = bs58::encode(sha256_bytes.as_slice()).into_string();
+    Ok(uid_b58)
+}
+
+/// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
+#[derive(Debug, Serialize)]
+pub struct GetWalletArgs {
+    pub(crate) wallet_id: String,
+}
+
+/// `account_id` is the smart contract address, and `chain_id` is the internal identifier for the chain.
+/// Together, they indicate where to call `hot_verify`.
+#[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
+pub struct AuthMethod {
+    pub account_id: String,
+    /// Used to override what method is called on the `account_id`.
+    pub metadata: Option<String>,
+    pub chain_id: ChainId,
+}
+
+/// The output of `get_wallet` on Near `mpc.hot.tg` smart contract.
+#[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
+pub struct WalletAuthMethods {
+    pub access_list: Vec<AuthMethod>,
+    pub key_gen: usize,
+    pub block_height: u64,
+}
+
+/// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
+#[derive(Debug, Serialize, Clone)]
+pub struct VerifyArgs {
+    /// In some cases, we need to know the exact message that we trying to sign.
+    pub msg_body: String,
+    /// The hash of the message that we try to sign.
+    pub msg_hash: String,
+    /// The wallet id, that initates the signing
+    pub wallet_id: Option<String>,
+    /// The actual data, that authorizes signing
+    pub user_payload: String,
+    /// Additional field for the future, in case we need to override something
+    pub metadata: Option<String>,
+}
 
 /// The logic that prevents signing arbitrary messages.
 #[derive(Clone)]

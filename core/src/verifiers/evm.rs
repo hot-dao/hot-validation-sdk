@@ -1,7 +1,7 @@
-use crate::internals::{ThresholdVerifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::ChainValidationConfig;
+use crate::{ChainValidationConfig, TIMEOUT};
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
@@ -220,9 +220,9 @@ impl ThresholdVerifier<EvmVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
     use crate::tests::base_rpc;
-    use crate::ChainValidationConfig;
+    use crate::threshold_verifier::ThresholdVerifier;
+    use crate::{ChainValidationConfig, HOT_VERIFY_METHOD_NAME};
     use anyhow::Result;
     use hot_validation_primitives::bridge::evm::EvmInputData;
     use hot_validation_primitives::ChainId;
