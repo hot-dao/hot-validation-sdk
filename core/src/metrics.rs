@@ -6,13 +6,7 @@ pub static RPC_VERIFY_TOTAL_DURATION: LazyLock<prometheus::Histogram> = LazyLock
     register_histogram!(
         "rpc_verify_total_duration_seconds",
         "Histogram of how long top-level verify() takes",
-        vec![
-            0.02, 0.03, 0.04, 0.05,
-            0.06, 0.8, 0.9, 0.10,
-            0.12,
-            0.15,
-            0.20,
-        ]
+        vec![0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.09, 0.10, 0.12, 0.15, 0.20,]
     )
     .expect("register rpc_verify_total_duration_seconds")
 });
@@ -21,13 +15,7 @@ pub static RPC_SINGLE_VERIFY_DURATION: LazyLock<prometheus::Histogram> = LazyLoc
     register_histogram!(
         "rpc_single_verify_duration_seconds",
         "Histogram of how long individual verify() takes",
-        vec![
-            0.01, 0.02, 0.03, 0.04, 0.05,
-            0.06, 0.8, 0.9, 0.10,
-            0.12,
-            0.15,
-            0.20,
-        ]
+        vec![0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.09, 0.10, 0.12, 0.15, 0.20,]
     )
     .expect("register rpc_single_verify_duration_seconds")
 });
@@ -36,13 +24,7 @@ pub static RPC_GET_AUTH_METHODS_DURATION: LazyLock<prometheus::Histogram> = Lazy
     register_histogram!(
         "rpc_get_auth_methods_duration_seconds",
         "Histogram of how long `get auth methods for wallet` takes",
-        vec![
-            0.01, 0.02, 0.03, 0.04, 0.05,
-            0.06, 0.8, 0.9, 0.10,
-            0.12,
-            0.15,
-            0.20,
-        ]
+        vec![0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.09, 0.10, 0.12, 0.15, 0.20,]
     )
     .expect("register rpc_get_auth_methods_duration_seconds")
 });
