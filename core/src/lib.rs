@@ -42,28 +42,25 @@ impl Validation {
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
 
-        let near_config = configs
-            .get(&ChainId::Near)
-            .expect("No near config (chain_id = 0) found")
-            .clone();
-
-        let near_validation = {
-            let verifier = ThresholdVerifier::new_near(near_config, &client);
+        let near = {
+            let config = configs
+                .get(&ChainId::Near)
+                .expect("No near config (chain_id = 0) found")
+                .clone();
+            let verifier = ThresholdVerifier::new_near(config, &client);
             Arc::new(verifier)
         };
 
-        // TODO: Logic separation
-        let stellar_config = configs
-            .get(&ChainId::Stellar)
-            .expect("No stellar config (chain_id = 1100) found")
-            .clone();
-
-        let stellar_validation = {
-            let verifier = ThresholdVerifier::new_stellar(stellar_config)?;
+        let stellar = {
+            let config = configs
+                .get(&ChainId::Stellar)
+                .expect("No stellar config (chain_id = 1100) found")
+                .clone();
+            let verifier = ThresholdVerifier::new_stellar(config)?;
             Arc::new(verifier)
         };
 
-        let evm_validation = configs
+        let evm = configs
             .clone()
             .into_iter()
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
@@ -96,9 +93,9 @@ impl Validation {
         let health_check_observer = Arc::new(Observer::new(configs));
 
         let validation = Self {
-            near: near_validation, // TODO: Direct naming
-            evm: evm_validation,
-            stellar: stellar_validation,
+            near,
+            evm,
+            stellar,
             ton,
             solana,
             health_check_observer,
