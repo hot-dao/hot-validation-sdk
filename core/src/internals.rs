@@ -167,8 +167,8 @@ impl Validation {
     ) -> Result<()> {
         let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
-        // TODO: DRY
-        // TODO: Hypothesis: auth method is always a NEAR contract.
+        // TODO: auth method is always a NEAR contract, expect for legacy workflows, so we need to get
+        //  rid of non-Near branches, when we are dealt with legacy.
         let status = match auth_method.chain_id {
             ChainId::Near => {
                 self.handle_near(
