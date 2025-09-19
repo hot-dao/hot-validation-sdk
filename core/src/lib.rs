@@ -523,6 +523,30 @@ mod tests {
 
     #[tokio::test]
     async fn bridge_deposit_validation_solana() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = staging_uid();
+        let message =
+            "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
+        let payload = HotVerifyBridge {
+            chain_id: ChainId::Solana,
+            action: Action::Deposit(DepositData {
+                sender: bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho").into_vec()?.try_into().unwrap(),
+                receiver: bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V").into_vec()?.try_into().unwrap(),
+                token_id: bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z").into_vec()?.try_into()?,
+                amount: 10000000,
+                nonce: 1_757_984_522_000_007_228,
+            }),
+        };
+        let json = serde_json::to_value(&payload)?;
+        dbg!(&json);
+        let proof = ProofModel {
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
         Ok(())
     }
 
