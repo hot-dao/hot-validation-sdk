@@ -23,15 +23,16 @@ use stellar::StellarInputData;
 use ton::TonInputData;
 
 #[derive(Serialize, Deserialize)]
-pub struct HotVerifyBridge {
-    pub chain_id: ChainId,
-    pub action: Action,
+pub enum HotVerifyBridge {
+    Deposit(DepositAction),
+    ClearCompletedWithdrawal(CompletedWithdrawalAction),
 }
 
-#[derive(Serialize, Deserialize)]
-pub enum Action {
-    Deposit(DepositData),
-    ClearCompletedWithdrawal(CompletedWithdrawal),
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
+pub struct DepositAction {
+    pub chain_id: ChainId,
+    #[serde(flatten)]
+    pub data: DepositData,
 }
 
 /// Note: order and types of fields should stay persistent, as it being deserialized to borsh for further
@@ -102,6 +103,13 @@ impl DepositData {
         let data = stream.out().to_vec();
         sha2::Sha256::digest(&data).into()
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
+pub struct CompletedWithdrawalAction {
+    pub chain_id: ChainId,
+    #[serde(flatten)]
+    pub data: CompletedWithdrawal,
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
