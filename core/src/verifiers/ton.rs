@@ -188,13 +188,13 @@ impl ThresholdVerifier<TonVerifier> {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use crate::ton::TonVerifier;
     use anyhow::Result;
 
     use hot_validation_primitives::bridge::ton::{Action, StackItem, TonInputData};
 
     use std::sync::Arc;
 
+    use crate::verifiers::ton::TonVerifier;
     use tonlib_core::TonAddress;
 
     pub(crate) fn ton_rpc() -> String {

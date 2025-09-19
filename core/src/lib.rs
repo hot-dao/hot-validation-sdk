@@ -1,21 +1,18 @@
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
-mod evm;
+mod verifiers;
+
 mod internals;
 mod metrics;
-mod near;
-mod solana;
-mod stellar;
-mod ton;
 
 pub use hot_validation_primitives::*;
 
-use crate::evm::EvmVerifier;
 use crate::internals::{uid_to_wallet_id, ThresholdVerifier, VerifyArgs};
-use crate::near::NearVerifier;
-use crate::solana::SolanaVerifier;
-use crate::stellar::StellarVerifier;
-use crate::ton::TonVerifier;
+use crate::verifiers::evm::EvmVerifier;
+use crate::verifiers::near::NearVerifier;
+use crate::verifiers::solana::SolanaVerifier;
+use crate::verifiers::stellar::StellarVerifier;
+use crate::verifiers::ton::TonVerifier;
 use anyhow::{bail, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_rpc_healthcheck::observer::Observer;
@@ -155,8 +152,8 @@ impl Validation {
 mod tests {
     #![allow(clippy::should_panic_without_expect)]
     use super::*;
-    use crate::near::tests::near_rpc;
-    use crate::ton::tests::ton_rpc;
+    use crate::verifiers::near::tests::near_rpc;
+    use crate::verifiers::ton::tests::ton_rpc;
     use hot_validation_primitives::bridge::{
         CompletedWithdrawal, CompletedWithdrawalAction, DepositAction, DepositData, HotVerifyBridge,
     };

@@ -150,9 +150,9 @@ impl ThresholdVerifier<StellarVerifier> {
 #[cfg(test)]
 mod tests {
     use crate::internals::HOT_VERIFY_METHOD_NAME;
-    use crate::stellar::{StellarInputData, StellarVerifier};
+    use crate::verifiers::stellar::StellarVerifier;
     use anyhow::Result;
-    use hot_validation_primitives::bridge::stellar::StellarInputArg;
+    use hot_validation_primitives::bridge::stellar::{StellarInputArg, StellarInputData};
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
 
     #[tokio::test]

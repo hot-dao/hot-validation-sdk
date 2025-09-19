@@ -221,11 +221,11 @@ impl ThresholdVerifier<EvmVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::evm::EvmInputData;
     use crate::internals::{ThresholdVerifier, HOT_VERIFY_METHOD_NAME};
     use crate::tests::base_rpc;
     use crate::ChainValidationConfig;
     use anyhow::Result;
+    use hot_validation_primitives::bridge::evm::EvmInputData;
     use hot_validation_primitives::ChainId;
     use std::sync::Arc;
 
