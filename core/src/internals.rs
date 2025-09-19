@@ -353,8 +353,8 @@ mod tests {
     }
 
     impl VerifierTag for DummyVerifier {
-        fn get_endpoint(&self) -> String {
-            "dummy".into()
+        fn get_endpoint(&self) -> &'static str {
+            "dummy"
         }
     }
 
@@ -474,8 +474,8 @@ mod tests {
     }
 
     impl VerifierTag for BoolVerifier {
-        fn get_endpoint(&self) -> String {
-            "bool".into()
+        fn get_endpoint(&self) -> &'static str {
+            "bool"
         }
     }
 

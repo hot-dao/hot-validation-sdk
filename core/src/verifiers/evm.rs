@@ -165,8 +165,8 @@ impl EvmVerifier {
 }
 
 impl VerifierTag for EvmVerifier {
-    fn get_endpoint(&self) -> String {
-        self.server.clone()
+    fn get_endpoint(&self) -> &str {
+        self.server.as_str()
     }
 }
 

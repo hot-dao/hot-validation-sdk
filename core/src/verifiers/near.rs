@@ -134,8 +134,8 @@ impl NearVerifier {
 }
 
 impl VerifierTag for NearVerifier {
-    fn get_endpoint(&self) -> String {
-        self.server.clone()
+    fn get_endpoint(&self) -> &str {
+        self.server.as_str()
     }
 }
 

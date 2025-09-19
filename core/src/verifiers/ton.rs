@@ -133,8 +133,8 @@ impl TonVerifier {
 }
 
 impl VerifierTag for TonVerifier {
-    fn get_endpoint(&self) -> String {
-        self.server.clone()
+    fn get_endpoint(&self) -> &str {
+        self.server.as_str()
     }
 }
 
