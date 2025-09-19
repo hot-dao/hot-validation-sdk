@@ -1,8 +1,9 @@
 use crate::internals::{
-    GetWalletArgs, ThresholdVerifier, Verifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
+    GetWalletArgs, ThresholdVerifier, WalletAuthMethods, MPC_GET_WALLET_METHOD,
     MPC_HOT_WALLET_CONTRACT, TIMEOUT,
 };
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::verifiers::Verifier;
 use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
 use async_trait::async_trait;

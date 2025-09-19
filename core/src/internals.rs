@@ -1,7 +1,7 @@
+use crate::verifiers::Verifier;
 use crate::{metrics, Validation};
 use anyhow::Result;
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
 use hot_validation_primitives::bridge::evm::EvmInputData;
@@ -13,7 +13,6 @@ use hot_validation_primitives::ChainId;
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -276,20 +275,6 @@ pub struct VerifyArgs {
     pub user_payload: String,
     /// Additional field for the future, in case we need to override something
     pub metadata: Option<String>,
-}
-
-/// An interface to a particular RPC server.
-#[async_trait] // TODO: Remove
-pub(crate) trait Verifier: Send + Sync + 'static {
-    /// An identification of the verifier (rpc endpoint). Used only for logging.
-    fn get_endpoint(&self) -> String; // TODO: Can we return a reference here?
-
-    fn sanitized_endpoint(&self) -> String {
-        let endpoint = self.get_endpoint();
-        Url::parse(&endpoint)
-            .map(|e| e.host().map(|h| h.to_string()).unwrap_or_default())
-            .unwrap_or_default()
-    }
 }
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,

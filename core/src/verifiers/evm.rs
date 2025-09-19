@@ -1,5 +1,6 @@
-use crate::internals::{ThresholdVerifier, Verifier, TIMEOUT};
+use crate::internals::{ThresholdVerifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::verifiers::Verifier;
 use crate::ChainValidationConfig;
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
