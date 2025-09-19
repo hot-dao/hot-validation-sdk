@@ -3,7 +3,6 @@ use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_t
 use crate::verifiers::Verifier;
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
-use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::ton::{Action, ResponseStackItem, StackItem, TonInputData};
 use hot_validation_primitives::{ChainId, ChainValidationConfig};
@@ -133,7 +132,6 @@ impl TonVerifier {
     }
 }
 
-#[async_trait]
 impl Verifier for TonVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()

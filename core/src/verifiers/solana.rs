@@ -2,7 +2,6 @@ use crate::internals::{ThresholdVerifier, TIMEOUT};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::verifiers::Verifier;
 use anyhow::{anyhow, ensure, Context, Result};
-use async_trait::async_trait;
 use borsh::BorshDeserialize;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::solana::{
@@ -112,7 +111,6 @@ impl SolanaVerifier {
     }
 }
 
-#[async_trait]
 impl Verifier for SolanaVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()

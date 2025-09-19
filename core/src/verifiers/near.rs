@@ -6,7 +6,6 @@ use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_t
 use crate::verifiers::Verifier;
 use crate::{metrics, ChainValidationConfig, VerifyArgs};
 use anyhow::{Context, Result};
-use async_trait::async_trait;
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use futures_util::future::BoxFuture;
@@ -134,7 +133,6 @@ impl NearVerifier {
     }
 }
 
-#[async_trait]
 impl Verifier for NearVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()

@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use reqwest::Url;
 
 pub mod evm;
@@ -8,7 +7,6 @@ pub mod stellar;
 pub mod ton;
 
 /// An interface to a particular RPC server.
-#[async_trait] // TODO: Remove
 pub(crate) trait Verifier: Send + Sync + 'static {
     /// An identification of the verifier (rpc endpoint). Used only for logging.
     fn get_endpoint(&self) -> String; // TODO: Can we return a reference here?

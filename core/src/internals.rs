@@ -342,7 +342,7 @@ mod tests {
     use super::*;
 
     use anyhow::Result;
-    use async_trait::async_trait;
+
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
 
@@ -352,7 +352,6 @@ mod tests {
         resp: Option<u8>,
     }
 
-    #[async_trait]
     impl Verifier for DummyVerifier {
         fn get_endpoint(&self) -> String {
             "dummy".into()
@@ -474,7 +473,6 @@ mod tests {
         }
     }
 
-    #[async_trait]
     impl Verifier for BoolVerifier {
         fn get_endpoint(&self) -> String {
             "bool".into()

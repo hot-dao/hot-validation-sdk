@@ -6,7 +6,6 @@ use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
 use anyhow::{Context, Result};
-use async_trait::async_trait;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::ChainId;
@@ -165,7 +164,6 @@ impl EvmVerifier {
     }
 }
 
-#[async_trait]
 impl Verifier for EvmVerifier {
     fn get_endpoint(&self) -> String {
         self.server.clone()
