@@ -100,7 +100,6 @@ async fn main() -> Result<()> {
             .collect::<Vec<_>>();
         if !statuses.is_empty() {
             error!("Failed to healthcheck {:?}: {:?}", chain_id, statuses);
-            return Err(anyhow::anyhow!("Failed to healthcheck"));
         }
     }
 
