@@ -44,6 +44,8 @@ pub const HOT_VERIFY_EVM_ABI: &str = r#"
 ]
 "#;
 
+const BLOCK_DELAY: u64 = 1;
+
 // Initialize the Interface once
 static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
     let abi: JsonAbi =
@@ -143,10 +145,10 @@ impl EvmVerifier {
         let call_obj = json!({"to": auth_contract_id, "data": data_hex});
 
         // Ideally, we would want to use `safe` or `final` block here,
-        // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 2`,
+        // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
         // because in practice most reverts happen in the next block,
         // so taking some delta from the latest block is good enough.
-        let actual_block_number = block_number.checked_sub(2).expect("block number underflow");
+        let actual_block_number = block_number.checked_sub(BLOCK_DELAY).expect("block number underflow");
 
         let rpc = RpcRequest::build_eth_call(&call_obj, actual_block_number);
         let raw = self.call_rpc(&rpc).await?;
