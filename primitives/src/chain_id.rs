@@ -64,38 +64,76 @@ impl From<u64> for ChainId {
     }
 }
 
-/// Richer description of the chains. This is used in logs/metrics.
-/// We can not interchange it with the existing `ChainId`, because of the legacy: `ChainId` is being stored
-/// as the contract state, and there's no easy way to migrate
-#[repr(u64)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter)]
-#[serde(try_from = "u64", into = "u64")]
-pub enum ExtendedChainId {
-    Near = 0,
-    Eth = 1,
-    Optimism = 10,
-    Flare = 14,
-    Bsc = 56,
-    Polygon = 137,
-    XLayer = 196,
-    ZkSync = 324,
-    HyperEVM = 999,
-    Solana = 1001,
-    Stellar = 1100,
-    Ton = 1117,
-    Kava = 2222,
-    Abstract = 2741,
-    Mantle = 5000,
-    Kaia = 8217,
-    Base = 8453,
-    MonadTestnet = 10143,
-    Arbitrum = 42161,
-    Avax = 43114,
-    Ink = 57073,
-    Linea = 59144,
-    BeraChain = 80094,
-    Scroll = 534352,
-    Aurora = 1313161554,
+/// Define a u64-discriminant enum plus reverse `TryFrom<u64>` without code duplication.
+/// Works in `no_std` (no allocation). You can attach derives/serde via the header attrs.
+#[macro_export]
+macro_rules! define_u64_enum_with_reverse {
+    (
+        $(#[$meta:meta])*
+        $vis:vis enum $Name:ident {
+            $($Var:ident = $val:expr),+ $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        #[repr(u64)]
+        $vis enum $Name {
+            $($Var = $val),+
+        }
+
+        impl ::core::convert::From<$Name> for u64 {
+            #[inline]
+            fn from(v: $Name) -> Self {
+                v as u64
+            }
+        }
+
+        impl ::core::convert::TryFrom<u64> for $Name {
+            type Error = &'static str;
+
+            #[inline]
+            fn try_from(v: u64) -> ::core::result::Result<Self, Self::Error> {
+                match v {
+                    $($val => Ok($Name::$Var),)+
+                    _ => Err("unknown chain id"),
+                }
+            }
+        }
+    }
+}
+
+define_u64_enum_with_reverse! {
+    /// Richer description of the chains. This is used in logs/metrics.
+    /// We can not interchange it with the existing `ChainId`, because of the legacy: `ChainId` is being stored
+    /// as the contract state, and there's no easy way to migrate
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter)]
+    #[serde(try_from = "u64", into = "u64")]
+    pub enum ExtendedChainId {
+        Near = 0,
+        Eth = 1,
+        Optimism = 10,
+        Flare = 14,
+        Bsc = 56,
+        Polygon = 137,
+        XLayer = 196,
+        ZkSync = 324,
+        HyperEVM = 999,
+        Solana = 1001,
+        Stellar = 1100,
+        Ton = 1117,
+        Kava = 2222,
+        Abstract = 2741,
+        Mantle = 5000,
+        Kaia = 8217,
+        Base = 8453,
+        MonadTestnet = 10143,
+        Arbitrum = 42161,
+        Avax = 43114,
+        Ink = 57073,
+        Linea = 59144,
+        BeraChain = 80094,
+        Scroll = 534352,
+        Aurora = 1313161554,
+    }
 }
 
 impl Display for ExtendedChainId {
@@ -122,51 +160,6 @@ impl TryFrom<ChainId> for ExtendedChainId {
     fn try_from(value: ChainId) -> Result<Self, Self::Error> {
         let id = <u64>::from(value);
         ExtendedChainId::try_from(id).map_err(|_| format!("unknown chain id: {id}"))
-    }
-}
-
-impl From<ExtendedChainId> for u64 {
-    fn from(c: ExtendedChainId) -> Self {
-        c as u64
-    }
-}
-
-impl TryFrom<u64> for ExtendedChainId {
-    type Error = &'static str;
-    fn try_from(v: u64) -> Result<Self, Self::Error> {
-        use ExtendedChainId::{
-            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
-            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
-            Stellar, Ton, XLayer, ZkSync,
-        };
-        Ok(match v {
-            0 => Near,
-            1 => Eth,
-            10 => Optimism,
-            14 => Flare,
-            56 => Bsc,
-            137 => Polygon,
-            196 => XLayer,
-            324 => ZkSync,
-            999 => HyperEVM,
-            1001 => Solana,
-            1100 => Stellar,
-            1117 => Ton,
-            2222 => Kava,
-            2741 => Abstract,
-            5000 => Mantle,
-            8217 => Kaia,
-            8453 => Base,
-            57073 => Ink,
-            59144 => Linea,
-            10143 => MonadTestnet,
-            42161 => Arbitrum,
-            43114 => Avax,
-            80094 => BeraChain,
-            534352 => Scroll,
-            1313161554 => Aurora,
-            _ => return Err("unknown chain id "),
-        })
     }
 }
 
