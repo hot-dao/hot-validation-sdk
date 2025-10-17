@@ -18,13 +18,22 @@ pub static RPC_AVAILABILITY_SERVER_UP: LazyLock<IntGaugeVec> = LazyLock::new(|| 
     .expect("register rpc_availability_server_up")
 });
 
-pub static RPC_AVAILABILITY_THRESHOLD_DELTA: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+pub static RPC_AVAILABILITY_THRESHOLD_NUMBER: LazyLock<IntGaugeVec> = LazyLock::new(|| {
     register_int_gauge_vec!(
-        "rpc_availability_threshold_delta",
-        "Difference between available and threshold number of servers",
+        "rpc_availability_threshold_number",
+        "threshold number of servers that should be available for chain",
         &["chain_id"]
     )
-    .expect("register rpc_availability_threshold_delta")
+        .expect("register rpc_availability_threshold_number")
+});
+
+pub static RPC_AVAILABILITY_TOTAL_NUMBER: LazyLock<IntGaugeVec> = LazyLock::new(|| {
+    register_int_gauge_vec!(
+        "rpc_availability_total_number",
+        "total number of servers for chain",
+        &["chain_id"]
+    )
+        .expect("register rpc_availability_total_number")
 });
 
 #[derive(Clone)]
@@ -68,17 +77,25 @@ impl Observer {
 
     async fn check_all_servers(&self) -> anyhow::Result<()> {
         for (&chain_id, config) in &self.configs {
+            #[allow(clippy::cast_possible_wrap)]
+            RPC_AVAILABILITY_TOTAL_NUMBER
+                .with_label_values(&[&chain_id.to_string()])
+                .set(config.servers.len() as i64);
+
+            #[allow(clippy::cast_possible_wrap)]
+            RPC_AVAILABILITY_THRESHOLD_NUMBER
+                .with_label_values(&[&chain_id.to_string()])
+                .set(config.threshold as i64);
+
             let availability = healthcheck_many(&self.client, chain_id, &config.servers).await;
 
             let chain_label = ExtendedChainId::try_from(chain_id)
                 .map(|extended_chain_id| extended_chain_id.to_string())
                 .unwrap_or(chain_id.to_string());
 
-            let mut available_serveres = 0;
             for result in &availability {
                 match result {
                     Ok(server) => {
-                        available_serveres += 1;
                         RPC_AVAILABILITY_SERVER_UP
                             .with_label_values(&[&chain_label, &server.0])
                             .set(1);
@@ -90,11 +107,6 @@ impl Observer {
                     }
                 }
             }
-
-            #[allow(clippy::cast_possible_wrap)]
-            RPC_AVAILABILITY_THRESHOLD_DELTA
-                .with_label_values(&[&chain_label])
-                .set(available_serveres - config.threshold as i64);
         }
         Ok(())
     }
