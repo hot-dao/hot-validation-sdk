@@ -16,25 +16,34 @@ impl InfuraProvider {
 
 impl SlugFromChainId for InfuraProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
+        use ExtendedChainId::*;
         match chain_id {
-            ExtendedChainId::Eth => Some("mainnet".to_string()),
-            ExtendedChainId::Optimism => Some("optimism-mainnet".to_string()),
-            ExtendedChainId::Bsc => Some("bsc-mainnet".to_string()),
-            ExtendedChainId::Polygon => Some("polygon-mainnet".to_string()),
-            ExtendedChainId::ZkSync => Some("zksync-mainnet".to_string()),
-            ExtendedChainId::Base => Some("base-mainnet".to_string()),
-            ExtendedChainId::Arbitrum => Some("arbitrum-mainnet".to_string()),
-            ExtendedChainId::Avax => Some("avalanche-mainnet".to_string()),
-            ExtendedChainId::Scroll => Some("scroll-mainnet".to_string()),
+            Eth => Some("mainnet".to_string()),
+            Optimism => Some("optimism-mainnet".to_string()),
+            Bsc => Some("bsc-mainnet".to_string()),
+            Polygon => Some("polygon-mainnet".to_string()),
+            ZkSync => Some("zksync-mainnet".to_string()),
+            Base => Some("base-mainnet".to_string()),
+            Arbitrum => Some("arbitrum-mainnet".to_string()),
+            Avax => Some("avalanche-mainnet".to_string()),
+            Scroll => Some("scroll-mainnet".to_string()),
+            Linea => Some("linea-mainnet".to_string()),
+            Mantle => Some("mantle-mainnet".to_string()),
 
-            ExtendedChainId::Near
-            | ExtendedChainId::MonadTestnet
-            | ExtendedChainId::Stellar
-            | ExtendedChainId::Kava
-            | ExtendedChainId::BeraChain
-            | ExtendedChainId::Aurora
-            | ExtendedChainId::Solana
-            | ExtendedChainId::Ton => None,
+            Near |
+            Abstract |
+            Ink |
+            Flare |
+            HyperEVM |
+            MonadTestnet |
+            XLayer |
+            Stellar |
+            Kava |
+            BeraChain |
+            Aurora |
+            Solana |
+            Kaia |
+            Ton => None,
         }
     }
 }

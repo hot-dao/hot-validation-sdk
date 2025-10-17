@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use hot_validation_primitives::ExtendedChainId;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
+use hot_validation_primitives::ExtendedChainId::Kaia;
 
 pub struct AnkrProvider {
     api_key: String,
@@ -17,23 +18,34 @@ impl AnkrProvider {
 
 impl SlugFromChainId for AnkrProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
+        use ExtendedChainId::*;
         match chain_id {
-            ExtendedChainId::Eth => Some("eth".to_string()),
-            ExtendedChainId::Optimism => Some("optimism".to_string()),
-            ExtendedChainId::Bsc => Some("bsc".to_string()),
-            ExtendedChainId::Polygon => Some("polygon".to_string()),
-            ExtendedChainId::MonadTestnet => Some("monad_testnet".to_string()),
-            ExtendedChainId::ZkSync => Some("zksync_era".to_string()),
-            ExtendedChainId::Stellar => Some("stellar_soroban".to_string()),
-            ExtendedChainId::Base => Some("base".to_string()),
-            ExtendedChainId::Arbitrum => Some("arbitrum".to_string()),
-            ExtendedChainId::Avax => Some("avalanche".to_string()),
-            ExtendedChainId::Scroll => Some("scroll".to_string()),
-            ExtendedChainId::Ton => Some("premium-http/ton_api_v2".to_string()),
-            ExtendedChainId::Solana => Some("solana".to_string()),
-            ExtendedChainId::Kava => Some("kava_rpc".to_string()),
+            Eth => Some("eth".to_string()),
+            Optimism => Some("optimism".to_string()),
+            Bsc => Some("bsc".to_string()),
+            Polygon => Some("polygon".to_string()),
+            MonadTestnet => Some("monad_testnet".to_string()),
+            ZkSync => Some("zksync_era".to_string()),
+            Stellar => Some("stellar_soroban".to_string()),
+            Base => Some("base".to_string()),
+            Arbitrum => Some("arbitrum".to_string()),
+            Avax => Some("avalanche".to_string()),
+            Scroll => Some("scroll".to_string()),
+            Ton => Some("premium-http/ton_api_v2".to_string()),
+            Solana => Some("solana".to_string()),
+            Kava => Some("kava_rpc".to_string()),
+            XLayer => Some("xlayer".to_string()),
+            Linea => Some("linea".to_string()),
+            Kaia => Some("kaia".to_string()),
+            Mantle => Some("mantle".to_string()),
+            Flare => Some("flare".to_string()),
 
-            ExtendedChainId::Near | ExtendedChainId::BeraChain | ExtendedChainId::Aurora => None,
+            Near |
+            Abstract |
+            Ink |
+            HyperEVM |
+            BeraChain |
+            Aurora => None,
         }
     }
 }
