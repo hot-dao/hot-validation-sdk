@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use hot_validation_primitives::ExtendedChainId;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
-use hot_validation_primitives::ExtendedChainId::Kaia;
 
 pub struct AnkrProvider {
     api_key: String,
@@ -18,7 +17,11 @@ impl AnkrProvider {
 
 impl SlugFromChainId for AnkrProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
-        use ExtendedChainId::*;
+        use ExtendedChainId::{
+            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
+            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
+            Stellar, Ton, XLayer, ZkSync,
+        };
         match chain_id {
             Eth => Some("eth".to_string()),
             Optimism => Some("optimism".to_string()),
@@ -40,12 +43,7 @@ impl SlugFromChainId for AnkrProvider {
             Mantle => Some("mantle".to_string()),
             Flare => Some("flare".to_string()),
 
-            Near |
-            Abstract |
-            Ink |
-            HyperEVM |
-            BeraChain |
-            Aurora => None,
+            Near | Abstract | Ink | HyperEVM | BeraChain | Aurora => None,
         }
     }
 }

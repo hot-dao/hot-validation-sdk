@@ -1,5 +1,5 @@
 use crate::providers::{Provider, SlugFromChainId};
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
 use hot_validation_primitives::ExtendedChainId;
 use serde::Deserialize;
@@ -18,7 +18,11 @@ impl QuicknodeProvider {
 
 impl SlugFromChainId for QuicknodeProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
-        use ExtendedChainId::*;
+        use ExtendedChainId::{
+            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
+            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
+            Stellar, Ton, XLayer, ZkSync,
+        };
         match chain_id {
             Optimism => Some("optimism".to_string()),
             Bsc => Some("bsc".to_string()),
@@ -118,7 +122,7 @@ impl Provider for QuicknodeProvider {
                 } else if matches!(chain, ExtendedChainId::Ton) {
                     ep += "jsonRPC";
                 } else if matches!(chain, ExtendedChainId::Flare) {
-                    ep += "ext/bc/C/rpc/"
+                    ep += "ext/bc/C/rpc/";
                 }
                 map.insert(chain, ep.clone());
             }

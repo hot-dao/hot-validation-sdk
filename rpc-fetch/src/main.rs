@@ -107,11 +107,7 @@ async fn main() -> Result<()> {
         let mut data = HashMap::new();
         for (chain_id, endpoints) in &mut config {
             let len = endpoints.len();
-            let threshold = if len == 1 {
-                1
-            } else {
-                len - 1
-            };
+            let threshold = if len == 1 { 1 } else { len - 1 };
             let validation_config = ChainValidationConfig {
                 threshold,
                 servers: endpoints.clone(),

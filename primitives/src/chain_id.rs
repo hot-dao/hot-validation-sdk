@@ -134,7 +134,11 @@ impl From<ExtendedChainId> for u64 {
 impl TryFrom<u64> for ExtendedChainId {
     type Error = &'static str;
     fn try_from(v: u64) -> Result<Self, Self::Error> {
-        use ExtendedChainId::*;
+        use ExtendedChainId::{
+            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
+            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
+            Stellar, Ton, XLayer, ZkSync,
+        };
         Ok(match v {
             0 => Near,
             1 => Eth,
