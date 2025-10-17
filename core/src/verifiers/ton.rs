@@ -96,11 +96,7 @@ impl TonVerifier {
                     )
                     .await?;
                 let num = item.as_num()?;
-                ensure!(
-                    num == StackItem::SUCCESS_NUM,
-                    "Expected success, got {}",
-                    num
-                );
+                ensure!(num == StackItem::SUCCESS_NUM, "Expected success, got {num}");
             }
             Action::CheckCompletedWithdrawal { nonce } => {
                 let item = self
@@ -114,16 +110,13 @@ impl TonVerifier {
                 let last_used_nonce = {
                     let num = item.as_num()?;
                     U128::from_str(&num)
-                        .map_err(|e| anyhow!("Can't parse nonce ({}) into u128: {}", num, e))?
+                        .map_err(|e| anyhow!("Can't parse nonce ({num}) into u128: {e}"))?
                         .as_u128()
                 };
 
                 ensure!(
                     nonce <= last_used_nonce,
-                    "Expected {} <= {}, last used: {}",
-                    nonce,
-                    last_used_nonce,
-                    last_used_nonce
+                    "Expected {nonce} <= {last_used_nonce}, last used: {last_used_nonce}"
                 );
             }
         }

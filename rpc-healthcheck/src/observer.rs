@@ -24,7 +24,7 @@ pub static RPC_AVAILABILITY_THRESHOLD_NUMBER: LazyLock<IntGaugeVec> = LazyLock::
         "threshold number of servers that should be available for chain",
         &["chain_id"]
     )
-        .expect("register rpc_availability_threshold_number")
+    .expect("register rpc_availability_threshold_number")
 });
 
 pub static RPC_AVAILABILITY_TOTAL_NUMBER: LazyLock<IntGaugeVec> = LazyLock::new(|| {
@@ -33,7 +33,7 @@ pub static RPC_AVAILABILITY_TOTAL_NUMBER: LazyLock<IntGaugeVec> = LazyLock::new(
         "total number of servers for chain",
         &["chain_id"]
     )
-        .expect("register rpc_availability_total_number")
+    .expect("register rpc_availability_total_number")
 });
 
 #[derive(Clone)]

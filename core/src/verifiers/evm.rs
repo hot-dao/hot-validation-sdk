@@ -231,8 +231,7 @@ impl Validation {
         input: EvmInputData,
     ) -> Result<bool> {
         let validation = self.evm.get(&chain_id).ok_or(anyhow::anyhow!(
-            "EVM validation is not configured for chain {:?}",
-            chain_id
+            "EVM validation is not configured for chain {chain_id:?}"
         ))?;
         let status = validation
             .verify(auth_contract_id, method_name, input)

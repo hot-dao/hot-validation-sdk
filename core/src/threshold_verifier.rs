@@ -62,9 +62,7 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
-            "No consensus for threshold call, got: {:?}, errors: {:?}",
-            counts,
-            errors
+            "No consensus for threshold call, got: {counts:?}, errors: {errors:?}"
         ))
     }
 }

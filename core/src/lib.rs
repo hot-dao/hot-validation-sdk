@@ -251,8 +251,7 @@ impl Validation {
 
         ensure!(
             status,
-            "Authentication method {:?} returned False",
-            auth_method
+            "Authentication method {auth_method:?} returned False"
         );
         Ok(())
     }

@@ -85,14 +85,14 @@ impl StellarVerifier {
 
         // if there was an RPC‐side error, show it:
         if let Some(err) = simulation.error {
-            anyhow::bail!("simulation failed: {:?}", err);
+            anyhow::bail!("simulation failed: {err:?}");
         }
         // extract the return‐value:
         if let Some((ScVal::Bool(b), _auths)) = simulation.to_result() {
             tick_metrics_verify_success_attempts(ChainId::Stellar);
             Ok(b)
         } else {
-            anyhow::bail!("unexpected simulation result: {:?}", simulation);
+            anyhow::bail!("unexpected simulation result: {simulation:?}");
         }
     }
 }

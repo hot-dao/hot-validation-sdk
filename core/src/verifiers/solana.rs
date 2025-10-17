@@ -72,8 +72,7 @@ impl SolanaVerifier {
         let disc = anchor::account_discriminator("User");
         if data.len() < 8 || data[..8] != disc {
             return Err(anyhow!(
-                "account {} is not an Anchor `User` (bad discriminator)",
-                user_pk
+                "account {user_pk} is not an Anchor `User` (bad discriminator)"
             ));
         }
 
