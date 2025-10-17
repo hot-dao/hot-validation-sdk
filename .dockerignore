@@ -1,0 +1,26 @@
+# Rust/Build artifacts
+target/
+**/target/
+
+# Caches
+.sccache/
+.sccache-cache/
+.cargo/registry/
+.cargo/git/
+**/.pytest_cache/
+**/__pycache__/
+
+# VCS & tooling
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Node / Python odds
+node_modules/
+.venv/
+
+# Misc
+*.log
+*.tmp
+.DS_Store
