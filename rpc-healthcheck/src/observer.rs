@@ -77,21 +77,21 @@ impl Observer {
 
     async fn check_all_servers(&self) -> anyhow::Result<()> {
         for (&chain_id, config) in &self.configs {
+            let chain_label = ExtendedChainId::try_from(chain_id)
+                .map(|extended_chain_id| extended_chain_id.to_string())
+                .unwrap_or(chain_id.to_string());
+
             #[allow(clippy::cast_possible_wrap)]
             RPC_AVAILABILITY_TOTAL_NUMBER
-                .with_label_values(&[&chain_id.to_string()])
+                .with_label_values(&[&chain_label])
                 .set(config.servers.len() as i64);
 
             #[allow(clippy::cast_possible_wrap)]
             RPC_AVAILABILITY_THRESHOLD_NUMBER
-                .with_label_values(&[&chain_id.to_string()])
+                .with_label_values(&[&chain_label])
                 .set(config.threshold as i64);
 
             let availability = healthcheck_many(&self.client, chain_id, &config.servers).await;
-
-            let chain_label = ExtendedChainId::try_from(chain_id)
-                .map(|extended_chain_id| extended_chain_id.to_string())
-                .unwrap_or(chain_id.to_string());
 
             for result in &availability {
                 match result {
