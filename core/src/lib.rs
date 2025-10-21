@@ -323,7 +323,7 @@ mod tests {
                 ChainId::Evm(56),
                 ChainValidationConfig {
                     threshold: 1,
-                    servers: vec!["https://bsc.drpc.org".to_string(), bnb_rpc()],
+                    servers: vec!["https://bsc.blockrazor.xyz".to_string(), bnb_rpc()],
                 },
             ),
             (

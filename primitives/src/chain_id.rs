@@ -163,6 +163,44 @@ impl TryFrom<ChainId> for ExtendedChainId {
     }
 }
 
+impl ExtendedChainId {
+    /// A list of chains that can roll-back blocks after they've been transmitted (mem pool -> latest),
+    /// but they are not yet "safe" nor "finalized".
+    #[must_use]
+    pub const fn can_reorg(self) -> bool {
+        match self {
+            // ✅ Probabilistic-finality or L2 rollups
+            Self::Eth
+            | Self::Optimism
+            | Self::Base
+            | Self::Polygon
+            | Self::Arbitrum
+            | Self::ZkSync
+            | Self::Linea
+            | Self::Mantle
+            | Self::MonadTestnet
+            | Self::Flare => true,
+
+            // 🧱 BFT / PoA / deterministic
+            Self::Near
+            | Self::Bsc
+            | Self::Avax
+            | Self::Kaia
+            | Self::Kava
+            | Self::Aurora
+            | Self::XLayer
+            | Self::BeraChain
+            | Self::Abstract
+            | Self::HyperEVM
+            | Self::Stellar
+            | Self::Ton
+            | Self::Solana
+            | Self::Scroll
+            | Self::Ink => false,
+        }
+    }
+}
+
 #[test]
 fn chain_id_roundtrip() {
     assert_eq!(ChainId::from(0u64), ChainId::Near);

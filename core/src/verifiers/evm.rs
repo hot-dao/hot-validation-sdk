@@ -8,9 +8,10 @@ use alloy_json_abi::JsonAbi;
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
-use hot_validation_primitives::ChainId;
+use hot_validation_primitives::{ChainId, ExtendedChainId};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::fmt::Display;
 use std::sync::Arc;
 
 // JSON ABI for hot_verify
@@ -71,12 +72,12 @@ impl RpcRequest {
         }
     }
 
-    pub fn build_eth_call(call_obj: &Value, block_number: u64) -> Self {
+    pub fn build_eth_call(call_obj: &Value, block_specifier: &BlockSpecifier) -> Self {
         RpcRequest {
             jsonrpc: "2.0".into(),
             id: "dontcare".into(),
             method: "eth_call".into(),
-            params: json!([call_obj, format!("0x{:x}", block_number)]),
+            params: json!([call_obj, block_specifier.to_string()]),
         }
     }
 }
@@ -86,6 +87,20 @@ pub(crate) struct EvmVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,
+}
+
+enum BlockSpecifier {
+    Latest,
+    BlockNumber(u64),
+}
+
+impl Display for BlockSpecifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockSpecifier::Latest => write!(f, "latest"),
+            BlockSpecifier::BlockNumber(n) => write!(f, "0x{n:x}"),
+        }
+    }
 }
 
 impl EvmVerifier {
@@ -120,11 +135,29 @@ impl EvmVerifier {
         }
     }
 
-    async fn get_block_number(&self) -> Result<u64> {
-        let rpc = RpcRequest::build_block_number();
-        let raw = self.call_rpc(&rpc).await?;
-        let block_number = u64::from_str_radix(raw.trim_start_matches("0x"), 16)?;
-        Ok(block_number)
+    async fn get_block(&self) -> Result<BlockSpecifier> {
+        let can_reorg = ExtendedChainId::try_from(self.chain_id)
+            .map_err(anyhow::Error::msg)?
+            .can_reorg();
+        let specifier = if can_reorg {
+            let rpc = RpcRequest::build_block_number();
+            // TODO: accept this block from proxy
+            let raw = self.call_rpc(&rpc).await?;
+            let block_number = u64::from_str_radix(raw.trim_start_matches("0x"), 16)?;
+
+            // Ideally, we would want to use `safe` or `final` block here,
+            // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
+            // because in practice most reverts happen in the next block,
+            // so taking some delta from the latest block is good enough.
+            let safer_block_number = block_number
+                .checked_sub(BLOCK_DELAY)
+                .expect("block number underflow");
+
+            BlockSpecifier::BlockNumber(safer_block_number)
+        } else {
+            BlockSpecifier::Latest
+        };
+        Ok(specifier)
     }
 
     async fn verify(
@@ -134,7 +167,6 @@ impl EvmVerifier {
         input: EvmInputData,
     ) -> Result<bool> {
         tick_metrics_verify_total_attempts(self.chain_id);
-        let block_number = self.get_block_number().await?;
 
         let args: Vec<DynSolValue> = From::from(input);
 
@@ -144,15 +176,9 @@ impl EvmVerifier {
         // Build and send RPC request
         let call_obj = json!({"to": auth_contract_id, "data": data_hex});
 
-        // Ideally, we would want to use `safe` or `final` block here,
-        // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
-        // because in practice most reverts happen in the next block,
-        // so taking some delta from the latest block is good enough.
-        let actual_block_number = block_number
-            .checked_sub(BLOCK_DELAY)
-            .expect("block number underflow");
+        let block_specifier = self.get_block().await?;
 
-        let rpc = RpcRequest::build_eth_call(&call_obj, actual_block_number);
+        let rpc = RpcRequest::build_eth_call(&call_obj, &block_specifier);
         let raw = self.call_rpc(&rpc).await?;
         let bytes = hex::decode(raw.trim_start_matches("0x"))?;
 

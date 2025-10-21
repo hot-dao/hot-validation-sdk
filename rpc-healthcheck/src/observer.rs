@@ -15,7 +15,7 @@ pub static RPC_AVAILABILITY_SERVER_UP: LazyLock<IntGaugeVec> = LazyLock::new(|| 
         "1 if server is available, 0 if not",
         &["chain_id", "domain"]
     )
-        .expect("register rpc_availability_server_up")
+    .expect("register rpc_availability_server_up")
 });
 
 pub static RPC_AVAILABILITY_THRESHOLD_DELTA: LazyLock<IntGaugeVec> = LazyLock::new(|| {
@@ -24,7 +24,7 @@ pub static RPC_AVAILABILITY_THRESHOLD_DELTA: LazyLock<IntGaugeVec> = LazyLock::n
         "Difference between available and threshold number of servers",
         &["chain_id"]
     )
-        .expect("register rpc_availability_threshold_delta")
+    .expect("register rpc_availability_threshold_delta")
 });
 
 #[derive(Clone)]
