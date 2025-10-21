@@ -27,8 +27,8 @@ struct Args {
     ankr_api_key: Option<String>,
     #[arg(long, env = "ALCHEMY_API_KEY")]
     alchemy_api_key: Option<String>,
-    #[arg(long, env = "INFURA_API_KEY")]
-    infura_api_key: Option<String>,
+    // #[arg(long, env = "INFURA_API_KEY")]
+    // infura_api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -62,13 +62,13 @@ async fn main() -> Result<()> {
         warn!("No alchemy api key provided");
     }
 
-    if let Some(infura_api_key) = args.infura_api_key {
-        providers.push(
-            Box::new(providers::infura::InfuraProvider::new(infura_api_key)) as Box<dyn Provider>,
-        );
-    } else {
-        warn!("No infura api key provided");
-    }
+    // if let Some(infura_api_key) = args.infura_api_key {
+    //     providers.push(
+    //         Box::new(providers::infura::InfuraProvider::new(infura_api_key)) as Box<dyn Provider>,
+    //     );
+    // } else {
+    //     warn!("No infura api key provided");
+    // }
 
     let mut config: HashMap<ExtendedChainId, Vec<String>> = HashMap::new();
 
