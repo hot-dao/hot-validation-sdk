@@ -50,15 +50,15 @@ pub struct AuthMethod {
     pub account_id: String,
     /// Used to override what method is called on the `account_id`.
     pub metadata: Option<String>,
-    pub chain_id: ChainId,
+    pub chain_id: ChainId, // TODO: always NEAR
 }
 
 /// The output of `get_wallet` on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
 pub struct WalletAuthMethods {
     pub access_list: Vec<AuthMethod>,
-    pub key_gen: usize,
-    pub block_height: u64,
+    pub key_gen: usize,  // TODO: unused, remove this
+    pub block_height: u64, // TODO: unused, remove this
 }
 
 /// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
