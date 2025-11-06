@@ -29,7 +29,6 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
         F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, anyhow::Result<R>>,
     {
         let threshold = self.threshold;
-        let total = self.verifiers.len();
 
         let mut counts: HashMap<R, usize> = HashMap::new();
         let mut rng = StdRng::from_os_rng();
@@ -38,7 +37,7 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
         verifiers.shuffle(&mut rng);
         let mut responses = stream::iter(self.verifiers.iter().cloned())
             .map(|caller| functor.clone()(caller))
-            .buffer_unordered(total);
+            .buffer_unordered(threshold);
 
         let mut errors = vec![];
         while let Some(result_response) = responses.next().await {
