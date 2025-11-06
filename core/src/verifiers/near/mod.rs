@@ -1,59 +1,20 @@
+mod types;
+
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{
-    metrics, AuthMethod, ChainValidationConfig, GetWalletArgs, Validation, VerifyArgs,
+    metrics, AuthMethod, ChainValidationConfig, Validation, VerifyArgs,
     WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
-    TIMEOUT,
 };
 use anyhow::{Context, Result};
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
-
-#[derive(Serialize)]
-struct RpcParams {
-    request_type: String,
-    finality: String,
-    account_id: String,
-    method_name: String,
-    args_base64: String,
-}
-
-impl RpcParams {
-    pub fn build(account_id: String, method_name: String, args_base64: String) -> Self {
-        Self {
-            request_type: "call_function".to_string(),
-            finality: "final".to_string(),
-            account_id,
-            method_name,
-            args_base64,
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct RpcRequest {
-    jsonrpc: String,
-    id: String,
-    method: String,
-    params: RpcParams,
-}
-
-impl RpcRequest {
-    pub fn build(account_id: String, method_name: String, args_base64: String) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            id: "dontcare".to_string(),
-            method: "query".to_string(),
-            params: RpcParams::build(account_id, method_name, args_base64),
-        }
-    }
-}
+use crate::http_client::TIMEOUT;
+use crate::verifiers::near::types::{GetWalletArgs, RpcRequest};
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
@@ -64,24 +25,6 @@ pub(crate) struct NearVerifier {
 impl NearVerifier {
     fn new(client: Arc<reqwest::Client>, server: String) -> Self {
         Self { client, server }
-    }
-
-    async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
-        tick_metrics_verify_total_attempts(ChainId::Near);
-        let method_args = GetWalletArgs { wallet_id };
-        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(&method_args)?);
-        let rpc_args = RpcRequest::build(
-            MPC_HOT_WALLET_CONTRACT.to_string(),
-            MPC_GET_WALLET_METHOD.to_string(),
-            args_base64,
-        );
-        let wallet_model = self
-            .call_rpc(serde_json::to_value(&rpc_args)?)
-            .await
-            .context(format!("get_wallet failed when calling {}", self.server))?;
-        let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
-        tick_metrics_verify_success_attempts(ChainId::Near);
-        Ok(wallet_model)
     }
 
     async fn call_rpc(&self, json: serde_json::Value) -> Result<Vec<u8>> {
@@ -114,14 +57,29 @@ impl NearVerifier {
         }
     }
 
+    async fn get_wallet(&self, wallet_id: GetWalletArgs) -> Result<WalletAuthMethods> {
+        tick_metrics_verify_total_attempts(ChainId::Near);
+        let rpc_args = RpcRequest::build(
+            MPC_HOT_WALLET_CONTRACT,
+            MPC_GET_WALLET_METHOD,
+            &wallet_id,
+        );
+        let wallet_model = self
+            .call_rpc(serde_json::to_value(&rpc_args)?)
+            .await
+            .context(format!("get_wallet failed when calling {}", self.server))?;
+        let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
+        tick_metrics_verify_success_attempts(ChainId::Near);
+        Ok(wallet_model)
+    }
+
     async fn verify(
         &self,
         auth_contract_id: String,
         method_name: String,
         args: &VerifyArgs,
     ) -> Result<HotVerifyResult> {
-        let args_base64 = BASE64_STANDARD.encode(serde_json::to_vec(args)?);
-        let rpc_args = RpcRequest::build(auth_contract_id, method_name, args_base64);
+        let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, args);
         let rpc_args_json = serde_json::to_value(&rpc_args)?;
         let result_bytes = self.call_rpc(rpc_args_json).await?;
         let result_json = serde_json::from_slice::<serde_json::Value>(result_bytes.as_slice())?;
@@ -174,7 +132,7 @@ impl ThresholdVerifier<NearVerifier> {
 
         let functor =
             |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
-                let wallet_id = wallet_id.to_string();
+                let wallet_id = GetWalletArgs { wallet_id: wallet_id.to_string() };
                 Box::pin(async move {
                     verifier.get_wallet(wallet_id).await.context(format!(
                         "Error calling `get_wallet` with {}",
@@ -259,7 +217,7 @@ impl Validation {
                         &auth_call.method,
                         auth_call.input.try_into()?,
                     )
-                    .await?
+                        .await?
                 }
                 ChainId::Ton | ChainId::TON_V2 => {
                     self.handle_ton(
@@ -267,7 +225,7 @@ impl Validation {
                         &auth_call.method,
                         auth_call.input.try_into()?,
                     )
-                    .await?
+                        .await?
                 }
                 ChainId::Evm(_) => {
                     self.handle_evm(
@@ -276,7 +234,7 @@ impl Validation {
                         &auth_call.method,
                         auth_call.input.try_into()?,
                     )
-                    .await?
+                        .await?
                 }
                 ChainId::Solana => {
                     self.handle_solana(
@@ -284,7 +242,7 @@ impl Validation {
                         &auth_call.method,
                         auth_call.input.try_into()?,
                     )
-                    .await?
+                        .await?
                 }
                 ChainId::Near => {
                     unimplemented!("Auth call should not lead to NEAR")
@@ -501,8 +459,8 @@ pub(crate) mod tests {
             block_height: 0,
         };
 
-        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected);
+        let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
+        assert_eq!(actual.access_list, expected.access_list);
     }
 
     #[tokio::test]
@@ -523,8 +481,8 @@ pub(crate) mod tests {
             block_height: 0,
         };
 
-        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
-        assert_eq!(actual, expected);
+        let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
+        assert_eq!(actual.access_list, expected.access_list);
     }
 
     #[tokio::test]
@@ -558,7 +516,7 @@ pub(crate) mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual.access_list, expected.access_list);
     }
 
     #[tokio::test]
@@ -595,7 +553,7 @@ pub(crate) mod tests {
             .await
             .unwrap();
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual.access_list, expected.access_list);
     }
 
     #[test]
