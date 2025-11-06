@@ -1,9 +1,10 @@
 use crate::verifiers::near::types::base64_json::Base64OfJson;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
-use serde::{Serialize, Serializer};
-use serde_with::{serde_as, SerializeAs};
 use crate::{MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT};
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::DeserializeOwned;
+use serde_with::{serde_as, SerializeAs};
 
 /// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Serialize)]
@@ -26,11 +27,7 @@ impl<'a, T> RpcRequest<'a, T>
 where
     T: Serialize + ?Sized,
 {
-    pub fn build(
-        account_id: &'a str,
-        method_name: &'a str,
-        args: &'a T,
-    ) -> Self {
+    pub fn build(account_id: &'a str, method_name: &'a str, args: &'a T) -> Self {
         Self {
             jsonrpc: "2.0",
             id: "dontcare",
@@ -59,11 +56,7 @@ impl<'a, T> RpcParams<'a, T>
 where
     T: Serialize + ?Sized,
 {
-    pub fn build(
-        account_id: &'a str,
-        method_name: &'a str,
-        args: &'a T,
-    ) -> Self {
+    pub fn build(account_id: &'a str, method_name: &'a str, args: &'a T) -> Self {
         Self {
             request_type: "call_function",
             finality: "final",
@@ -89,4 +82,32 @@ pub mod base64_json {
             serializer.serialize_str(&b64)
         }
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(bound(deserialize = "T: DeserializeOwned"))]
+pub(crate) struct RpcResponse<T> {
+    result: RpcResult<T>,
+}
+
+impl<T> RpcResponse<T> {
+    pub fn unpack(self) -> T {
+        self.result.result
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "T: DeserializeOwned"))]
+pub(crate)struct RpcResult<T> {
+    #[serde(deserialize_with = "from_json_bytes_owned")]
+    result: T,
+}
+
+fn from_json_bytes_owned<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    let bytes = Vec::<u8>::deserialize(d)?;
+    serde_json::from_slice(&bytes).map_err(serde::de::Error::custom)
 }

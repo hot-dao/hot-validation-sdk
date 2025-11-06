@@ -13,8 +13,8 @@ use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use serde::Deserialize;
 use std::sync::Arc;
-use crate::http_client::TIMEOUT;
-use crate::verifiers::near::types::{GetWalletArgs, RpcRequest};
+use crate::http_client::{post_json_receive_json, TIMEOUT};
+use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse};
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
@@ -27,36 +27,6 @@ impl NearVerifier {
         Self { client, server }
     }
 
-    async fn call_rpc(&self, json: serde_json::Value) -> Result<Vec<u8>> {
-        let response = self
-            .client
-            .post(&self.server)
-            .json(&json)
-            .timeout(TIMEOUT)
-            .send()
-            .await?;
-
-        if response.status().is_success() {
-            let value = response.json::<serde_json::Value>().await?;
-            // Intended.
-            //  Call result is bytes, which are wrapped in "Result", which is wrapped in "Result"
-            let value = value
-                .get("result")
-                .context(format!("missing result: {value}"))?;
-            let value = value
-                .get("result")
-                .context(format!("missing result: {value}"))?;
-            let value = serde_json::from_value::<Vec<u8>>(value.clone())?;
-            Ok(value)
-        } else {
-            Err(anyhow::anyhow!(
-                "Failed to call {}: {}",
-                self.server,
-                response.status()
-            ))
-        }
-    }
-
     async fn get_wallet(&self, wallet_id: GetWalletArgs) -> Result<WalletAuthMethods> {
         tick_metrics_verify_total_attempts(ChainId::Near);
         let rpc_args = RpcRequest::build(
@@ -64,13 +34,13 @@ impl NearVerifier {
             MPC_GET_WALLET_METHOD,
             &wallet_id,
         );
-        let wallet_model = self
-            .call_rpc(serde_json::to_value(&rpc_args)?)
-            .await
-            .context(format!("get_wallet failed when calling {}", self.server))?;
-        let wallet_model = serde_json::from_slice::<WalletAuthMethods>(wallet_model.as_slice())?;
+        let wallet_model: RpcResponse<WalletAuthMethods> = post_json_receive_json(
+            &self.client,
+            &self.server,
+            &rpc_args,
+        ).await?;
         tick_metrics_verify_success_attempts(ChainId::Near);
-        Ok(wallet_model)
+        Ok(wallet_model.unpack())
     }
 
     async fn verify(
@@ -80,15 +50,12 @@ impl NearVerifier {
         args: &VerifyArgs,
     ) -> Result<HotVerifyResult> {
         let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, args);
-        let rpc_args_json = serde_json::to_value(&rpc_args)?;
-        let result_bytes = self.call_rpc(rpc_args_json).await?;
-        let result_json = serde_json::from_slice::<serde_json::Value>(result_bytes.as_slice())?;
-        // There is some bs bug, where serializing from serde_json::Value doesn't work correctly
-        // with `serde_with/SerHexSeq` due to some owned bytes... so using from_slice/from_str instead.
-        let result = serde_json::from_slice::<HotVerifyResult>(result_bytes.as_slice()).context(
-            format!("Failed to deserialize verify result: {result_json}"),
-        )?;
-        Ok(result)
+        let result: RpcResponse<HotVerifyResult> = post_json_receive_json(
+            &self.client,
+            &self.server,
+            &rpc_args,
+        ).await?;
+        Ok(result.unpack())
     }
 }
 
