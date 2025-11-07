@@ -3,6 +3,7 @@ use serde_hex::SerHexSeq;
 use serde_hex::{StrictPfx, CompactPfx};
 use std::fmt::Display;
 use alloy_contract::Interface;
+use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -44,29 +45,48 @@ impl RpcResponse {
 
 #[derive(Serialize)]
 pub(crate) struct RpcRequest {
-    jsonrpc: String,
-    id: String,
-    method: String,
+    jsonrpc: &'static str,
+    id: &'static str,
+    method: &'static str,
     params: Value,
 }
 
 impl RpcRequest {
     pub fn build_block_number() -> Self {
         RpcRequest {
-            jsonrpc: "2.0".into(),
-            id: "dontcare".into(),
-            method: "eth_blockNumber".into(),
+            jsonrpc: "2.0",
+            id: "dontcare",
+            method: "eth_blockNumber",
             params: json!([]),
         }
     }
 
-    pub fn build_eth_call(call_obj: &Value, block_specifier: &BlockSpecifier) -> Self {
-        RpcRequest {
-            jsonrpc: "2.0".into(),
-            id: "dontcare".into(),
-            method: "eth_call".into(),
-            params: json!([call_obj, block_specifier.to_string()]),
+    pub fn build_eth_call(
+        auth_contract_id: &str,
+        method_name: &str,
+        args: &[DynSolValue],
+        block_specifier: &BlockSpecifier,
+    ) -> anyhow::Result<Self> {
+        #[derive(Serialize)]
+        struct CallObject<'a> {
+            to: &'a str,
+            #[serde(with = "SerHexSeq::<StrictPfx>")]
+            data: Vec<u8>,
         }
+        let data = INTERFACE.encode_input(method_name, &args)?;
+
+        Ok(RpcRequest {
+            jsonrpc: "2.0",
+            id: "dontcare",
+            method: "eth_call",
+            params: json!([
+                CallObject {
+                    to: auth_contract_id,
+                    data
+                },
+                block_specifier.to_string()
+            ]),
+        })
     }
 }
 

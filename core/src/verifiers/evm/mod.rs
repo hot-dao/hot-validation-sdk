@@ -53,8 +53,6 @@ impl EvmVerifier {
             // because in practice most reverts happen in the next block,
             // so taking some delta from the latest block is good enough.
             let safer_block_number = block_number - BLOCK_DELAY;
-
-            dbg!(&safer_block_number); // 37867549
             BlockSpecifier::BlockNumber(safer_block_number)
         } else {
             BlockSpecifier::Latest
@@ -69,18 +67,14 @@ impl EvmVerifier {
         input: EvmInputData,
     ) -> Result<bool> {
         tick_metrics_verify_total_attempts(self.chain_id);
-
         let args: Vec<DynSolValue> = From::from(input);
-
-        let data = INTERFACE.encode_input(method_name, &args)?;
-        let data_hex = format!("0x{}", hex::encode(data));
-
-        // Build and send RPC request
-        let call_obj = json!({"to": auth_contract_id, "data": data_hex});
-
         let block_specifier = self.get_block().await?;
-
-        let request = RpcRequest::build_eth_call(&call_obj, &block_specifier);
+        let request = RpcRequest::build_eth_call(
+            &auth_contract_id,
+            &method_name,
+            &args,
+            &block_specifier
+        )?;
         let response: RpcResponse = post_json_receive_json(
             &self.client,
             &self.server,
