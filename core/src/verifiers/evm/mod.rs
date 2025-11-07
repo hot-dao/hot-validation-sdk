@@ -1,7 +1,10 @@
+mod types;
+
+use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{ChainValidationConfig, Validation, TIMEOUT};
+use crate::{ChainValidationConfig, Validation};
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
@@ -13,94 +16,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::fmt::Display;
 use std::sync::Arc;
-
-// JSON ABI for hot_verify
-pub const HOT_VERIFY_EVM_ABI: &str = r#"
-[
-  {
-    "inputs": [
-      { "internalType": "bytes32", "name": "msg_hash",    "type": "bytes32" },
-      { "internalType": "bytes",   "name": "walletId",    "type": "bytes"   },
-      { "internalType": "bytes",   "name": "userPayload", "type": "bytes"   },
-      { "internalType": "bytes",   "name": "metadata",    "type": "bytes"   }
-    ],
-    "name": "hot_verify",
-    "outputs": [
-      { "internalType": "bool", "name": "", "type": "bool" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      { "internalType": "uint128", "name": "", "type": "uint128" }
-    ],
-    "name": "usedNonces",
-    "outputs": [
-      { "internalType": "bool", "name": "", "type": "bool" }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-]
-"#;
-
-const BLOCK_DELAY: u64 = 1;
-
-// Initialize the Interface once
-static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
-    let abi: JsonAbi =
-        serde_json::from_str(HOT_VERIFY_EVM_ABI).expect("Invalid JSON ABI for hot_verify");
-    Interface::new(abi)
-});
-
-#[derive(Serialize, Deserialize)]
-struct RpcRequest {
-    jsonrpc: String,
-    id: String,
-    method: String,
-    params: Value,
-}
-
-impl RpcRequest {
-    pub fn build_block_number() -> Self {
-        RpcRequest {
-            jsonrpc: "2.0".into(),
-            id: "dontcare".into(),
-            method: "eth_blockNumber".into(),
-            params: json!([]),
-        }
-    }
-
-    pub fn build_eth_call(call_obj: &Value, block_specifier: &BlockSpecifier) -> Self {
-        RpcRequest {
-            jsonrpc: "2.0".into(),
-            id: "dontcare".into(),
-            method: "eth_call".into(),
-            params: json!([call_obj, block_specifier.to_string()]),
-        }
-    }
-}
+use crate::http_client::{post_json_receive_json, TIMEOUT};
+use crate::verifiers::evm::types::INTERFACE;
 
 #[derive(Clone)]
 pub(crate) struct EvmVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,
-}
-
-enum BlockSpecifier {
-    Latest,
-    BlockNumber(u64),
-}
-
-impl Display for BlockSpecifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BlockSpecifier::Latest => write!(f, "latest"),
-            BlockSpecifier::BlockNumber(n) => write!(f, "0x{n:x}"),
-        }
-    }
 }
 
 impl EvmVerifier {
@@ -112,47 +35,26 @@ impl EvmVerifier {
         }
     }
 
-    async fn call_rpc(&self, rpc: &RpcRequest) -> Result<String> {
-        let resp = self
-            .client
-            .post(&self.server)
-            .json(rpc)
-            .timeout(TIMEOUT)
-            .send()
-            .await?;
-
-        if resp.status().is_success() {
-            let v: Value = resp.json().await?;
-            let result = v.get("result").context(format!("missing result: {v:?}"))?;
-            serde_json::from_value(result.clone())
-                .context("Failed to parse RPC result as hex string")
-        } else {
-            Err(anyhow::anyhow!(
-                "RPC error {}: {}",
-                self.server,
-                resp.status()
-            ))
-        }
-    }
-
     async fn get_block(&self) -> Result<BlockSpecifier> {
         let can_reorg = ExtendedChainId::try_from(self.chain_id)
             .map_err(anyhow::Error::msg)?
             .can_reorg();
         let specifier = if can_reorg {
-            let rpc = RpcRequest::build_block_number();
-            // TODO: accept this block from proxy
-            let raw = self.call_rpc(&rpc).await?;
-            let block_number = u64::from_str_radix(raw.trim_start_matches("0x"), 16)?;
+            let request = RpcRequest::build_block_number();
+            let response: RpcResponse = post_json_receive_json(
+                &self.client,
+                &self.server,
+                &request
+            ).await?;
+            let block_number = response.as_u64()?;
 
             // Ideally, we would want to use `safe` or `final` block here,
             // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
             // because in practice most reverts happen in the next block,
             // so taking some delta from the latest block is good enough.
-            let safer_block_number = block_number
-                .checked_sub(BLOCK_DELAY)
-                .expect("block number underflow");
+            let safer_block_number = block_number - BLOCK_DELAY;
 
+            dbg!(&safer_block_number); // 37867549
             BlockSpecifier::BlockNumber(safer_block_number)
         } else {
             BlockSpecifier::Latest
@@ -178,9 +80,13 @@ impl EvmVerifier {
 
         let block_specifier = self.get_block().await?;
 
-        let rpc = RpcRequest::build_eth_call(&call_obj, &block_specifier);
-        let raw = self.call_rpc(&rpc).await?;
-        let bytes = hex::decode(raw.trim_start_matches("0x"))?;
+        let request = RpcRequest::build_eth_call(&call_obj, &block_specifier);
+        let response: RpcResponse = post_json_receive_json(
+            &self.client,
+            &self.server,
+            &request
+        ).await?;
+        let bytes = response.as_bytes()?;
 
         // Decode output
         let out = INTERFACE.decode_output("hot_verify", &bytes)?;
@@ -302,13 +208,14 @@ mod tests {
             ChainId::Evm(8453),
         );
 
-        validation
+        let status = validation
             .verify(
                 auth_contract_id,
                 HOT_VERIFY_METHOD_NAME,
                 EvmInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;
+        assert!(status);
         Ok(())
     }
 }
