@@ -39,25 +39,23 @@ impl EvmVerifier {
         let can_reorg = ExtendedChainId::try_from(self.chain_id)
             .map_err(anyhow::Error::msg)?
             .can_reorg();
-        let specifier = if can_reorg {
-            let request = RpcRequest::build_block_number();
-            let response: RpcResponse = post_json_receive_json(
-                &self.client,
-                &self.server,
-                &request
-            ).await?;
-            let block_number = response.as_u64()?;
+        if !can_reorg {
+            return Ok(BlockSpecifier::Latest)
+        }
+        let request = RpcRequest::build_block_number();
+        let response: RpcResponse = post_json_receive_json(
+            &self.client,
+            &self.server,
+            &request,
+        ).await?;
+        let block_number = response.as_u64()?;
 
-            // Ideally, we would want to use `safe` or `final` block here,
-            // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
-            // because in practice most reverts happen in the next block,
-            // so taking some delta from the latest block is good enough.
-            let safer_block_number = block_number - BLOCK_DELAY;
-            BlockSpecifier::BlockNumber(safer_block_number)
-        } else {
-            BlockSpecifier::Latest
-        };
-        Ok(specifier)
+        // Ideally, we would want to use `safe` or `final` block here,
+        // but some networks have too much finality time (i.e. 15 minutes). So we use `latest - 1`,
+        // because in practice most reverts happen in the next block,
+        // so taking some delta from the latest block is good enough.
+        let safer_block_number = block_number - BLOCK_DELAY;
+        Ok(BlockSpecifier::BlockNumber(safer_block_number))
     }
 
     async fn verify(
