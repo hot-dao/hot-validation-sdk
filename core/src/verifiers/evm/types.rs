@@ -7,7 +7,8 @@ use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-
+use crate::HOT_VERIFY_METHOD_NAME;
+use crate::metrics::tick_metrics_verify_success_attempts;
 // TODO: pub(crate) is not needed in most cases
 
 pub(crate) const BLOCK_DELAY: u64 = 1;
@@ -37,9 +38,16 @@ impl RpcResponse {
             .map_err(|_| anyhow::anyhow!("Invalid u64: {}", self.result))
     }
 
-    pub fn as_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        hex::decode(self.result.trim_start_matches("0x"))
-            .map_err(|_| anyhow::anyhow!("Couldn't decode from hex: {}", self.result))
+    pub fn as_bool(&self) -> anyhow::Result<bool> {
+        let bytes = hex::decode(self.result.trim_start_matches("0x"))
+            .map_err(|_| anyhow::anyhow!("Couldn't decode from hex: {}", self.result))?;
+        let result = INTERFACE.decode_output(HOT_VERIFY_METHOD_NAME, &bytes)?;
+        let value = result.first().ok_or_else(|| anyhow::anyhow!("No elements in the output"))?;
+        if let DynSolValue::Bool(b) = value {
+            Ok(*b)
+        } else {
+            anyhow::bail!("first value is not bool: {:?}", value)
+        }
     }
 }
 

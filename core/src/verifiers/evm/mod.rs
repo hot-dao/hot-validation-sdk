@@ -4,7 +4,7 @@ use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOC
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{ChainValidationConfig, Validation};
+use crate::{ChainValidationConfig, Validation, HOT_VERIFY_METHOD_NAME};
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
@@ -71,24 +71,16 @@ impl EvmVerifier {
             &auth_contract_id,
             &method_name,
             &args,
-            &block_specifier
+            &block_specifier,
         )?;
         let response: RpcResponse = post_json_receive_json(
             &self.client,
             &self.server,
-            &request
+            &request,
         ).await?;
-        let bytes = response.as_bytes()?;
-
-        // Decode output
-        let out = INTERFACE.decode_output("hot_verify", &bytes)?;
-        if let Some(DynSolValue::Bool(b)) = out.first() {
-            // TODO: replace checks with `ensure` and do return without conditions
-            tick_metrics_verify_success_attempts(self.chain_id);
-            Ok(*b)
-        } else {
-            Err(anyhow::anyhow!("Unexpected output type"))
-        }
+        let status = response.as_bool()?;
+        tick_metrics_verify_success_attempts(self.chain_id);
+        Ok(status)
     }
 }
 
@@ -106,6 +98,7 @@ impl ThresholdVerifier<EvmVerifier> {
     ) -> Self {
         let threshold = config.threshold;
         let servers = config.servers;
+        // TODO: this check needs to be done in the struct constructor
         assert!(
             (threshold <= servers.len()),
             "Threshold {} > servers {}",
