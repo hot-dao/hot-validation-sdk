@@ -4,6 +4,7 @@ mod verifiers;
 
 mod metrics;
 mod threshold_verifier;
+mod http_client;
 
 pub use hot_validation_primitives::*;
 
@@ -27,7 +28,6 @@ use std::time::Duration;
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
 pub const MPC_GET_WALLET_METHOD: &str = "get_wallet";
-pub const TIMEOUT: Duration = Duration::from_millis(750);
 
 // TODO: Put in common primitives
 pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
@@ -35,12 +35,6 @@ pub fn uid_to_wallet_id(uid: &str) -> Result<String> {
     let sha256_bytes = Sha256::new_with_prefix(uid_bytes).finalize();
     let uid_b58 = bs58::encode(sha256_bytes.as_slice()).into_string();
     Ok(uid_b58)
-}
-
-/// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
-#[derive(Debug, Serialize)]
-pub struct GetWalletArgs {
-    pub(crate) wallet_id: String,
 }
 
 /// `account_id` is the smart contract address, and `chain_id` is the internal identifier for the chain.
@@ -286,7 +280,6 @@ mod tests {
                         "http://ffooooo-bbbaaaar:3030/".to_string(),
                         "https://nearrpc.aurora.dev".to_string(),
                         "https://1rpc.io/near".to_string(),
-                        "https://allthatnode.com/protocol/near.dsrv".to_string(),
                         near_rpc(),
                     ],
                 },
