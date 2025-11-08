@@ -1,7 +1,7 @@
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{ChainValidationConfig, Validation, TIMEOUT};
+use crate::{ChainValidationConfig, Validation};
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
@@ -16,6 +16,7 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use crate::http_client::TIMEOUT;
 
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {

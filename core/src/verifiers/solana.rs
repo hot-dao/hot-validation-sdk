@@ -1,7 +1,7 @@
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
-use crate::{Validation, TIMEOUT};
+use crate::{Validation};
 use anyhow::{anyhow, ensure, Context, Result};
 use borsh::BorshDeserialize;
 use futures_util::future::BoxFuture;
@@ -18,6 +18,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
+use crate::http_client::TIMEOUT;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
