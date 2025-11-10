@@ -72,7 +72,6 @@ mod tests {
 
     use anyhow::Result;
 
-    use crate::VerifyArgs;
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
 
@@ -194,7 +193,7 @@ mod tests {
     }
 
     impl BoolVerifier {
-        async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
+        async fn verify(&self, _auth_contract_id: &str) -> anyhow::Result<bool> {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
@@ -213,13 +212,11 @@ mod tests {
         pub async fn verify(
             &self,
             auth_contract_id: &str,
-            args: VerifyArgs,
         ) -> anyhow::Result<bool> {
             let auth_contract_id = Arc::new(auth_contract_id.to_string());
             let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Result<bool>> {
                 let auth = auth_contract_id.clone();
-                let args = args.clone();
-                Box::pin(async move { verifier.verify(&auth, args).await })
+                Box::pin(async move { verifier.verify(&auth).await })
             };
 
             let result = self.threshold_call(functor).await?;
@@ -249,16 +246,7 @@ mod tests {
         };
 
         let res = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
+            .verify("dummy")
             .await
             .unwrap();
         assert!(res);
@@ -286,16 +274,7 @@ mod tests {
         };
 
         let res = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
+            .verify("dummy")
             .await
             .unwrap();
         assert!(!res);
@@ -323,16 +302,7 @@ mod tests {
         };
 
         let err = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
+            .verify("dummy")
             .await
             .unwrap_err();
         assert!(err.to_string().contains("No consensus for threshold call"));
@@ -361,16 +331,7 @@ mod tests {
 
         let result = timeout(
             Duration::from_millis(180),
-            tv.verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            ),
+            tv.verify("dummy"),
         )
         .await
         .expect("timed out")

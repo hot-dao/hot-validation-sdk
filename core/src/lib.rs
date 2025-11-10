@@ -55,21 +55,6 @@ pub struct WalletAuthMethods {
     pub block_height: u64, // TODO: unused, remove this
 }
 
-/// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
-#[derive(Debug, Serialize, Clone)]
-pub struct VerifyArgs {
-    /// In some cases, we need to know the exact message that we trying to sign.
-    pub msg_body: String,
-    /// The hash of the message that we try to sign.
-    pub msg_hash: String,
-    /// The wallet id, that initates the signing
-    pub wallet_id: Option<String>,
-    /// The actual data, that authorizes signing
-    pub user_payload: String,
-    /// Additional field for the future, in case we need to override something
-    pub metadata: Option<String>,
-}
-
 /// The logic that prevents signing arbitrary messages.
 #[derive(Clone)]
 pub struct Validation {
@@ -78,6 +63,7 @@ pub struct Validation {
     stellar: Arc<ThresholdVerifier<StellarVerifier>>,
     ton: Arc<ThresholdVerifier<TonVerifier>>,
     solana: Arc<ThresholdVerifier<SolanaVerifier>>,
+    // TODO: we wanted to simplify observer
     health_check_observer: Arc<Observer>,
 }
 

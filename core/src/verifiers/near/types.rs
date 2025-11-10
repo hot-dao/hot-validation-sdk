@@ -12,6 +12,21 @@ pub struct GetWalletArgs {
     pub(crate) wallet_id: String,
 }
 
+/// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
+#[derive(Debug, Serialize, Clone)]
+pub struct VerifyArgs {
+    /// In some cases, we need to know the exact message that we trying to sign.
+    pub msg_body: String,
+    /// The hash of the message that we try to sign.
+    pub msg_hash: String,
+    /// The wallet id, that initates the signing
+    pub wallet_id: Option<String>,
+    /// The actual data, that authorizes signing
+    pub user_payload: String,
+    /// Additional field for the future, in case we need to override something
+    pub metadata: Option<String>,
+}
+
 #[derive(Serialize)]
 pub(crate) struct RpcRequest<'a, T>
 where

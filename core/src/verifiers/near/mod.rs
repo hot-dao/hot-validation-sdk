@@ -4,7 +4,7 @@ use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_t
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{
-    metrics, AuthMethod, ChainValidationConfig, Validation, VerifyArgs,
+    metrics, AuthMethod, ChainValidationConfig, Validation,
     WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
 };
 use anyhow::{Context, Result};
@@ -14,7 +14,7 @@ use hot_validation_primitives::ChainId;
 use serde::Deserialize;
 use std::sync::Arc;
 use crate::http_client::{post_json_receive_json, TIMEOUT};
-use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse};
+use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
