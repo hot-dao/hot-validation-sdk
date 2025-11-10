@@ -46,9 +46,20 @@ impl NearVerifier {
     async fn verify(
         &self,
         auth_contract_id: String,
-        method_name: String,
         args: &VerifyArgs,
     ) -> Result<HotVerifyResult> {
+        #[derive(Debug, Deserialize)]
+        struct MethodName {
+            method: String,
+        }
+        // Used in omni bridge: there are different methods for deposit/withdraw flows.
+        let method_name = if let Some(metadata) = &args.metadata {
+            let method_name = serde_json::from_str::<MethodName>(metadata)?;
+            method_name.method
+        } else {
+            HOT_VERIFY_METHOD_NAME.to_string()
+        };
+
         let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, args);
         let result: RpcResponse<HotVerifyResult> = post_json_receive_json(
             &self.client,
@@ -114,7 +125,6 @@ impl ThresholdVerifier<NearVerifier> {
     pub async fn verify(
         &self,
         auth_contract_id: String,
-        method_name: String,
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
         let args = Arc::new(args);
@@ -122,7 +132,7 @@ impl ThresholdVerifier<NearVerifier> {
             move |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
                 Box::pin(async move {
                     verifier
-                        .verify(auth_contract_id, method_name, &args)
+                        .verify(auth_contract_id, &args)
                         .await
                         .context(format!(
                             "Error calling near `verify` with {}",
@@ -145,21 +155,10 @@ impl Validation {
         message_body: String,
         user_payload: String,
     ) -> Result<bool> {
-        #[derive(Debug, Deserialize)]
-        struct MethodName {
-            method: String,
-        }
-
+        // TODO: maybe the message should be plain bytes in the first place, and base58 conversion
+        //  put into serialization logic.
         let message_bs58 = hex::decode(&message_hex)
             .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
-
-        // Mostly used with omni bridge workflows because there's another method name.
-        let method_name = if let Some(metadata) = &auth_method.metadata {
-            let method_name = serde_json::from_str::<MethodName>(metadata)?;
-            method_name.method
-        } else {
-            HOT_VERIFY_METHOD_NAME.to_string()
-        };
 
         let verify_args = VerifyArgs {
             wallet_id: Some(wallet_id.to_string()),
@@ -172,7 +171,7 @@ impl Validation {
         let status = self
             .near
             .clone()
-            .verify(auth_method.account_id.clone(), method_name, verify_args)
+            .verify(auth_method.account_id.clone(), verify_args)
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
 
@@ -254,11 +253,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                &args,
-            )
+            .verify(auth_contract_id.to_string(), &args)
             .await
             .unwrap();
     }
@@ -281,11 +276,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                &args,
-            )
+            .verify(auth_contract_id.to_string(), &args)
             .await
             .unwrap();
     }
@@ -308,11 +299,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                &args,
-            )
+            .verify(auth_contract_id.to_string(), &args)
             .await
             .unwrap();
     }
@@ -334,11 +321,7 @@ pub(crate) mod tests {
         };
 
         let result = rpc_caller
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                &args,
-            )
+            .verify(auth_contract_id.to_string(), &args)
             .await?
             .as_result()?;
         assert!(!result);
@@ -371,11 +354,7 @@ pub(crate) mod tests {
         };
 
         rpc_validation
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                args,
-            )
+            .verify(auth_contract_id.to_string(), args)
             .await
             .unwrap();
     }
@@ -407,11 +386,7 @@ pub(crate) mod tests {
         };
 
         rpc_validation
-            .verify(
-                auth_contract_id.to_string(),
-                HOT_VERIFY_METHOD_NAME.to_string(),
-                args,
-            )
+            .verify(auth_contract_id.to_string(), args)
             .await
             .unwrap();
     }
