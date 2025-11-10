@@ -6,9 +6,8 @@ use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use crate::HOT_VERIFY_METHOD_NAME;
-use crate::metrics::tick_metrics_verify_success_attempts;
 // TODO: pub(crate) is not needed in most cases
 
 pub(crate) const BLOCK_DELAY: u64 = 1;
@@ -56,7 +55,7 @@ pub(crate) struct RpcRequest {
     jsonrpc: &'static str,
     id: &'static str,
     method: &'static str,
-    params: Value,
+    params: serde_json::Value,
 }
 
 impl RpcRequest {
