@@ -180,6 +180,7 @@ impl ThresholdVerifier<TonVerifier> {
 }
 
 impl Validation {
+    // TODO: Does this wrapper really needed?
     pub(crate) async fn handle_ton(
         self: Arc<Self>,
         auth_contract_id: &str,
