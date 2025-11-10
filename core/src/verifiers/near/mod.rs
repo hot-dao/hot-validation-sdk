@@ -224,8 +224,14 @@ impl Validation {
 #[cfg(test)]
 pub(crate) mod tests {
     #![allow(clippy::should_panic_without_expect)]
-    use super::*; // todo: remove
-    use crate::{AuthMethod, ChainId, HOT_VERIFY_METHOD_NAME};
+
+    use std::sync::Arc;
+    use anyhow::Result;
+    use hot_validation_primitives::ChainValidationConfig;
+    use crate::{AuthMethod, ChainId, WalletAuthMethods, HOT_VERIFY_METHOD_NAME};
+    use crate::threshold_verifier::ThresholdVerifier;
+    use crate::verifiers::near::NearVerifier;
+    use crate::verifiers::near::types::{GetWalletArgs, VerifyArgs};
 
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
