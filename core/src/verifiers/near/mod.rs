@@ -224,8 +224,8 @@ impl Validation {
 #[cfg(test)]
 pub(crate) mod tests {
     #![allow(clippy::should_panic_without_expect)]
-    use super::*;
-    use crate::{uid_to_wallet_id, AuthMethod, ChainId, HOT_VERIFY_METHOD_NAME};
+    use super::*; // todo: remove
+    use crate::{AuthMethod, ChainId, HOT_VERIFY_METHOD_NAME};
 
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
@@ -435,9 +435,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id =
-            uid_to_wallet_id("fe62128e531a7f7c15e9f919db9ff1d112e5d23c3ef9e23723224c2358c0b496")
-                .unwrap();
+        let wallet_id = "Puvk3GR7bvBmJqg2Sdzs4D2AFGAW3rXq9iwpJraBkGJ".to_string();
         let expected = WalletAuthMethods {
             access_list: vec![AuthMethod {
                 account_id: "drops.nfts.tg".to_string(),
@@ -521,21 +519,6 @@ pub(crate) mod tests {
             .unwrap();
 
         assert_eq!(actual.access_list, expected.access_list);
-    }
-
-    #[test]
-    fn converter_to_base58_correct() {
-        let uid = "0887d14fbe253e8b6a7b8193f3891e04f88a9ed744b91f4990d567ffc8b18e5f";
-        let expected = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
-        let actual = uid_to_wallet_id(uid).unwrap();
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    #[should_panic]
-    fn converter_to_base58_incorrect() {
-        let uid = "sha256 expected as uid";
-        uid_to_wallet_id(uid).unwrap();
     }
 
     #[test]
