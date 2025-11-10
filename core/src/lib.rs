@@ -44,7 +44,7 @@ pub struct AuthMethod {
     pub account_id: String,
     /// Used to override what method is called on the `account_id`.
     pub metadata: Option<String>,
-    pub chain_id: ChainId, // TODO: always NEAR
+    pub chain_id: ChainId, // TODO: always NEAR, legacy
 }
 
 /// The output of `get_wallet` on Near `mpc.hot.tg` smart contract.
@@ -189,7 +189,7 @@ impl Validation {
                     )
                 }),
         )
-        .await;
+            .await;
 
         result?;
         Ok(())
@@ -205,47 +205,25 @@ impl Validation {
     ) -> Result<()> {
         let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
-        // TODO: auth method is always a NEAR contract, expect for legacy workflows, so we need to get
-        //  rid of non-Near branches, when we are dealt with legacy.
-        let status = match auth_method.chain_id {
-            ChainId::Near => {
-                self.handle_near(
-                    wallet_id,
-                    &auth_method,
-                    message_hex,
-                    message_body,
-                    user_payload,
-                )
-                .await?
-            }
-            ChainId::Stellar => {
-                self.handle_stellar(
-                    &auth_method.account_id,
-                    HOT_VERIFY_METHOD_NAME,
-                    StellarInputData::from_parts(message_hex, user_payload)?,
-                )
-                .await?
-            }
-            ChainId::Ton | ChainId::TON_V2 => {
-                unimplemented!("It's not expected to call TON as the auth method")
-            }
-            ChainId::Evm(_) => {
-                self.handle_evm(
-                    auth_method.chain_id,
-                    &auth_method.account_id,
-                    HOT_VERIFY_METHOD_NAME,
-                    EvmInputData::from_parts(message_hex, user_payload)?,
-                )
-                .await?
-            }
-            ChainId::Solana => {
-                unimplemented!("It's not expected to call Solana as the auth method")
-            }
-        };
+        ensure!(
+            matches!(auth_method.chain_id, ChainId::Near),
+            "Only Near auth methods are supported"
+        );
+
+        let status = self.handle_near(
+            &wallet_id,
+            &auth_method,
+            message_hex,
+            message_body,
+            user_payload,
+        )
+            .await?;
 
         ensure!(
             status,
-            "Authentication method {auth_method:?} returned False"
+            "Auth method {} failed for wallet_id {}",
+            auth_method.chain_id,
+            wallet_id
         );
         Ok(())
     }

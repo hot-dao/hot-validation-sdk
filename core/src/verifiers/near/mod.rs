@@ -139,7 +139,7 @@ impl ThresholdVerifier<NearVerifier> {
 impl Validation {
     pub(crate) async fn handle_near(
         self: Arc<Self>,
-        wallet_id: String,
+        wallet_id: &str,
         auth_method: &AuthMethod,
         message_hex: String,
         message_body: String,
@@ -162,7 +162,7 @@ impl Validation {
         };
 
         let verify_args = VerifyArgs {
-            wallet_id: Some(wallet_id.clone()),
+            wallet_id: Some(wallet_id.to_string()),
             msg_hash: message_bs58,
             metadata: auth_method.metadata.clone(),
             user_payload: user_payload.clone(),
