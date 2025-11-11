@@ -1,6 +1,5 @@
 mod types;
 
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{
@@ -28,7 +27,6 @@ impl NearVerifier {
     }
 
     async fn get_wallet(&self, wallet_id: GetWalletArgs) -> Result<WalletAuthMethods> {
-        tick_metrics_verify_total_attempts(ChainId::Near);
         let rpc_args = RpcRequest::build(
             MPC_HOT_WALLET_CONTRACT,
             MPC_GET_WALLET_METHOD,
@@ -38,8 +36,8 @@ impl NearVerifier {
             &self.client,
             &self.server,
             &rpc_args,
+            ChainId::Near,
         ).await?;
-        tick_metrics_verify_success_attempts(ChainId::Near);
         Ok(wallet_model.unpack())
     }
 
@@ -65,6 +63,7 @@ impl NearVerifier {
             &self.client,
             &self.server,
             &rpc_args,
+            ChainId::Near,
         ).await?;
         Ok(result.unpack())
     }
@@ -161,19 +160,21 @@ impl Validation {
             user_payload: user_payload.clone(),
             msg_body: message_body.clone(),
         };
-
+        
+        metrics::tick_metrics_verify_total_attempts(ChainId::Near);
         let status = self
             .near
-            .clone()
             .verify(auth_method.account_id.clone(), verify_args)
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
+        metrics::tick_metrics_verify_success_attempts(ChainId::Near);
 
         let auth_call = match status {
             HotVerifyResult::AuthCall(auth_call) => auth_call,
             HotVerifyResult::Result(status) => return Ok(status),
         };
 
+        metrics::tick_metrics_verify_total_attempts(auth_call.chain_id);
         let status = match auth_call.chain_id {
             ChainId::Stellar => {
                 let verifier = &self.stellar;
@@ -203,6 +204,9 @@ impl Validation {
             }
         };
 
+        if status {
+            metrics::tick_metrics_verify_success_attempts(auth_call.chain_id);
+        }
         Ok(status)
     }
 }

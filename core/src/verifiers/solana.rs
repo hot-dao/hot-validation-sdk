@@ -1,4 +1,3 @@
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{Validation};
@@ -95,7 +94,6 @@ impl SolanaVerifier {
         method_name: &str,
         input: SolanaInputData,
     ) -> Result<bool> {
-        tick_metrics_verify_total_attempts(ChainId::Solana);
         let program_id = Pubkey::from_str(auth_contract_id)?;
         match input {
             SolanaInputData::Deposit(deposit_with_proof) => {
@@ -107,7 +105,6 @@ impl SolanaVerifier {
                     .await?;
             }
         }
-        tick_metrics_verify_success_attempts(ChainId::Solana);
         Ok(true)
     }
 }

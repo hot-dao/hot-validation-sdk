@@ -57,6 +57,9 @@ pub struct Validation {
 impl Validation {
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
+        for (chain_id, config) in configs.iter() {
+            metrics::set_threshold_delta(*chain_id, config.servers.len(), config.threshold);
+        }
 
         let near = {
             let config = configs

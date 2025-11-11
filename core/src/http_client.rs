@@ -4,6 +4,8 @@ use anyhow::{Result, anyhow};
 use reqwest::{Client, StatusCode, header::ACCEPT};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use hot_validation_primitives::ChainId;
+use crate::metrics;
 
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
 const LOG_SNIP_MAX: usize = 600;
@@ -27,6 +29,27 @@ pub enum HttpError {
     },
 }
 
+impl HttpError {
+    fn request_failed_error(
+        chain_id: ChainId,
+        url: String,
+        status: Option<StatusCode>,
+        body: Option<Vec<u8>>,
+        source: anyhow::Error,
+    ) -> Self {
+        metrics::bump_metrics_rpc_call_fail(chain_id, &url);
+        let body_snip = body
+            .map(|s| snip_bytes(&s))
+            .unwrap_or_else(|| String::from("no body"));
+        Self::RequestFailed {
+            url,
+            status,
+            body_snip,
+            source,
+        }
+    }
+}
+
 fn snip_bytes(b: &[u8]) -> String {
     let s = String::from_utf8_lossy(b);
     if s.len() <= LOG_SNIP_MAX {
@@ -48,40 +71,52 @@ pub async fn post_json_receive_json<T, U>(
     client: &Arc<Client>,
     url: &str,
     body: &T,
+    chain_id: ChainId, // for metrics
 ) -> std::result::Result<U, HttpError>
 where
     T: Serialize + ?Sized,
     U: DeserializeOwned,
 {
+    metrics::bump_metrics_rpc_call_total(chain_id, url);
+
     let req = client
         .post(url)
         .json(body)
         .header(ACCEPT, "application/json")
         .timeout(TIMEOUT);
 
-    let resp = req.send().await.map_err(|e| HttpError::RequestFailed {
-        url: url.to_string(),
-        status: None,
-        body_snip: String::new(),
-        source: anyhow!(e),
-    })?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| HttpError::request_failed_error(
+            chain_id,
+            url.to_string(),
+            None,
+            None,
+            anyhow!(e),
+        ))?;
 
     let status = resp.status();
     let url_final = resp.url().to_string();
-    let bytes = resp.bytes().await.map_err(|e| HttpError::RequestFailed {
-        url: url_final.clone(),
-        status: Some(status),
-        body_snip: String::new(),
-        source: anyhow!(e),
-    })?;
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| HttpError::request_failed_error(
+            chain_id,
+            url_final.clone(),
+            Some(status),
+            None,
+            anyhow!(e),
+        ))?;
 
     if !status.is_success() {
-        return Err(HttpError::RequestFailed {
-            url: url_final,
-            status: Some(status),
-            body_snip: snip_bytes(&bytes),
-            source: anyhow!("non-success status"),
-        });
+        return Err(HttpError::request_failed_error(
+            chain_id,
+            url_final,
+            Some(status),
+            Some(bytes.to_vec()),
+            anyhow!("HTTP non-success status code"),
+        ));
     }
 
     serde_json::from_slice::<U>(&bytes).map_err(|e| HttpError::JsonDecode {

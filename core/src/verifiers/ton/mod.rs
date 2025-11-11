@@ -1,6 +1,5 @@
 mod types;
 
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::Validation;
@@ -33,7 +32,6 @@ impl TonVerifier {
         method_name: &str,
         input: TonInputData,
     ) -> Result<bool> {
-        tick_metrics_verify_total_attempts(ChainId::TON_V2);
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
         let child_address = {
             let request = RpcRequest::build(&treasury_address, method_name, input.treasury_call_args);
@@ -41,6 +39,7 @@ impl TonVerifier {
                 &self.client,
                 &self.server,
                 &request,
+                ChainId::TON_V2
             ).await?;
             item.unpack()?.as_cell()?.parser().load_address()?
         };
@@ -50,7 +49,7 @@ impl TonVerifier {
                 &input.child_call_method,
                 input.child_call_args
             );
-            let item: RpcResponse = post_json_receive_json(&self.client, &self.server, &request).await?;
+            let item: RpcResponse = post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2).await?;
             item.unpack()?.as_num()?
         };
         match input.action {
@@ -70,8 +69,6 @@ impl TonVerifier {
                 );
             }
         }
-
-        tick_metrics_verify_success_attempts(ChainId::TON_V2);
         Ok(true)
     }
 }
@@ -132,6 +129,7 @@ pub(crate) mod tests {
 
     use crate::verifiers::ton::TonVerifier;
     use tonlib_core::TonAddress;
+    use hot_validation_primitives::ChainId;
     use crate::http_client::post_json_receive_json;
     use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
 
@@ -152,7 +150,7 @@ pub(crate) mod tests {
         let address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
         let request = RpcRequest::build(&address, "get_deposit_jetton_address", vec![item]);
-        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request, ChainId::TON_V2).await?;
 
         let actual_address = item.unpack()?.as_cell()?.parser().load_address()?;
         assert_eq!(actual_address, expected_addr);
@@ -171,7 +169,7 @@ pub(crate) mod tests {
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
         let request = RpcRequest::build(&addr, "verify_withdraw", vec![item]);
-        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request, ChainId::TON_V2).await?;
 
         let actual = item.unpack()?.as_num()?;
         assert_eq!(actual, "-0x1");
@@ -218,7 +216,7 @@ pub(crate) mod tests {
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
 
         let request = RpcRequest::build(&treasury_address, "get_user_jetton_address", vec![item]);
-        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request, ChainId::TON_V2).await?;
 
         let actual_address = item.unpack()?.as_cell()?.parser().load_address()?;
         assert_eq!(actual_address, expected_addr);
@@ -235,7 +233,7 @@ pub(crate) mod tests {
 
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
         let request = RpcRequest::build(&addr, "get_last_withdrawn_nonce", vec![]);
-        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request, ChainId::TON_V2).await?;
 
         let _actual = item.unpack()?.as_num()?;
         Ok(())

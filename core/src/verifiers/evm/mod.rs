@@ -1,7 +1,6 @@
 mod types;
 
 use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{ChainValidationConfig, Validation, HOT_VERIFY_METHOD_NAME};
@@ -44,6 +43,7 @@ impl EvmVerifier {
             &self.client,
             &self.server,
             &request,
+            self.chain_id,
         ).await?;
         let block_number = response.as_u64()?;
 
@@ -61,7 +61,6 @@ impl EvmVerifier {
         method_name: &str,
         input: EvmInputData,
     ) -> Result<bool> {
-        tick_metrics_verify_total_attempts(self.chain_id);
         let args: Vec<DynSolValue> = From::from(input);
         let block_specifier = self.get_block().await?;
         let request = RpcRequest::build_eth_call(
@@ -74,9 +73,9 @@ impl EvmVerifier {
             &self.client,
             &self.server,
             &request,
+            self.chain_id
         ).await?;
         let status = response.as_bool()?;
-        tick_metrics_verify_success_attempts(self.chain_id);
         Ok(status)
     }
 }

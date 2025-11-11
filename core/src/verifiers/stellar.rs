@@ -1,4 +1,3 @@
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
 use crate::{ChainValidationConfig, Validation};
@@ -75,7 +74,6 @@ impl StellarVerifier {
         method_name: &str,
         input: StellarInputData,
     ) -> Result<bool> {
-        tick_metrics_verify_total_attempts(ChainId::Stellar);
         let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
@@ -90,7 +88,6 @@ impl StellarVerifier {
         }
         // extract the return‐value:
         if let Some((ScVal::Bool(b), _auths)) = simulation.to_result() {
-            tick_metrics_verify_success_attempts(ChainId::Stellar);
             Ok(b)
         } else {
             anyhow::bail!("unexpected simulation result: {simulation:?}");
