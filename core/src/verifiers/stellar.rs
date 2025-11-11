@@ -69,11 +69,11 @@ impl StellarVerifier {
 
     async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: StellarInputData,
     ) -> Result<bool> {
-        let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
+        let operation = Self::build_contract_call(&auth_contract_id, &method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
             .add_operation(operation)
@@ -110,25 +110,18 @@ impl ThresholdVerifier<StellarVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: StellarInputData,
     ) -> Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<StellarVerifier>| -> BoxFuture<'static, Result<bool>> {
-            let method_name = method_name.to_string();
-            Box::pin(async move {
-                verifier
-                    .verify(&auth_contract_id, &method_name, input)
-                    .await
-                    .context(format!(
-                        "Error calling stellar `verify` with", // TODO
-                    ))
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input = input.clone();
+            async move {
+                verifier.verify(auth_contract_id, method_name, input).await
+            }
+        }).await
     }
 }
 
@@ -144,13 +137,13 @@ mod tests {
     async fn single_verifier() -> Result<()> {
         let msg_hash = String::new();
         let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
-        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
+        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG".to_string();
         let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(
                 auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
+                HOT_VERIFY_METHOD_NAME.to_string(),
                 StellarInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;
@@ -167,8 +160,8 @@ mod tests {
 
         validation
             .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
                 StellarInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;
@@ -184,8 +177,8 @@ mod tests {
 
         validation
             .verify(
-                auth_contract_id,
-                "is_executed",
+                auth_contract_id.to_string(),
+                "is_executed".to_string(),
                 StellarInputData(vec![StellarInputArg::U128(nonce)]),
             )
             .await?;

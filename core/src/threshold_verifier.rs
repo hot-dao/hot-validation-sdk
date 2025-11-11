@@ -5,6 +5,7 @@ use rand::prelude::{SliceRandom, StdRng};
 use rand::SeedableRng;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 
@@ -22,10 +23,11 @@ impl<T> ThresholdVerifier<T> {
     ///
     /// `functor` should return an `Option<R>`,
     /// with `None` being a vote for no data (when a server is unavailable), and `Some(R)` being a vote for `R`.
-    pub async fn threshold_call<F, R>(&self, functor: F) -> anyhow::Result<R>
+    pub async fn threshold_call<F, Fut, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,
-        F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, anyhow::Result<R>>,
+        F: Fn(Arc<T>) -> Fut + Clone,
+        Fut: Future<Output = anyhow::Result<R>> + Send + 'static,
     {
         let threshold = self.threshold;
         let mut counts: HashMap<R, usize> = HashMap::new();
@@ -38,7 +40,7 @@ impl<T> ThresholdVerifier<T> {
         };
 
         let mut responses = stream::iter(shuffled_verifiers)
-            .map(|caller| functor.clone()(caller))
+            .map(|caller| functor(caller))
             .buffer_unordered(threshold);
 
         let mut errors = vec![];

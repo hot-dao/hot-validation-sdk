@@ -130,7 +130,7 @@ impl Validation {
         let wallet = self
             .near
             .clone()
-            .get_wallet_auth_methods(&wallet_id)
+            .get_wallet_auth_methods(wallet_id.clone())
             .await
             .context("Couldn't get wallet info")?;
 

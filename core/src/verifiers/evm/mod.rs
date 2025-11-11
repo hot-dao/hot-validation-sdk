@@ -99,42 +99,18 @@ impl ThresholdVerifier<EvmVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor = move |verifier: Arc<EvmVerifier>| -> BoxFuture<'static, Result<bool>> {
-            let auth = auth_contract_id.clone();
-            let method_name = method_name.to_string();
             Box::pin(async move {
                 verifier
-                    .verify(&auth, &method_name, input)
+                    .verify(&auth_contract_id, &method_name, input)
                     .await
-                    .context(format!(
-                        "Error calling evm `verify` with", // TODO
-                    ))
             })
         };
         self.threshold_call(functor).await
-    }
-}
-
-impl Validation {
-    pub(crate) async fn handle_evm(
-        self: Arc<Self>,
-        chain_id: ChainId,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: EvmInputData,
-    ) -> Result<bool> {
-        let validation = self.evm.get(&chain_id).ok_or(anyhow::anyhow!(
-            "EVM validation is not configured for chain {chain_id:?}"
-        ))?;
-        let status = validation
-            .verify(auth_contract_id, method_name, input)
-            .await?;
-        Ok(status)
     }
 }
 
@@ -176,8 +152,8 @@ mod tests {
 
         let status = validation
             .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
                 EvmInputData::from_parts(msg_hash, user_payload)?,
             )
             .await?;

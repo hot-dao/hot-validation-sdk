@@ -89,14 +89,14 @@ impl SolanaVerifier {
 
     async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: SolanaInputData,
     ) -> Result<bool> {
-        let program_id = Pubkey::from_str(auth_contract_id)?;
+        let program_id = Pubkey::from_str(&auth_contract_id)?;
         match input {
             SolanaInputData::Deposit(deposit_with_proof) => {
-                self.handle_deposit(&program_id, method_name, deposit_with_proof)
+                self.handle_deposit(&program_id, &method_name, deposit_with_proof)
                     .await?;
             }
             SolanaInputData::CheckCompletedWithdrawal(completed_withdrawal_data) => {
@@ -123,21 +123,13 @@ impl ThresholdVerifier<SolanaVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: SolanaInputData,
     ) -> Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor = move |verifier: Arc<SolanaVerifier>| -> BoxFuture<'static, Result<bool>> {
-            let auth = auth_contract_id.clone();
-            let method_name = method_name.to_string();
             Box::pin(async move {
-                verifier
-                    .verify(&auth, &method_name, input)
-                    .await
-                    .context(format!(
-                        "Error calling solana `verify` with", // TODO
-                    ))
+                verifier.verify(auth_contract_id, method_name, input).await
             })
         };
 
@@ -191,8 +183,8 @@ mod tests {
     #[tokio::test]
     async fn deposit_verification() -> anyhow::Result<()> {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
-        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
-        let method_name = "hot_verify_deposit";
+        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC".to_string();
+        let method_name = "hot_verify_deposit".to_string();
         let input = SolanaInputData::Deposit(get_deposit_with_proof());
 
         verifier.verify(auth_contract, method_name, input).await?;
@@ -202,8 +194,8 @@ mod tests {
     #[tokio::test]
     async fn completed_withdrawal_verification_low() -> anyhow::Result<()> {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
-        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
-        let method_name = "";
+        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC".to_string();
+        let method_name = "".to_string();
         let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
             "1749390032000000032243",
         ));
@@ -215,8 +207,8 @@ mod tests {
     #[tokio::test]
     async fn completed_withdrawal_verification_high() -> anyhow::Result<()> {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
-        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC";
-        let method_name = "";
+        let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC".to_string();
+        let method_name = "".to_string();
         let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
             "2749390032000000032243",
         ));

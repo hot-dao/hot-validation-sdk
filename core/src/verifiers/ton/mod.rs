@@ -26,13 +26,13 @@ impl TonVerifier {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: TonInputData,
     ) -> Result<bool> {
-        let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
+        let treasury_address = TonAddress::from_base64_url(&auth_contract_id)?;
         let child_address = {
-            let request = RpcRequest::build(&treasury_address, method_name, input.treasury_call_args);
+            let request = RpcRequest::build(&treasury_address, &method_name, input.treasury_call_args);
             let item: RpcResponse = post_json_receive_json(
                 &self.client,
                 &self.server,
@@ -87,21 +87,13 @@ impl ThresholdVerifier<TonVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: TonInputData,
     ) -> Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
         let functor = move |verifier: Arc<TonVerifier>| -> BoxFuture<'static, Result<bool>> {
-            let auth = auth_contract_id.clone();
-            let method_name = method_name.to_string();
             Box::pin(async move {
-                verifier
-                    .verify(&auth, &method_name, input)
-                    .await
-                    .context(format!(
-                        "Error calling ton `verify` with", // TODO
-                    ))
+                verifier.verify(auth_contract_id, method_name, input).await
             })
         };
 
@@ -173,8 +165,8 @@ pub(crate) mod tests {
 
         verifier
             .verify(
-                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
-                "get_deposit_jetton_address",
+                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
+                "get_deposit_jetton_address".to_string(),
                 TonInputData {
                     treasury_call_args: vec![StackItem::from_nonce(
                         "1753218716000000003679".to_string(),
@@ -236,8 +228,8 @@ pub(crate) mod tests {
 
         verifier
             .verify(
-                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
-                "get_user_jetton_address",
+                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
+                "get_user_jetton_address".to_string(),
                 TonInputData {
                     treasury_call_args: vec![StackItem::from_address(
                         "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
@@ -260,8 +252,8 @@ pub(crate) mod tests {
 
         let result = verifier
             .verify(
-                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ",
-                "get_user_jetton_address",
+                "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
+                "get_user_jetton_address".to_string(),
                 TonInputData {
                     treasury_call_args: vec![StackItem::from_address(
                         "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",

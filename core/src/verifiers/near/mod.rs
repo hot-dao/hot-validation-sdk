@@ -25,7 +25,8 @@ impl NearVerifier {
         Self { client, server }
     }
 
-    async fn get_wallet(&self, wallet_id: GetWalletArgs) -> Result<WalletAuthMethods> {
+    async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
+        let wallet_id = GetWalletArgs { wallet_id };
         let rpc_args = RpcRequest::build(
             MPC_HOT_WALLET_CONTRACT,
             MPC_GET_WALLET_METHOD,
@@ -43,7 +44,7 @@ impl NearVerifier {
     async fn verify(
         &self,
         auth_contract_id: String,
-        args: &VerifyArgs,
+        args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
         #[derive(Debug, Deserialize)]
         struct MethodName {
@@ -57,7 +58,7 @@ impl NearVerifier {
             HOT_VERIFY_METHOD_NAME.to_string()
         };
 
-        let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, args);
+        let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, &args);
         let result: RpcResponse<HotVerifyResult> = post_json_receive_json(
             &self.client,
             &self.server,
@@ -90,20 +91,17 @@ impl ThresholdVerifier<NearVerifier> {
 
     pub async fn get_wallet_auth_methods(
         self: Arc<Self>,
-        wallet_id: &str,
+        wallet_id: String,
     ) -> Result<WalletAuthMethods> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
-
         let functor =
             |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
-                let wallet_id = GetWalletArgs { wallet_id: wallet_id.to_string() };
                 Box::pin(async move {
                     verifier.get_wallet(wallet_id).await.context(format!(
                         "Error calling `get_wallet` with", // TODO
                     ))
                 })
             };
-
         self.threshold_call(functor).await
     }
 
@@ -112,16 +110,10 @@ impl ThresholdVerifier<NearVerifier> {
         auth_contract_id: String,
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
-        let args = Arc::new(args);
         let functor =
             move |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
                 Box::pin(async move {
-                    verifier
-                        .verify(auth_contract_id, &args)
-                        .await
-                        .context(format!(
-                            "Error calling near `verify` with", // TODO
-                        ))
+                    verifier.verify(auth_contract_id, args).await
                 })
             };
 
@@ -151,7 +143,7 @@ impl Validation {
             user_payload: user_payload.clone(),
             msg_body: message_body.clone(),
         };
-        
+
         metrics::tick_metrics_verify_total_attempts(ChainId::Near);
         let status = self
             .near
@@ -170,12 +162,12 @@ impl Validation {
             ChainId::Stellar => {
                 let verifier = &self.stellar;
                 let args = auth_call.input.try_into()?;
-                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
             }
             ChainId::Ton | ChainId::TON_V2 => {
                 let verifier = &self.ton;
                 let args = auth_call.input.try_into()?;
-                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
             }
             ChainId::Evm(_) => {
                 let verifier = self
@@ -183,12 +175,12 @@ impl Validation {
                     .get(&auth_call.chain_id)
                     .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
                 let args = auth_call.input.try_into()?;
-                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
             }
             ChainId::Solana => {
                 let verifier = &self.solana;
                 let args = auth_call.input.try_into()?;
-                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
             }
             ChainId::Near => {
                 bail!("Auth call should not lead to NEAR")
@@ -235,7 +227,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id.to_string(), &args)
+            .verify(auth_contract_id.to_string(), args)
             .await
             .unwrap();
     }
@@ -258,7 +250,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id.to_string(), &args)
+            .verify(auth_contract_id.to_string(), args)
             .await
             .unwrap();
     }
@@ -281,7 +273,7 @@ pub(crate) mod tests {
         };
 
         rpc_caller
-            .verify(auth_contract_id.to_string(), &args)
+            .verify(auth_contract_id.to_string(), args)
             .await
             .unwrap();
     }
@@ -303,7 +295,7 @@ pub(crate) mod tests {
         };
 
         let result = rpc_caller
-            .verify(auth_contract_id.to_string(), &args)
+            .verify(auth_contract_id.to_string(), args)
             .await?
             .as_result()?;
         assert!(!result);
@@ -386,7 +378,7 @@ pub(crate) mod tests {
             }],
         };
 
-        let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
+        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
         assert_eq!(actual.access_list, expected.access_list);
     }
 
@@ -403,7 +395,7 @@ pub(crate) mod tests {
             }],
         };
 
-        let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
+        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
         assert_eq!(actual.access_list, expected.access_list);
     }
 
@@ -431,7 +423,7 @@ pub(crate) mod tests {
         };
 
         let actual = Arc::new(rpc_validation)
-            .get_wallet_auth_methods(wallet_id)
+            .get_wallet_auth_methods(wallet_id.to_string())
             .await
             .unwrap();
 
@@ -465,7 +457,7 @@ pub(crate) mod tests {
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
         let actual = Arc::new(rpc_validation)
-            .get_wallet_auth_methods(wallet_id)
+            .get_wallet_auth_methods(wallet_id.to_string())
             .await
             .unwrap();
 
