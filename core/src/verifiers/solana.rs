@@ -16,6 +16,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
+use hot_validation_primitives::bridge::stellar::StellarInputData;
 use crate::http_client::TIMEOUT;
 
 pub(crate) struct SolanaVerifier {
@@ -127,14 +128,14 @@ impl ThresholdVerifier<SolanaVerifier> {
         method_name: String,
         input: SolanaInputData,
     ) -> Result<bool> {
-        let functor = move |verifier: Arc<SolanaVerifier>| -> BoxFuture<'static, Result<bool>> {
-            Box::pin(async move {
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input = input.clone();
+            async move {
                 verifier.verify(auth_contract_id, method_name, input).await
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
+            }
+        }).await
     }
 }
 

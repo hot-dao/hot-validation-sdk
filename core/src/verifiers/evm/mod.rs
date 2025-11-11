@@ -56,8 +56,8 @@ impl EvmVerifier {
 
     async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
+        auth_contract_id: String,
+        method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
         let args: Vec<DynSolValue> = From::from(input);
@@ -103,14 +103,14 @@ impl ThresholdVerifier<EvmVerifier> {
         method_name: String,
         input: EvmInputData,
     ) -> Result<bool> {
-        let functor = move |verifier: Arc<EvmVerifier>| -> BoxFuture<'static, Result<bool>> {
-            Box::pin(async move {
-                verifier
-                    .verify(&auth_contract_id, &method_name, input)
-                    .await
-            })
-        };
-        self.threshold_call(functor).await
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input = input.clone();
+            async move {
+                verifier.verify(auth_contract_id, method_name, input).await
+            }
+        }).await
     }
 }
 

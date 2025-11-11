@@ -94,15 +94,12 @@ impl ThresholdVerifier<NearVerifier> {
         wallet_id: String,
     ) -> Result<WalletAuthMethods> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
-        let functor =
-            |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<WalletAuthMethods>> {
-                Box::pin(async move {
-                    verifier.get_wallet(wallet_id).await.context(format!(
-                        "Error calling `get_wallet` with", // TODO
-                    ))
-                })
-            };
-        self.threshold_call(functor).await
+        self.threshold_call(move |verifier| {
+            let wallet_id = wallet_id.clone();
+            async move {
+                verifier.get_wallet(wallet_id).await
+            }
+        }).await
     }
 
     pub async fn verify(
@@ -110,15 +107,13 @@ impl ThresholdVerifier<NearVerifier> {
         auth_contract_id: String,
         args: VerifyArgs,
     ) -> Result<HotVerifyResult> {
-        let functor =
-            move |verifier: Arc<NearVerifier>| -> BoxFuture<'static, Result<HotVerifyResult>> {
-                Box::pin(async move {
-                    verifier.verify(auth_contract_id, args).await
-                })
-            };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let args = args.clone();
+            async move {
+                verifier.verify(auth_contract_id, args).await
+            }
+        }).await
     }
 }
 

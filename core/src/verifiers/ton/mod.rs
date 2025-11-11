@@ -91,14 +91,14 @@ impl ThresholdVerifier<TonVerifier> {
         method_name: String,
         input: TonInputData,
     ) -> Result<bool> {
-        let functor = move |verifier: Arc<TonVerifier>| -> BoxFuture<'static, Result<bool>> {
-            Box::pin(async move {
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input = input.clone();
+            async move {
                 verifier.verify(auth_contract_id, method_name, input).await
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
+            }
+        }).await
     }
 }
 
