@@ -90,7 +90,7 @@ impl ThresholdVerifier<NearVerifier> {
     }
 
     pub async fn get_wallet_auth_methods(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         wallet_id: String,
     ) -> Result<WalletAuthMethods> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
@@ -119,7 +119,7 @@ impl ThresholdVerifier<NearVerifier> {
 
 impl Validation {
     pub(crate) async fn handle_near(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         wallet_id: &str,
         auth_method: &AuthMethod,
         message_hex: String,

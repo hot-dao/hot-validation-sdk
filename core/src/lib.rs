@@ -129,7 +129,6 @@ impl Validation {
 
         let wallet = self
             .near
-            .clone()
             .get_wallet_auth_methods(wallet_id.clone())
             .await
             .context("Couldn't get wallet info")?;
@@ -147,7 +146,7 @@ impl Validation {
                 .into_iter()
                 .zip(proof.user_payloads.into_iter())
                 .map(|(auth_method, user_payload)| {
-                    self.clone().verify_auth_method(
+                    self.verify_auth_method(
                         wallet_id.clone(),
                         auth_method,
                         proof.message_body.clone(),
@@ -163,7 +162,7 @@ impl Validation {
     }
 
     pub(crate) async fn verify_auth_method(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         wallet_id: String,
         auth_method: AuthMethod,
         message_body: String,
