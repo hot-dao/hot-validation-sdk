@@ -2,7 +2,6 @@ mod types;
 
 use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
 use crate::{ChainValidationConfig, Validation, HOT_VERIFY_METHOD_NAME};
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
@@ -80,12 +79,6 @@ impl EvmVerifier {
     }
 }
 
-impl VerifierTag for EvmVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<EvmVerifier> {
     pub fn new_evm(
         config: ChainValidationConfig,
@@ -119,8 +112,7 @@ impl ThresholdVerifier<EvmVerifier> {
                     .verify(&auth, &method_name, input)
                     .await
                     .context(format!(
-                        "Error calling evm `verify` with {}",
-                        verifier.sanitized_endpoint()
+                        "Error calling evm `verify` with", // TODO
                     ))
             })
         };

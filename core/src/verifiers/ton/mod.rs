@@ -1,8 +1,6 @@
 mod types;
 
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
-use crate::Validation;
 use anyhow::{anyhow, Result};
 use anyhow::{ensure, Context};
 use futures_util::future::BoxFuture;
@@ -73,12 +71,6 @@ impl TonVerifier {
     }
 }
 
-impl VerifierTag for TonVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<TonVerifier> {
     pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
         let threshold = config.threshold;
@@ -108,8 +100,7 @@ impl ThresholdVerifier<TonVerifier> {
                     .verify(&auth, &method_name, input)
                     .await
                     .context(format!(
-                        "Error calling ton `verify` with {}",
-                        verifier.sanitized_endpoint()
+                        "Error calling ton `verify` with", // TODO
                     ))
             })
         };

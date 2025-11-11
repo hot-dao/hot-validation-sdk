@@ -1,4 +1,3 @@
-use crate::verifiers::VerifierTag;
 use anyhow::anyhow;
 use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
@@ -11,12 +10,12 @@ use std::sync::Arc;
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T: VerifierTag> {
+pub(crate) struct ThresholdVerifier<T> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
 
-impl<T: VerifierTag> ThresholdVerifier<T> {
+impl<T> ThresholdVerifier<T> {
     /// We can request data from a `SingleVerifier`. Each verifier casts a vote on the data it has returned.
     /// We collect all the votes and return a data with at least `threshold` votes.
     /// This logic was abstracted because we might call `verify`, `get_wallet_auth` or something else in the future.
@@ -83,12 +82,6 @@ mod tests {
     struct DummyVerifier {
         delay: Duration,
         resp: Option<u8>,
-    }
-
-    impl VerifierTag for DummyVerifier {
-        fn get_endpoint(&self) -> &'static str {
-            "dummy"
-        }
     }
 
     #[tokio::test]
@@ -203,12 +196,6 @@ mod tests {
                 Ok(b) => Ok(b),
                 Err(()) => Err(anyhow!("boom")),
             }
-        }
-    }
-
-    impl VerifierTag for BoolVerifier {
-        fn get_endpoint(&self) -> &'static str {
-            "bool"
         }
     }
 
@@ -345,10 +332,6 @@ mod tests {
     #[derive(Clone)]
     struct CountVerifier {
         counter: Arc<AtomicUsize>,
-    }
-
-    impl VerifierTag for CountVerifier {
-        fn get_endpoint(&self) -> &'static str { "count" }
     }
 
     #[tokio::test]

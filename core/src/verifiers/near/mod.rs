@@ -1,7 +1,6 @@
 mod types;
 
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
 use crate::{
     metrics, AuthMethod, ChainValidationConfig, Validation,
     WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
@@ -69,12 +68,6 @@ impl NearVerifier {
     }
 }
 
-impl VerifierTag for NearVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<NearVerifier> {
     pub(crate) fn new_near(
         near_validation_config: ChainValidationConfig,
@@ -106,8 +99,7 @@ impl ThresholdVerifier<NearVerifier> {
                 let wallet_id = GetWalletArgs { wallet_id: wallet_id.to_string() };
                 Box::pin(async move {
                     verifier.get_wallet(wallet_id).await.context(format!(
-                        "Error calling `get_wallet` with {}",
-                        verifier.sanitized_endpoint()
+                        "Error calling `get_wallet` with", // TODO
                     ))
                 })
             };
@@ -128,8 +120,7 @@ impl ThresholdVerifier<NearVerifier> {
                         .verify(auth_contract_id, &args)
                         .await
                         .context(format!(
-                            "Error calling near `verify` with {}",
-                            verifier.sanitized_endpoint()
+                            "Error calling near `verify` with", // TODO
                         ))
                 })
             };

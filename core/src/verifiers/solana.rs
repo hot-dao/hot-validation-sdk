@@ -1,5 +1,4 @@
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
 use crate::{Validation};
 use anyhow::{anyhow, ensure, Context, Result};
 use borsh::BorshDeserialize;
@@ -109,12 +108,6 @@ impl SolanaVerifier {
     }
 }
 
-impl VerifierTag for SolanaVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<SolanaVerifier> {
     pub fn new_solana(config: &ChainValidationConfig) -> Self {
         let verifiers = config
@@ -143,8 +136,7 @@ impl ThresholdVerifier<SolanaVerifier> {
                     .verify(&auth, &method_name, input)
                     .await
                     .context(format!(
-                        "Error calling solana `verify` with {}",
-                        verifier.sanitized_endpoint()
+                        "Error calling solana `verify` with", // TODO
                     ))
             })
         };

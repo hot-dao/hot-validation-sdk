@@ -1,5 +1,4 @@
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
 use crate::{ChainValidationConfig, Validation};
 use anyhow::{Context, Result};
 use futures_util::future::BoxFuture;
@@ -95,12 +94,6 @@ impl StellarVerifier {
     }
 }
 
-impl VerifierTag for StellarVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<StellarVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
@@ -129,8 +122,7 @@ impl ThresholdVerifier<StellarVerifier> {
                     .verify(&auth_contract_id, &method_name, input)
                     .await
                     .context(format!(
-                        "Error calling stellar `verify` with {}",
-                        verifier.sanitized_endpoint()
+                        "Error calling stellar `verify` with", // TODO
                     ))
             })
         };
