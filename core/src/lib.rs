@@ -14,7 +14,7 @@ use crate::verifiers::near::NearVerifier;
 use crate::verifiers::solana::SolanaVerifier;
 use crate::verifiers::stellar::StellarVerifier;
 use crate::verifiers::ton::TonVerifier;
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
@@ -22,8 +22,10 @@ use hot_validation_rpc_healthcheck::observer::Observer;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::os::macos::raw::stat;
 use std::sync::Arc;
 use std::time::Duration;
+use hot_validation_primitives::bridge::HotVerifyResult;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -171,20 +173,62 @@ impl Validation {
     ) -> Result<()> {
         let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
-        let status = self.handle_near(
-            &wallet_id,
-            &auth_method,
-            message_hex,
-            message_body,
-            user_payload,
-        )
-            .await?;
+        metrics::tick_metrics_verify_total_attempts(ChainId::Near);
+        let status = self
+            .near
+            .verify(
+                wallet_id.clone(),
+                auth_method.clone(),
+                message_hex,
+                message_body,
+                user_payload,
+            )
+            .await
+            .context("Could not get HotVerifyResult from NEAR")?;
+        metrics::tick_metrics_verify_success_attempts(ChainId::Near);
+
+        let status = match status {
+            HotVerifyResult::AuthCall(auth_call) => {
+                {
+                    metrics::tick_metrics_verify_total_attempts(auth_call.chain_id);
+                    let status = match auth_call.chain_id {
+                        ChainId::Stellar => {
+                            let verifier = &self.stellar;
+                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
+                        }
+                        ChainId::Ton | ChainId::TON_V2 => {
+                            let verifier = &self.ton;
+                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
+                        }
+                        ChainId::Evm(_) => {
+                            let verifier = self
+                                .evm
+                                .get(&auth_call.chain_id)
+                                .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
+                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
+                        }
+                        ChainId::Solana => {
+                            let verifier = &self.solana;
+                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
+                        }
+                        ChainId::Near => {
+                            bail!("Auth call should not lead to NEAR")
+                        }
+                    };
+                    metrics::tick_metrics_verify_success_attempts(auth_call.chain_id);
+                    status
+                }
+            },
+            HotVerifyResult::Result(status) => status,
+        };
 
         ensure!(
             status,
-            "Auth method failed for wallet_id {}",
+            "Auth method {:?} failed for wallet_id {}",
+            auth_method,
             wallet_id
         );
+
         Ok(())
     }
 }

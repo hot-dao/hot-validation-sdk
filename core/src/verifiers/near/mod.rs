@@ -44,22 +44,38 @@ impl NearVerifier {
 
     async fn verify(
         &self,
-        auth_contract_id: String,
-        args: VerifyArgs,
+        wallet_id: String,
+        auth_method: AuthMethod,
+        message_hex: String,
+        message_body: String,
+        user_payload: String,
     ) -> Result<HotVerifyResult> {
         #[derive(Debug, Deserialize)]
         struct MethodName {
             method: String,
         }
         // Used in omni bridge: there are different methods for deposit/withdraw flows.
-        let method_name = if let Some(metadata) = &args.metadata {
+        let method_name = if let Some(metadata) = &auth_method.metadata {
             let method_name = serde_json::from_str::<MethodName>(metadata)?;
             method_name.method
         } else {
             HOT_VERIFY_METHOD_NAME.to_string()
         };
 
-        let rpc_args = RpcRequest::build(&auth_contract_id, &method_name, &args);
+        // TODO: maybe the message should be plain bytes in the first place, and base58 conversion
+        //  put into serialization logic.
+        let message_bs58 = hex::decode(&message_hex)
+            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
+
+        let args = VerifyArgs {
+            wallet_id: Some(wallet_id.to_string()),
+            msg_hash: message_bs58,
+            metadata: auth_method.metadata.clone(),
+            user_payload: user_payload.clone(),
+            msg_body: message_body.clone(),
+        };
+
+        let rpc_args = RpcRequest::build(&auth_method.account_id, &method_name, &args);
         let result: RpcResponse<HotVerifyResult> = post_json_receive_json(
             &self.client,
             &self.server,
@@ -105,85 +121,28 @@ impl ThresholdVerifier<NearVerifier> {
 
     pub async fn verify(
         &self,
-        auth_contract_id: String,
-        args: VerifyArgs,
-    ) -> Result<HotVerifyResult> {
-        self.threshold_call(move |verifier| {
-            let auth_contract_id = auth_contract_id.clone();
-            let args = args.clone();
-            async move {
-                verifier.verify(auth_contract_id, args).await
-            }
-        }).await
-    }
-}
-
-impl Validation {
-    pub(crate) async fn handle_near(
-        self: &Arc<Self>,
-        wallet_id: &str,
-        auth_method: &AuthMethod,
+        wallet_id: String,
+        auth_method: AuthMethod,
         message_hex: String,
         message_body: String,
         user_payload: String,
-    ) -> Result<bool> {
-        // TODO: maybe the message should be plain bytes in the first place, and base58 conversion
-        //  put into serialization logic.
-        let message_bs58 = hex::decode(&message_hex)
-            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
-
-        // TODO: Should be moved somewhere
-        let verify_args = VerifyArgs {
-            wallet_id: Some(wallet_id.to_string()),
-            msg_hash: message_bs58,
-            metadata: auth_method.metadata.clone(),
-            user_payload: user_payload.clone(),
-            msg_body: message_body.clone(),
-        };
-
-        metrics::tick_metrics_verify_total_attempts(ChainId::Near);
-        let status = self
-            .near
-            .verify(auth_method.account_id.clone(), verify_args)
-            .await
-            .context("Could not get HotVerifyResult from NEAR")?;
-        metrics::tick_metrics_verify_success_attempts(ChainId::Near);
-
-        let auth_call = match status {
-            HotVerifyResult::AuthCall(auth_call) => auth_call,
-            HotVerifyResult::Result(status) => return Ok(status),
-        };
-
-        metrics::tick_metrics_verify_total_attempts(auth_call.chain_id);
-        let status = match auth_call.chain_id {
-            ChainId::Stellar => {
-                let verifier = &self.stellar;
-                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
+    ) -> Result<HotVerifyResult> {
+        self.threshold_call(move |verifier| {
+            let wallet_id = wallet_id.clone();
+            let auth_method = auth_method.clone();
+            let message_hex = message_hex.clone();
+            let message_body = message_body.clone();
+            let user_payload = user_payload.clone();
+            async move {
+                verifier.verify(
+                    wallet_id,
+                    auth_method,
+                    message_hex,
+                    message_body,
+                    user_payload,
+                ).await
             }
-            ChainId::Ton | ChainId::TON_V2 => {
-                let verifier = &self.ton;
-                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-            }
-            ChainId::Evm(_) => {
-                let verifier = self
-                    .evm
-                    .get(&auth_call.chain_id)
-                    .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
-                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-            }
-            ChainId::Solana => {
-                let verifier = &self.solana;
-                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-            }
-            ChainId::Near => {
-                bail!("Auth call should not lead to NEAR")
-            }
-        };
-
-        if status {
-            metrics::tick_metrics_verify_success_attempts(auth_call.chain_id);
-        }
-        Ok(status)
+        }).await
     }
 }
 
@@ -209,18 +168,28 @@ pub(crate) mod tests {
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "keys.auth.hot.tg";
 
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+        let auth_method = AuthMethod {
+            account_id: "keys.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
         rpc_caller
-            .verify(auth_contract_id.to_string(), args)
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
             .await
             .unwrap();
     }
@@ -232,18 +201,28 @@ pub(crate) mod tests {
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "keys.auth.hot.tg";
 
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+        let auth_method = AuthMethod {
+            account_id: "keys.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
         rpc_caller
-            .verify(auth_contract_id.to_string(), args)
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
             .await
             .unwrap();
     }
@@ -255,18 +234,28 @@ pub(crate) mod tests {
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "123123.auth.hot.tg";
 
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+        let auth_method = AuthMethod {
+            account_id: "kek.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
         rpc_caller
-            .verify(auth_contract_id.to_string(), args)
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
             .await
             .unwrap();
     }
@@ -277,21 +266,30 @@ pub(crate) mod tests {
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "keys.auth.hot.tg";
 
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+        let auth_method = AuthMethod {
+            account_id: "keys.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
         let result = rpc_caller
-            .verify(auth_contract_id.to_string(), args)
-            .await?
-            .as_result()?;
-        assert!(!result);
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
+            .await;
+        assert!(result.is_err());
         Ok(())
     }
 
@@ -310,18 +308,31 @@ pub(crate) mod tests {
             &Arc::new(reqwest::Client::new()),
         );
 
+
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "keys.auth.hot.tg";
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+
+        let auth_method = AuthMethod {
+            account_id: "keys.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
+
         rpc_validation
-            .verify(auth_contract_id.to_string(), args)
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
             .await
             .unwrap();
     }
@@ -336,24 +347,35 @@ pub(crate) mod tests {
                     "https://hello.com".to_string(),
                     "https://hello.com".to_string(),
                     "https://hello.com".to_string(),
-                    "https://hello.com".to_string(),
+                    near_rpc(),
                 ],
             },
             &Arc::new(reqwest::Client::new()),
         );
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
-        let auth_contract_id: &str = "keys.auth.hot.tg";
-        let args = VerifyArgs {
-            msg_body: String::new(),
-            msg_hash: "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3".to_string(),
-            wallet_id: Some(wallet_id),
-            user_payload: r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string(),
+
+        let auth_method = AuthMethod {
+            account_id: "keys.auth.hot.tg".to_string(),
             metadata: None,
         };
 
+        let message_body = String::new();
+        let message_hex = {
+            let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
+            let bytes = bs58::decode(bs58).into_vec().unwrap();
+            hex::encode(bytes)
+        };
+        let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
+
         rpc_validation
-            .verify(auth_contract_id.to_string(), args)
+            .verify(
+                wallet_id,
+                auth_method,
+                message_hex,
+                message_body,
+                user_payload,
+            )
             .await
             .unwrap();
     }
