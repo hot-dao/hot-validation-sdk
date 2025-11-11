@@ -10,10 +10,13 @@ use primitive_types::U128;
 use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
+use async_trait::async_trait;
 use tonlib_core::TonAddress;
 use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
 use crate::http_client::post_json_receive_json;
+use crate::Validation;
 use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
+use crate::verifiers::Verifier;
 
 pub struct TonVerifier {
     client: Arc<reqwest::Client>,
@@ -24,8 +27,11 @@ impl TonVerifier {
     fn new(client: Arc<reqwest::Client>, server: String) -> Self {
         Self { client, server }
     }
+}
 
-    pub async fn verify(
+#[async_trait]
+impl Verifier for TonVerifier {
+    async fn verify(
         &self,
         auth_contract_id: String,
         method_name: String,
@@ -39,7 +45,7 @@ impl TonVerifier {
                 &self.client,
                 &self.server,
                 &request,
-                ChainId::TON_V2
+                ChainId::TON_V2,
             ).await?;
             item.unpack()?.as_cell()?.parser().load_address()?
         };
@@ -47,7 +53,7 @@ impl TonVerifier {
             let request = RpcRequest::build(
                 &child_address,
                 &input.child_call_method,
-                input.child_call_args
+                input.child_call_args,
             );
             let item: RpcResponse = post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2).await?;
             item.unpack()?.as_num()?
@@ -86,23 +92,7 @@ impl ThresholdVerifier<TonVerifier> {
             verifiers,
         }
     }
-
-
-    pub async fn verify(
-        &self,
-        auth_contract_id: String,
-        method_name: String,
-        input_data: InputData,
-    ) -> Result<bool> {
-        self.threshold_call(move |verifier| {
-            let auth_contract_id = auth_contract_id.clone();
-            let method_name = method_name.clone();
-            let input_data = input_data.clone();
-            async move {
-                verifier.verify(auth_contract_id, method_name, input_data).await
-            }
-        }).await
-    }}
+}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -117,6 +107,7 @@ pub(crate) mod tests {
     use hot_validation_primitives::ChainId;
     use crate::http_client::post_json_receive_json;
     use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
+    use crate::verifiers::Verifier;
 
     pub(crate) fn ton_rpc() -> String {
         dotenv::var("TON_RPC")

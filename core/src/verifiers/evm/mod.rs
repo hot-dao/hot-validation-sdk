@@ -12,8 +12,10 @@ use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::{ChainId, ExtendedChainId};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use async_trait::async_trait;
 use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
 use crate::http_client::{post_json_receive_json, TIMEOUT};
+use crate::verifiers::Verifier;
 
 #[derive(Clone)]
 pub(crate) struct EvmVerifier {
@@ -54,7 +56,10 @@ impl EvmVerifier {
         let safer_block_number = block_number - BLOCK_DELAY;
         Ok(BlockSpecifier::BlockNumber(safer_block_number))
     }
+}
 
+#[async_trait]
+impl Verifier for EvmVerifier {
     async fn verify(
         &self,
         auth_contract_id: String,
@@ -98,23 +103,7 @@ impl ThresholdVerifier<EvmVerifier> {
             verifiers,
         }
     }
-
-
-    pub async fn verify(
-        &self,
-        auth_contract_id: String,
-        method_name: String,
-        input_data: InputData,
-    ) -> Result<bool> {
-        self.threshold_call(move |verifier| {
-            let auth_contract_id = auth_contract_id.clone();
-            let method_name = method_name.clone();
-            let input_data = input_data.clone();
-            async move {
-                verifier.verify(auth_contract_id, method_name, input_data).await
-            }
-        }).await
-    }}
+}
 
 #[cfg(test)]
 mod tests {

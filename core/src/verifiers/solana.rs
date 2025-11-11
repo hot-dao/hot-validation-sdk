@@ -16,8 +16,10 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
+use async_trait::async_trait;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
 use crate::http_client::TIMEOUT;
+use crate::verifiers::Verifier;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
@@ -87,7 +89,10 @@ impl SolanaVerifier {
         );
         Ok(())
     }
+}
 
+#[async_trait]
+impl Verifier for SolanaVerifier {
     async fn verify(
         &self,
         auth_contract_id: String,
@@ -122,22 +127,6 @@ impl ThresholdVerifier<SolanaVerifier> {
             verifiers,
         }
     }
-
-    pub async fn verify(
-        &self,
-        auth_contract_id: String,
-        method_name: String,
-        input_data: InputData,
-    ) -> Result<bool> {
-        self.threshold_call(move |verifier| {
-            let auth_contract_id = auth_contract_id.clone();
-            let method_name = method_name.clone();
-            let input_data = input_data.clone();
-            async move {
-                verifier.verify(auth_contract_id, method_name, input_data).await
-            }
-        }).await
-    }
 }
 
 #[cfg(test)]
@@ -148,6 +137,7 @@ mod tests {
 
     use hot_validation_primitives::bridge::{CompletedWithdrawal, DepositData};
     use serde_json::json;
+    use crate::verifiers::Verifier;
 
     fn get_deposit_data() -> DepositData {
         let json = json!({

@@ -8,6 +8,8 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
+use hot_validation_primitives::bridge::InputData;
+use crate::verifiers::Verifier;
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
@@ -67,6 +69,24 @@ impl<T> ThresholdVerifier<T> {
         Err(anyhow!(
             "No consensus for threshold call, got: {counts:?}, errors: {errors:?}"
         ))
+    }
+}
+
+impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
+    pub async fn verify(
+        &self,
+        auth_contract_id: String,
+        method_name: String,
+        input_data: InputData
+    ) -> anyhow::Result<bool> {
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input_data = input_data.clone();
+            async move {
+                verifier.verify(auth_contract_id, method_name, input_data).await
+            }
+        }).await
     }
 }
 

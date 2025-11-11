@@ -13,6 +13,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 use crate::http_client::{post_json_receive_json, TIMEOUT};
 use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
+use crate::verifiers::Verifier;
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
@@ -131,6 +132,7 @@ impl Validation {
         let message_bs58 = hex::decode(&message_hex)
             .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
 
+        // TODO: Should be moved somewhere
         let verify_args = VerifyArgs {
             wallet_id: Some(wallet_id.to_string()),
             msg_hash: message_bs58,

@@ -14,8 +14,10 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use async_trait::async_trait;
 use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
 use crate::http_client::TIMEOUT;
+use crate::verifiers::Verifier;
 
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
@@ -67,7 +69,10 @@ impl StellarVerifier {
         let operation = contract.call(method_name, Some(sc_args));
         Ok(operation)
     }
+}
 
+#[async_trait]
+impl Verifier for StellarVerifier {
     async fn verify(
         &self,
         auth_contract_id: String,
@@ -110,23 +115,6 @@ impl ThresholdVerifier<StellarVerifier> {
             verifiers,
         })
     }
-
-
-    pub async fn verify(
-        &self,
-        auth_contract_id: String,
-        method_name: String,
-        input_data: InputData,
-    ) -> Result<bool> {
-        self.threshold_call(move |verifier| {
-            let auth_contract_id = auth_contract_id.clone();
-            let method_name = method_name.clone();
-            let input_data = input_data.clone();
-            async move {
-                verifier.verify(auth_contract_id, method_name, input_data).await
-            }
-        }).await
-    }
 }
 
 #[cfg(test)]
@@ -136,6 +124,7 @@ mod tests {
     use anyhow::Result;
     use hot_validation_primitives::bridge::stellar::{StellarInputArg, StellarInputData};
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
+    use crate::verifiers::Verifier;
 
     #[tokio::test]
     async fn single_verifier() -> Result<()> {
