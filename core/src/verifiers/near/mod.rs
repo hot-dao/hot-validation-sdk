@@ -7,7 +7,7 @@ use crate::{
     metrics, AuthMethod, ChainValidationConfig, Validation,
     WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
 };
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
@@ -175,47 +175,40 @@ impl Validation {
             .await
             .context("Could not get HotVerifyResult from NEAR")?;
 
-        let status = match status {
-            HotVerifyResult::AuthCall(auth_call) => match auth_call.chain_id {
-                ChainId::Stellar => {
-                    self.handle_stellar(
-                        &auth_call.contract_id,
-                        &auth_call.method,
-                        auth_call.input.try_into()?,
-                    )
-                        .await?
-                }
-                ChainId::Ton | ChainId::TON_V2 => {
-                    self.handle_ton(
-                        &auth_call.contract_id,
-                        &auth_call.method,
-                        auth_call.input.try_into()?,
-                    )
-                        .await?
-                }
-                ChainId::Evm(_) => {
-                    self.handle_evm(
-                        auth_call.chain_id,
-                        &auth_call.contract_id,
-                        &auth_call.method,
-                        auth_call.input.try_into()?,
-                    )
-                        .await?
-                }
-                ChainId::Solana => {
-                    self.handle_solana(
-                        &auth_call.contract_id,
-                        &auth_call.method,
-                        auth_call.input.try_into()?,
-                    )
-                        .await?
-                }
-                ChainId::Near => {
-                    unimplemented!("Auth call should not lead to NEAR")
-                }
-            },
-            HotVerifyResult::Result(status) => status,
+        let auth_call = match status {
+            HotVerifyResult::AuthCall(auth_call) => auth_call,
+            HotVerifyResult::Result(status) => return Ok(status),
         };
+
+        let status = match auth_call.chain_id {
+            ChainId::Stellar => {
+                let verifier = &self.stellar;
+                let args = auth_call.input.try_into()?;
+                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+            }
+            ChainId::Ton | ChainId::TON_V2 => {
+                let verifier = &self.ton;
+                let args = auth_call.input.try_into()?;
+                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+            }
+            ChainId::Evm(_) => {
+                let verifier = self
+                    .evm
+                    .get(&auth_call.chain_id)
+                    .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
+                let args = auth_call.input.try_into()?;
+                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+            }
+            ChainId::Solana => {
+                let verifier = &self.solana;
+                let args = auth_call.input.try_into()?;
+                verifier.verify(&auth_call.contract_id, &auth_call.method, args).await?
+            }
+            ChainId::Near => {
+                bail!("Auth call should not lead to NEAR")
+            }
+        };
+
         Ok(status)
     }
 }

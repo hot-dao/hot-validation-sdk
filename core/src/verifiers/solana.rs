@@ -157,23 +157,6 @@ impl ThresholdVerifier<SolanaVerifier> {
     }
 }
 
-impl Validation {
-    pub(crate) async fn handle_solana(
-        self: Arc<Self>,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: SolanaInputData,
-    ) -> Result<bool> {
-        let status = self
-            .solana
-            .clone()
-            .verify(auth_contract_id, method_name, input)
-            .await
-            .context("Validation on Stellar failed")?;
-        Ok(status)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::SolanaVerifier;

@@ -129,24 +129,6 @@ impl ThresholdVerifier<TonVerifier> {
     }
 }
 
-impl Validation {
-    // TODO: Does this wrapper really needed?
-    pub(crate) async fn handle_ton(
-        self: Arc<Self>,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: TonInputData,
-    ) -> Result<bool> {
-        let status = self
-            .ton
-            .clone()
-            .verify(auth_contract_id, method_name, input)
-            .await
-            .context("Validation on Ton failed")?;
-        Ok(status)
-    }
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use anyhow::Result;
