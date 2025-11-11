@@ -29,13 +29,16 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
         F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, anyhow::Result<R>>,
     {
         let threshold = self.threshold;
-
         let mut counts: HashMap<R, usize> = HashMap::new();
-        let mut rng = StdRng::from_os_rng();
 
-        let mut verifiers = self.verifiers.clone();
-        verifiers.shuffle(&mut rng);
-        let mut responses = stream::iter(self.verifiers.iter().cloned())
+        let shuffled_verifiers = {
+            let mut rng = StdRng::from_os_rng();
+            let mut verifiers = self.verifiers.clone();
+            verifiers.shuffle(&mut rng);
+            verifiers
+        };
+
+        let mut responses = stream::iter(shuffled_verifiers)
             .map(|caller| functor.clone()(caller))
             .buffer_unordered(threshold);
 
