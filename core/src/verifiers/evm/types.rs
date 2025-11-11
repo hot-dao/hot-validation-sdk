@@ -1,13 +1,12 @@
-use serde_hex::SerHex;
-use serde_hex::SerHexSeq;
-use serde_hex::{StrictPfx, CompactPfx};
-use std::fmt::Display;
+use crate::HOT_VERIFY_METHOD_NAME;
 use alloy_contract::Interface;
 use alloy_dyn_abi::DynSolValue;
 use alloy_json_abi::JsonAbi;
 use serde::{Deserialize, Serialize};
+use serde_hex::SerHexSeq;
+use serde_hex::StrictPfx;
 use serde_json::json;
-use crate::HOT_VERIFY_METHOD_NAME;
+use std::fmt::Display;
 
 pub const BLOCK_DELAY: u64 = 1;
 
@@ -40,11 +39,13 @@ impl RpcResponse {
         let bytes = hex::decode(self.result.trim_start_matches("0x"))
             .map_err(|_| anyhow::anyhow!("Couldn't decode from hex: {}", self.result))?;
         let result = INTERFACE.decode_output(HOT_VERIFY_METHOD_NAME, &bytes)?;
-        let value = result.first().ok_or_else(|| anyhow::anyhow!("No elements in the output"))?;
+        let value = result
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("No elements in the output"))?;
         if let DynSolValue::Bool(b) = value {
             Ok(*b)
         } else {
-            anyhow::bail!("first value is not bool: {:?}", value)
+            anyhow::bail!("first value is not bool: {value:?}")
         }
     }
 }
@@ -79,7 +80,7 @@ impl RpcRequest {
             #[serde(with = "SerHexSeq::<StrictPfx>")]
             data: Vec<u8>,
         }
-        let data = INTERFACE.encode_input(method_name, &args)?;
+        let data = INTERFACE.encode_input(method_name, args)?;
 
         Ok(RpcRequest {
             jsonrpc: "2.0",

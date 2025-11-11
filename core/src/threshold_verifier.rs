@@ -1,6 +1,7 @@
+use crate::verifiers::Verifier;
 use anyhow::anyhow;
-use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
+use hot_validation_primitives::bridge::InputData;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::SeedableRng;
 use std::collections::HashMap;
@@ -8,8 +9,6 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
-use hot_validation_primitives::bridge::InputData;
-use crate::verifiers::Verifier;
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
@@ -36,7 +35,7 @@ impl<T> ThresholdVerifier<T> {
         };
 
         let mut responses = stream::iter(shuffled_verifiers)
-            .map(|caller| functor(caller))
+            .map(functor)
             .buffer_unordered(threshold);
 
         let mut errors = vec![];
@@ -71,23 +70,26 @@ impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
         &self,
         auth_contract_id: String,
         method_name: String,
-        input_data: InputData
+        input_data: InputData,
     ) -> anyhow::Result<bool> {
         self.threshold_call(move |verifier| {
             let auth_contract_id = auth_contract_id.clone();
             let method_name = method_name.clone();
             let input_data = input_data.clone();
             async move {
-                verifier.verify(auth_contract_id, method_name, input_data).await
+                verifier
+                    .verify(auth_contract_id, method_name, input_data)
+                    .await
             }
-        }).await
+        })
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use anyhow::Result;
 
@@ -216,10 +218,7 @@ mod tests {
     }
 
     impl ThresholdVerifier<BoolVerifier> {
-        pub async fn verify(
-            &self,
-            auth_contract_id: &str,
-        ) -> anyhow::Result<bool> {
+        pub async fn verify(&self, auth_contract_id: &str) -> anyhow::Result<bool> {
             let auth_contract_id = Arc::new(auth_contract_id.to_string());
             let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Result<bool>> {
                 let auth = auth_contract_id.clone();
@@ -252,10 +251,7 @@ mod tests {
             verifiers,
         };
 
-        let res = tv
-            .verify("dummy")
-            .await
-            .unwrap();
+        let res = tv.verify("dummy").await.unwrap();
         assert!(res);
     }
 
@@ -280,10 +276,7 @@ mod tests {
             verifiers,
         };
 
-        let res = tv
-            .verify("dummy")
-            .await
-            .unwrap();
+        let res = tv.verify("dummy").await.unwrap();
         assert!(!res);
     }
 
@@ -308,10 +301,7 @@ mod tests {
             verifiers,
         };
 
-        let err = tv
-            .verify("dummy")
-            .await
-            .unwrap_err();
+        let err = tv.verify("dummy").await.unwrap_err();
         assert!(err.to_string().contains("No consensus for threshold call"));
     }
 
@@ -336,13 +326,10 @@ mod tests {
             verifiers,
         };
 
-        let result = timeout(
-            Duration::from_millis(180),
-            tv.verify("dummy"),
-        )
-        .await
-        .expect("timed out")
-        .unwrap();
+        let result = timeout(Duration::from_millis(180), tv.verify("dummy"))
+            .await
+            .expect("timed out")
+            .unwrap();
         assert!(result);
     }
     #[derive(Clone)]
@@ -355,10 +342,17 @@ mod tests {
         let counter = Arc::new(AtomicUsize::new(0));
 
         let verifiers = (0..5)
-            .map(|_| Arc::new(CountVerifier { counter: counter.clone() }))
+            .map(|_| {
+                Arc::new(CountVerifier {
+                    counter: counter.clone(),
+                })
+            })
             .collect::<Vec<_>>();
 
-        let tv = ThresholdVerifier { threshold: 2, verifiers };
+        let tv = ThresholdVerifier {
+            threshold: 2,
+            verifiers,
+        };
 
         let functor = move |v: Arc<CountVerifier>| -> BoxFuture<'static, anyhow::Result<()>> {
             let counter = v.counter.clone();
@@ -371,7 +365,9 @@ mod tests {
         tv.threshold_call(functor).await.unwrap();
 
         let invoked = counter.load(Ordering::SeqCst);
-        assert_eq!(invoked, 2, "expected only threshold verifiers to be invoked");
+        assert_eq!(
+            invoked, 2,
+            "expected only threshold verifiers to be invoked"
+        );
     }
-
 }

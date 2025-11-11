@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use std::time::Duration;
-use anyhow::{Result, anyhow};
-use reqwest::{Client, StatusCode, header::ACCEPT};
+use crate::metrics;
+use anyhow::anyhow;
+use hot_validation_primitives::ChainId;
+use reqwest::{header::ACCEPT, Client, StatusCode};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use hot_validation_primitives::ChainId;
-use crate::metrics;
+use std::sync::Arc;
+use std::time::Duration;
 
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
 const LOG_SNIP_MAX: usize = 600;
@@ -17,7 +17,8 @@ pub enum HttpError {
         url: String,
         status: Option<StatusCode>, // None ⇒ transport error
         body_snip: String,
-        #[source] source: anyhow::Error,
+        #[source]
+        source: anyhow::Error,
     },
 
     #[error("JSON decode failed for {url} (status={status} body_snip={body_snip}): {source}")]
@@ -25,7 +26,8 @@ pub enum HttpError {
         url: String,
         status: StatusCode,
         body_snip: String,
-        #[source] source: serde_json::Error,
+        #[source]
+        source: serde_json::Error,
     },
 }
 
@@ -38,9 +40,7 @@ impl HttpError {
         source: anyhow::Error,
     ) -> Self {
         metrics::bump_metrics_rpc_call_fail(chain_id, &url);
-        let body_snip = body
-            .map(|s| snip_bytes(&s))
-            .unwrap_or_else(|| String::from("no body"));
+        let body_snip = body.map_or_else(|| String::from("no body"), |s| snip_bytes(&s));
         Self::RequestFailed {
             url,
             status,
@@ -85,29 +85,15 @@ where
         .header(ACCEPT, "application/json")
         .timeout(TIMEOUT);
 
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| HttpError::request_failed_error(
-            chain_id,
-            url.to_string(),
-            None,
-            None,
-            anyhow!(e),
-        ))?;
+    let resp = req.send().await.map_err(|e| {
+        HttpError::request_failed_error(chain_id, url.to_string(), None, None, anyhow!(e))
+    })?;
 
     let status = resp.status();
     let url_final = resp.url().to_string();
-    let bytes = resp
-        .bytes()
-        .await
-        .map_err(|e| HttpError::request_failed_error(
-            chain_id,
-            url_final.clone(),
-            Some(status),
-            None,
-            anyhow!(e),
-        ))?;
+    let bytes = resp.bytes().await.map_err(|e| {
+        HttpError::request_failed_error(chain_id, url_final.clone(), Some(status), None, anyhow!(e))
+    })?;
 
     if !status.is_success() {
         return Err(HttpError::request_failed_error(

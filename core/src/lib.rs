@@ -2,9 +2,9 @@
 #![allow(clippy::missing_errors_doc)]
 mod verifiers;
 
+mod http_client;
 mod metrics;
 mod threshold_verifier;
-mod http_client;
 
 pub use hot_validation_primitives::*;
 
@@ -16,16 +16,10 @@ use crate::verifiers::stellar::StellarVerifier;
 use crate::verifiers::ton::TonVerifier;
 use anyhow::{bail, ensure, Context, Result};
 use futures_util::future::try_join_all;
-use hot_validation_primitives::bridge::evm::EvmInputData;
-use hot_validation_primitives::bridge::stellar::StellarInputData;
-use hot_validation_rpc_healthcheck::observer::Observer;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
-use std::os::macos::raw::stat;
-use std::sync::Arc;
-use std::time::Duration;
 use hot_validation_primitives::bridge::HotVerifyResult;
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -57,9 +51,9 @@ pub struct Validation {
 }
 
 impl Validation {
-    pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
+    pub fn new(configs: &HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
-        for (chain_id, config) in configs.iter() {
+        for (chain_id, config) in configs {
             metrics::set_threshold_delta(*chain_id, config.servers.len(), config.threshold);
         }
 
@@ -133,7 +127,7 @@ impl Validation {
             .near
             .get_wallet_auth_methods(wallet_id.clone())
             .await
-            .context(format!("Couldn't get auth methods for wallet {}", wallet_id))?;
+            .context(format!("Couldn't get auth methods for wallet {wallet_id}"))?;
 
         ensure!(
             proof.user_payloads.len() == wallet.access_list.len(),
@@ -156,7 +150,8 @@ impl Validation {
                         user_payload,
                     )
                 }),
-        ).await?;
+        )
+        .await?;
 
         Ok(())
     }
@@ -187,44 +182,48 @@ impl Validation {
 
         let status = match status {
             HotVerifyResult::AuthCall(auth_call) => {
-                {
-                    metrics::tick_metrics_verify_total_attempts(auth_call.chain_id);
-                    let status = match auth_call.chain_id {
-                        ChainId::Stellar => {
-                            let verifier = &self.stellar;
-                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-                        }
-                        ChainId::Ton | ChainId::TON_V2 => {
-                            let verifier = &self.ton;
-                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-                        }
-                        ChainId::Evm(_) => {
-                            let verifier = self
-                                .evm
-                                .get(&auth_call.chain_id)
-                                .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
-                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-                        }
-                        ChainId::Solana => {
-                            let verifier = &self.solana;
-                            verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
-                        }
-                        ChainId::Near => {
-                            bail!("Auth call should not lead to NEAR")
-                        }
-                    };
-                    metrics::tick_metrics_verify_success_attempts(auth_call.chain_id);
-                    status
-                }
-            },
+                metrics::tick_metrics_verify_total_attempts(auth_call.chain_id);
+                let status = match auth_call.chain_id {
+                    ChainId::Stellar => {
+                        let verifier = &self.stellar;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+                    ChainId::Ton | ChainId::TON_V2 => {
+                        let verifier = &self.ton;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+                    ChainId::Evm(_) => {
+                        let verifier = self.evm.get(&auth_call.chain_id).ok_or(anyhow::anyhow!(
+                            "EVM validation is not configured for chain {:?}",
+                            auth_call.chain_id
+                        ))?;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+                    ChainId::Solana => {
+                        let verifier = &self.solana;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+                    ChainId::Near => {
+                        bail!("Auth call should not lead to NEAR")
+                    }
+                };
+                metrics::tick_metrics_verify_success_attempts(auth_call.chain_id);
+                status
+            }
             HotVerifyResult::Result(status) => status,
         };
 
         ensure!(
             status,
-            "Auth method {:?} failed for wallet_id {}",
-            auth_method,
-            wallet_id
+            "Auth method {auth_method:?} failed for wallet_id {wallet_id}"
         );
 
         Ok(())
@@ -318,7 +317,7 @@ mod tests {
             ),
         ]);
 
-        let validation = Validation::new(configs).unwrap();
+        let validation = Validation::new(&configs).unwrap();
         Arc::new(validation)
     }
 
@@ -396,7 +395,7 @@ mod tests {
                 },
             ),
         ]);
-        let validation = Arc::new(Validation::new(configs).unwrap());
+        let validation = Arc::new(Validation::new(&configs).unwrap());
 
         let uid = "114e0efee6a1c73dbc8403264db8537d38fdfa7bdf81ed6fcf4841b93b9a2b6a".to_string();
         let message =

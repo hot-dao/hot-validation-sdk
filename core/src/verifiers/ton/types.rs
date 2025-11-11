@@ -1,7 +1,7 @@
 use anyhow::ensure;
+use hot_validation_primitives::bridge::ton::{ResponseStackItem, StackItem};
 use serde::{Deserialize, Serialize};
 use tonlib_core::TonAddress;
-use hot_validation_primitives::bridge::ton::{ResponseStackItem, StackItem};
 
 #[derive(Serialize)]
 pub(crate) struct RpcRequest {
@@ -46,11 +46,7 @@ struct ResultStack {
 }
 
 impl RpcRequest {
-    pub(crate) fn build(
-        address: &TonAddress,
-        method: &str,
-        stack: Vec<StackItem>,
-    ) -> Self {
+    pub(crate) fn build(address: &TonAddress, method: &str, stack: Vec<StackItem>) -> Self {
         Self {
             jsonrpc: "2.0",
             id: "dontcare",

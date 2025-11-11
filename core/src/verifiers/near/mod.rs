@@ -1,19 +1,17 @@
 mod types;
 
+use crate::http_client::post_json_receive_json;
 use crate::threshold_verifier::ThresholdVerifier;
+use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
 use crate::{
-    metrics, AuthMethod, ChainValidationConfig, Validation,
-    WalletAuthMethods, HOT_VERIFY_METHOD_NAME, MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
+    metrics, AuthMethod, ChainValidationConfig, WalletAuthMethods, HOT_VERIFY_METHOD_NAME,
+    MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT,
 };
-use anyhow::{bail, Context, Result};
-use futures_util::future::BoxFuture;
+use anyhow::Result;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use serde::Deserialize;
 use std::sync::Arc;
-use crate::http_client::{post_json_receive_json, TIMEOUT};
-use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
-use crate::verifiers::Verifier;
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
@@ -28,17 +26,10 @@ impl NearVerifier {
 
     async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
         let wallet_id = GetWalletArgs { wallet_id };
-        let rpc_args = RpcRequest::build(
-            MPC_HOT_WALLET_CONTRACT,
-            MPC_GET_WALLET_METHOD,
-            &wallet_id,
-        );
-        let wallet_model: RpcResponse<WalletAuthMethods> = post_json_receive_json(
-            &self.client,
-            &self.server,
-            &rpc_args,
-            ChainId::Near,
-        ).await?;
+        let rpc_args =
+            RpcRequest::build(MPC_HOT_WALLET_CONTRACT, MPC_GET_WALLET_METHOD, &wallet_id);
+        let wallet_model: RpcResponse<WalletAuthMethods> =
+            post_json_receive_json(&self.client, &self.server, &rpc_args, ChainId::Near).await?;
         Ok(wallet_model.unpack())
     }
 
@@ -76,12 +67,8 @@ impl NearVerifier {
         };
 
         let rpc_args = RpcRequest::build(&auth_method.account_id, &method_name, &args);
-        let result: RpcResponse<HotVerifyResult> = post_json_receive_json(
-            &self.client,
-            &self.server,
-            &rpc_args,
-            ChainId::Near,
-        ).await?;
+        let result: RpcResponse<HotVerifyResult> =
+            post_json_receive_json(&self.client, &self.server, &rpc_args, ChainId::Near).await?;
         Ok(result.unpack())
     }
 }
@@ -113,10 +100,9 @@ impl ThresholdVerifier<NearVerifier> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
         self.threshold_call(move |verifier| {
             let wallet_id = wallet_id.clone();
-            async move {
-                verifier.get_wallet(wallet_id).await
-            }
-        }).await
+            async move { verifier.get_wallet(wallet_id).await }
+        })
+        .await
     }
 
     pub async fn verify(
@@ -134,15 +120,18 @@ impl ThresholdVerifier<NearVerifier> {
             let message_body = message_body.clone();
             let user_payload = user_payload.clone();
             async move {
-                verifier.verify(
-                    wallet_id,
-                    auth_method,
-                    message_hex,
-                    message_body,
-                    user_payload,
-                ).await
+                verifier
+                    .verify(
+                        wallet_id,
+                        auth_method,
+                        message_hex,
+                        message_body,
+                        user_payload,
+                    )
+                    .await
             }
-        }).await
+        })
+        .await
     }
 }
 
@@ -150,13 +139,12 @@ impl ThresholdVerifier<NearVerifier> {
 pub(crate) mod tests {
     #![allow(clippy::should_panic_without_expect)]
 
-    use std::sync::Arc;
-    use anyhow::Result;
-    use hot_validation_primitives::ChainValidationConfig;
-    use crate::{AuthMethod, ChainId, WalletAuthMethods, HOT_VERIFY_METHOD_NAME};
     use crate::threshold_verifier::ThresholdVerifier;
     use crate::verifiers::near::NearVerifier;
-    use crate::verifiers::near::types::{GetWalletArgs, VerifyArgs};
+    use crate::{AuthMethod, WalletAuthMethods};
+    use anyhow::Result;
+    use hot_validation_primitives::ChainValidationConfig;
+    use std::sync::Arc;
 
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
@@ -308,7 +296,6 @@ pub(crate) mod tests {
             &Arc::new(reqwest::Client::new()),
         );
 
-
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
 
         let auth_method = AuthMethod {
@@ -323,7 +310,6 @@ pub(crate) mod tests {
             hex::encode(bytes)
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
-
 
         rpc_validation
             .verify(

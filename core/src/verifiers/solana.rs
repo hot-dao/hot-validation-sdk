@@ -1,13 +1,14 @@
+use crate::http_client::TIMEOUT;
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::{Validation};
+use crate::verifiers::Verifier;
 use anyhow::{anyhow, ensure, Context, Result};
+use async_trait::async_trait;
 use borsh::BorshDeserialize;
-use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::solana::{
     anchor, DepositWithProof, SolanaInputData, UserAccount,
 };
-use hot_validation_primitives::bridge::{CompletedWithdrawal, HotVerifyAuthCall, InputData};
-use hot_validation_primitives::{ChainId, ChainValidationConfig};
+use hot_validation_primitives::bridge::{CompletedWithdrawal, InputData};
+use hot_validation_primitives::ChainValidationConfig;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_commitment_config::CommitmentConfig;
@@ -16,21 +17,15 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
-use async_trait::async_trait;
-use hot_validation_primitives::bridge::stellar::StellarInputData;
-use crate::http_client::TIMEOUT;
-use crate::verifiers::Verifier;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
-    server: String,
 }
 
 impl SolanaVerifier {
     pub fn new(server: String) -> Self {
         Self {
-            client: RpcClient::new_with_timeout(server.clone(), TIMEOUT),
-            server,
+            client: RpcClient::new_with_timeout(server, TIMEOUT),
         }
     }
 
@@ -135,9 +130,9 @@ mod tests {
 
     use hot_validation_primitives::bridge::solana::{DepositWithProof, SolanaInputData};
 
+    use crate::verifiers::Verifier;
     use hot_validation_primitives::bridge::{CompletedWithdrawal, DepositData};
     use serde_json::json;
-    use crate::verifiers::Verifier;
 
     fn get_deposit_data() -> DepositData {
         let json = json!({
@@ -179,7 +174,9 @@ mod tests {
         let method_name = "hot_verify_deposit".to_string();
         let input = SolanaInputData::Deposit(get_deposit_with_proof());
 
-        verifier.verify(auth_contract, method_name, input.into()).await?;
+        verifier
+            .verify(auth_contract, method_name, input.into())
+            .await?;
         Ok(())
     }
 
@@ -187,12 +184,14 @@ mod tests {
     async fn completed_withdrawal_verification_low() -> anyhow::Result<()> {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
         let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC".to_string();
-        let method_name = "".to_string();
+        let method_name = String::new();
         let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
             "1749390032000000032243",
         ));
 
-        verifier.verify(auth_contract, method_name, input.into()).await?;
+        verifier
+            .verify(auth_contract, method_name, input.into())
+            .await?;
         Ok(())
     }
 
@@ -200,12 +199,14 @@ mod tests {
     async fn completed_withdrawal_verification_high() -> anyhow::Result<()> {
         let verifier = SolanaVerifier::new("https://api.mainnet-beta.solana.com".to_string());
         let auth_contract = "8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC".to_string();
-        let method_name = "".to_string();
+        let method_name = String::new();
         let input = SolanaInputData::CheckCompletedWithdrawal(get_completed_withdrawal_data(
             "2749390032000000032243",
         ));
 
-        let result = verifier.verify(auth_contract, method_name, input.into()).await;
+        let result = verifier
+            .verify(auth_contract, method_name, input.into())
+            .await;
         result.expect_err("expected error");
         Ok(())
     }

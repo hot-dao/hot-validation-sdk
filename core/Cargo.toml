@@ -9,44 +9,31 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 hot-validation-primitives = { workspace = true }
-hot-validation-rpc-healthcheck = { workspace = true }
-
-anyhow = { workspace = true }
-async-trait = { workspace = true }
-
-serde = { workspace = true }
-serde_json = { workspace = true }
-
-base64 = { workspace = true }
-bs58 = { workspace = true }
-hex = { workspace = true }
-sha2 = { workspace = true }
-
-tracing = { workspace = true }
-
-reqwest = { workspace = true }
-
-tokio = { workspace = true }
-tokio-util = { workspace = true }
-
-futures-util = { workspace = true }
-
-prometheus = { workspace = true }
-soroban-client = { workspace = true }
-
-derive_more = { workspace = true, features = ["full"] }
-serde-hex = { workspace = true }
-tonlib-core = { workspace = true }
 
 alloy-contract = { workspace = true }
 alloy-dyn-abi = { workspace = true }
 alloy-json-abi = { workspace = true }
-primitive-types = { workspace = true, default-features = false }
-rand = { workspace = true }
-
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
 borsh = { workspace = true }
+bs58 = { workspace = true }
+dotenv = { workspace = true }
+futures-util = { workspace = true }
+hex = { workspace = true }
+primitive-types = { workspace = true, default-features = false }
+prometheus = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde-hex = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true, features = ["macros"] }
 solana-client = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
-
-dotenv = { workspace = true }
+soroban-client = { workspace = true }
+thiserror = "2.0.17"
+tokio = { workspace = true }
+tonlib-core = { workspace = true }
+tracing = { workspace = true }

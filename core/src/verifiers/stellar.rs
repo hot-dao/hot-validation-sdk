@@ -1,9 +1,11 @@
+use crate::http_client::TIMEOUT;
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::{ChainValidationConfig, Validation};
+use crate::verifiers::Verifier;
+use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
-use futures_util::future::BoxFuture;
+use async_trait::async_trait;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
-use hot_validation_primitives::ChainId;
+use hot_validation_primitives::bridge::InputData;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -14,21 +16,16 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use async_trait::async_trait;
-use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
-use crate::http_client::TIMEOUT;
-use crate::verifiers::Verifier;
 
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
     client: Arc<Server>,
-    server: String,
 }
 
 impl StellarVerifier {
     pub fn new(server: String) -> Result<Self> {
         let client = Arc::new(Server::new(&server, Options::default())?);
-        Ok(Self { client, server })
+        Ok(Self { client })
     }
 
     fn create_transaction_builder() -> Result<TransactionBuilder> {
@@ -120,17 +117,18 @@ impl ThresholdVerifier<StellarVerifier> {
 #[cfg(test)]
 mod tests {
     use crate::verifiers::stellar::StellarVerifier;
+    use crate::verifiers::Verifier;
     use crate::HOT_VERIFY_METHOD_NAME;
     use anyhow::Result;
     use hot_validation_primitives::bridge::stellar::{StellarInputArg, StellarInputData};
     use hot_validation_primitives::bridge::HotVerifyAuthCall;
-    use crate::verifiers::Verifier;
 
     #[tokio::test]
     async fn single_verifier() -> Result<()> {
         let msg_hash = String::new();
         let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
-        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG".to_string();
+        let auth_contract_id =
+            "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG".to_string();
         let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation

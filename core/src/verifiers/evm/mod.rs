@@ -1,21 +1,17 @@
 mod types;
 
-use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
+use crate::http_client::post_json_receive_json;
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::{ChainValidationConfig, Validation, HOT_VERIFY_METHOD_NAME};
-use alloy_contract::Interface;
-use alloy_dyn_abi::DynSolValue;
-use alloy_json_abi::JsonAbi;
-use anyhow::{Context, Result};
-use futures_util::future::BoxFuture;
-use hot_validation_primitives::bridge::evm::EvmInputData;
-use hot_validation_primitives::{ChainId, ExtendedChainId};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use async_trait::async_trait;
-use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
-use crate::http_client::{post_json_receive_json, TIMEOUT};
+use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
 use crate::verifiers::Verifier;
+use crate::ChainValidationConfig;
+use alloy_dyn_abi::DynSolValue;
+use anyhow::Result;
+use async_trait::async_trait;
+use hot_validation_primitives::bridge::evm::EvmInputData;
+use hot_validation_primitives::bridge::InputData;
+use hot_validation_primitives::{ChainId, ExtendedChainId};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub(crate) struct EvmVerifier {
@@ -38,15 +34,11 @@ impl EvmVerifier {
             .map_err(anyhow::Error::msg)?
             .can_reorg();
         if !can_reorg {
-            return Ok(BlockSpecifier::Latest)
+            return Ok(BlockSpecifier::Latest);
         }
         let request = RpcRequest::build_block_number();
-        let response: RpcResponse = post_json_receive_json(
-            &self.client,
-            &self.server,
-            &request,
-            self.chain_id,
-        ).await?;
+        let response: RpcResponse =
+            post_json_receive_json(&self.client, &self.server, &request, self.chain_id).await?;
         let block_number = response.as_u64()?;
 
         // Ideally, we would want to use `safe` or `final` block here,
@@ -69,18 +61,10 @@ impl Verifier for EvmVerifier {
         let input: EvmInputData = input_data.try_into()?;
         let args: Vec<DynSolValue> = From::from(input);
         let block_specifier = self.get_block().await?;
-        let request = RpcRequest::build_eth_call(
-            &auth_contract_id,
-            &method_name,
-            &args,
-            &block_specifier,
-        )?;
-        let response: RpcResponse = post_json_receive_json(
-            &self.client,
-            &self.server,
-            &request,
-            self.chain_id
-        ).await?;
+        let request =
+            RpcRequest::build_eth_call(&auth_contract_id, &method_name, &args, &block_specifier)?;
+        let response: RpcResponse =
+            post_json_receive_json(&self.client, &self.server, &request, self.chain_id).await?;
         let status = response.as_bool()?;
         Ok(status)
     }

@@ -1,10 +1,7 @@
 use crate::verifiers::near::types::base64_json::Base64OfJson;
-use crate::{MPC_GET_WALLET_METHOD, MPC_HOT_WALLET_CONTRACT};
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::DeserializeOwned;
-use serde_with::{serde_as, SerializeAs};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::serde_as;
 
 /// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Serialize)]
@@ -113,7 +110,7 @@ impl<T> RpcResponse<T> {
 
 #[derive(Deserialize)]
 #[serde(bound(deserialize = "T: DeserializeOwned"))]
-pub(crate)struct RpcResult<T> {
+pub(crate) struct RpcResult<T> {
     #[serde(deserialize_with = "from_json_bytes_owned")]
     result: T,
 }
