@@ -84,7 +84,7 @@ impl VerifierTag for TonVerifier {
 
 impl ThresholdVerifier<TonVerifier> {
     pub fn new_ton(config: ChainValidationConfig, client: &Arc<reqwest::Client>) -> Self {
-        let threshold = config.threshold; // TODO: Check invariand, DRY
+        let threshold = config.threshold;
         let servers = config.servers;
         let verifiers = servers
             .into_iter()
