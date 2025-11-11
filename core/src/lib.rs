@@ -52,16 +52,9 @@ pub struct Validation {
     stellar: Arc<ThresholdVerifier<StellarVerifier>>,
     ton: Arc<ThresholdVerifier<TonVerifier>>,
     solana: Arc<ThresholdVerifier<SolanaVerifier>>,
-    // TODO: we wanted to simplify observer
-    health_check_observer: Arc<Observer>,
 }
 
 impl Validation {
-    #[must_use]
-    pub fn metrics(&self) -> Arc<Observer> {
-        self.health_check_observer.clone()
-    }
-
     pub fn new(configs: HashMap<ChainId, ChainValidationConfig>) -> Result<Self> {
         let client: Arc<reqwest::Client> = Arc::new(reqwest::Client::new());
 
@@ -113,15 +106,12 @@ impl Validation {
             Arc::new(verifier)
         };
 
-        let health_check_observer = Arc::new(Observer::new(configs));
-
         let validation = Self {
             near,
             evm,
             stellar,
             ton,
             solana,
-            health_check_observer,
         };
         Ok(validation)
     }
