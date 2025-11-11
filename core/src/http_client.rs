@@ -5,7 +5,6 @@ use reqwest::{Client, StatusCode, header::ACCEPT};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-// pub const TIMEOUT: Duration = Duration::from_millis(750);
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
 const LOG_SNIP_MAX: usize = 600;
 
