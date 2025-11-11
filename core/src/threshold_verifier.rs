@@ -19,12 +19,6 @@ pub(crate) struct ThresholdVerifier<T> {
 }
 
 impl<T> ThresholdVerifier<T> {
-    /// We can request data from a `SingleVerifier`. Each verifier casts a vote on the data it has returned.
-    /// We collect all the votes and return a data with at least `threshold` votes.
-    /// This logic was abstracted because we might call `verify`, `get_wallet_auth` or something else in the future.
-    ///
-    /// `functor` should return an `Option<R>`,
-    /// with `None` being a vote for no data (when a server is unavailable), and `Some(R)` being a vote for `R`.
     pub async fn threshold_call<F, Fut, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,
@@ -67,7 +61,7 @@ impl<T> ThresholdVerifier<T> {
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
-            "No consensus for threshold call, got: {counts:?}, errors: {errors:?}" // TODO: Better errors
+            "No consensus for threshold call, success: {counts:?}, errors: {errors:?}"
         ))
     }
 }
