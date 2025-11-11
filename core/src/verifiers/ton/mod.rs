@@ -1,3 +1,5 @@
+mod types;
+
 use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
 use crate::threshold_verifier::ThresholdVerifier;
 use crate::verifiers::VerifierTag;
@@ -12,6 +14,8 @@ use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
 use tonlib_core::TonAddress;
+use crate::http_client::post_json_receive_json;
+use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
 
 pub struct TonVerifier {
     client: Arc<reqwest::Client>,
@@ -23,53 +27,6 @@ impl TonVerifier {
         Self { client, server }
     }
 
-    async fn make_call(
-        &self,
-        address: &TonAddress,
-        method: &str,
-        stack: Vec<StackItem>,
-    ) -> Result<StackItem> {
-        let json = json!({
-            "method": "runGetMethod",
-            "params": {
-                "address": address.to_base64_url(),
-                "method": method,
-                "stack": stack,
-            },
-            "id": "dontcare",
-            "jsonrpc": "2.0",
-        });
-
-        let response = self
-            .client
-            .post(self.server.clone())
-            .json(&json)
-            .send()
-            .await?;
-
-        response
-            .error_for_status_ref()
-            .context("Failed to call ton server")?;
-
-        let json: serde_json::Value = response.json().await?;
-
-        let stack =
-            serde_json::from_value::<Vec<ResponseStackItem>>(json["result"]["stack"].clone())
-                .context(format!("Failed to parse stack from response {json}"))?;
-        let stack = stack
-            .into_iter()
-            .map(|item| item.0)
-            .collect::<Vec<StackItem>>();
-
-        ensure!(
-            stack.len() == 1,
-            "expected 1 item in stack, got {}",
-            stack.len()
-        );
-
-        Ok(stack[0].clone())
-    }
-
     pub async fn verify(
         &self,
         auth_contract_id: &str,
@@ -79,36 +36,29 @@ impl TonVerifier {
         tick_metrics_verify_total_attempts(ChainId::TON_V2);
         let treasury_address = TonAddress::from_base64_url(auth_contract_id)?;
         let child_address = {
-            let item = self
-                .make_call(&treasury_address, method_name, input.treasury_call_args)
-                .await?;
-            item.as_cell()?.parser().load_address()?
+            let request = RpcRequest::build(&treasury_address, method_name, input.treasury_call_args);
+            let item: RpcResponse = post_json_receive_json(
+                &self.client,
+                &self.server,
+                &request,
+            ).await?;
+            item.unpack()?.as_cell()?.parser().load_address()?
         };
-
-        let action = input.action;
-        match action {
+        let num = {
+            let request = RpcRequest::build(
+                &child_address,
+                &input.child_call_method,
+                input.child_call_args
+            );
+            let item: RpcResponse = post_json_receive_json(&self.client, &self.server, &request).await?;
+            item.unpack()?.as_num()?
+        };
+        match input.action {
             Action::Deposit => {
-                let item = self
-                    .make_call(
-                        &child_address,
-                        &input.child_call_method,
-                        input.child_call_args,
-                    )
-                    .await?;
-                let num = item.as_num()?;
                 ensure!(num == StackItem::SUCCESS_NUM, "Expected success, got {num}");
             }
             Action::CheckCompletedWithdrawal { nonce } => {
-                let item = self
-                    .make_call(
-                        &child_address,
-                        &input.child_call_method,
-                        input.child_call_args,
-                    )
-                    .await?;
-
                 let last_used_nonce = {
-                    let num = item.as_num()?;
                     U128::from_str(&num)
                         .map_err(|e| anyhow!("Can't parse nonce ({num}) into u128: {e}"))?
                         .as_u128()
@@ -207,6 +157,8 @@ pub(crate) mod tests {
 
     use crate::verifiers::ton::TonVerifier;
     use tonlib_core::TonAddress;
+    use crate::http_client::post_json_receive_json;
+    use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
 
     pub(crate) fn ton_rpc() -> String {
         dotenv::var("TON_RPC")
@@ -224,11 +176,10 @@ pub(crate) mod tests {
 
         let address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
-        let stack_item = verifier
-            .make_call(&address, "get_deposit_jetton_address", vec![item])
-            .await?;
+        let request = RpcRequest::build(&address, "get_deposit_jetton_address", vec![item]);
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
 
-        let actual_address = stack_item.as_cell()?.parser().load_address()?;
+        let actual_address = item.unpack()?.as_cell()?.parser().load_address()?;
         assert_eq!(actual_address, expected_addr);
 
         Ok(())
@@ -244,11 +195,10 @@ pub(crate) mod tests {
 
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
-        let stack_item = verifier
-            .make_call(&addr, "verify_withdraw", vec![item])
-            .await?;
+        let request = RpcRequest::build(&addr, "verify_withdraw", vec![item]);
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
 
-        let actual = stack_item.as_num()?;
+        let actual = item.unpack()?.as_num()?;
         assert_eq!(actual, "-0x1");
         Ok(())
     }
@@ -291,11 +241,11 @@ pub(crate) mod tests {
 
         let treasury_address =
             TonAddress::from_base64_url("EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ")?;
-        let stack_item = verifier
-            .make_call(&treasury_address, "get_user_jetton_address", vec![item])
-            .await?;
 
-        let actual_address = stack_item.as_cell()?.parser().load_address()?;
+        let request = RpcRequest::build(&treasury_address, "get_user_jetton_address", vec![item]);
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
+
+        let actual_address = item.unpack()?.as_cell()?.parser().load_address()?;
         assert_eq!(actual_address, expected_addr);
 
         Ok(())
@@ -309,12 +259,10 @@ pub(crate) mod tests {
         };
 
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
+        let request = RpcRequest::build(&addr, "get_last_withdrawn_nonce", vec![]);
+        let item: RpcResponse = post_json_receive_json(&verifier.client, &verifier.server, &request).await?;
 
-        let stack_item = verifier
-            .make_call(&addr, "get_last_withdrawn_nonce", vec![])
-            .await?;
-
-        let _actual = stack_item.as_num()?;
+        let _actual = item.unpack()?.as_num()?;
         Ok(())
     }
 
