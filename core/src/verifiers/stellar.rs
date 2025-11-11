@@ -14,6 +14,7 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
 use crate::http_client::TIMEOUT;
 
 #[derive(Clone)]
@@ -71,8 +72,10 @@ impl StellarVerifier {
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: StellarInputData,
+        input_data: InputData,
     ) -> Result<bool> {
+        let input: StellarInputData = input_data.try_into()?;
+
         let operation = Self::build_contract_call(&auth_contract_id, &method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
@@ -108,18 +111,19 @@ impl ThresholdVerifier<StellarVerifier> {
         })
     }
 
+
     pub async fn verify(
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: StellarInputData,
+        input_data: InputData,
     ) -> Result<bool> {
         self.threshold_call(move |verifier| {
             let auth_contract_id = auth_contract_id.clone();
             let method_name = method_name.clone();
-            let input = input.clone();
+            let input_data = input_data.clone();
             async move {
-                verifier.verify(auth_contract_id, method_name, input).await
+                verifier.verify(auth_contract_id, method_name, input_data).await
             }
         }).await
     }
@@ -144,7 +148,7 @@ mod tests {
             .verify(
                 auth_contract_id,
                 HOT_VERIFY_METHOD_NAME.to_string(),
-                StellarInputData::from_parts(msg_hash, user_payload)?,
+                StellarInputData::from_parts(msg_hash, user_payload)?.into(),
             )
             .await?;
 
@@ -162,7 +166,7 @@ mod tests {
             .verify(
                 auth_contract_id.to_string(),
                 HOT_VERIFY_METHOD_NAME.to_string(),
-                StellarInputData::from_parts(msg_hash, user_payload)?,
+                StellarInputData::from_parts(msg_hash, user_payload)?.into(),
             )
             .await?;
 
@@ -179,7 +183,7 @@ mod tests {
             .verify(
                 auth_contract_id.to_string(),
                 "is_executed".to_string(),
-                StellarInputData(vec![StellarInputArg::U128(nonce)]),
+                StellarInputData(vec![StellarInputArg::U128(nonce)]).into(),
             )
             .await?;
 

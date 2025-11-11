@@ -6,7 +6,7 @@ use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::solana::{
     anchor, DepositWithProof, SolanaInputData, UserAccount,
 };
-use hot_validation_primitives::bridge::CompletedWithdrawal;
+use hot_validation_primitives::bridge::{CompletedWithdrawal, HotVerifyAuthCall, InputData};
 use hot_validation_primitives::{ChainId, ChainValidationConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
@@ -92,8 +92,9 @@ impl SolanaVerifier {
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: SolanaInputData,
+        input_data: InputData,
     ) -> Result<bool> {
+        let input: SolanaInputData = input_data.try_into()?;
         let program_id = Pubkey::from_str(&auth_contract_id)?;
         match input {
             SolanaInputData::Deposit(deposit_with_proof) => {
@@ -126,14 +127,14 @@ impl ThresholdVerifier<SolanaVerifier> {
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: SolanaInputData,
+        input_data: InputData,
     ) -> Result<bool> {
         self.threshold_call(move |verifier| {
             let auth_contract_id = auth_contract_id.clone();
             let method_name = method_name.clone();
-            let input = input.clone();
+            let input_data = input_data.clone();
             async move {
-                verifier.verify(auth_contract_id, method_name, input).await
+                verifier.verify(auth_contract_id, method_name, input_data).await
             }
         }).await
     }
@@ -188,7 +189,7 @@ mod tests {
         let method_name = "hot_verify_deposit".to_string();
         let input = SolanaInputData::Deposit(get_deposit_with_proof());
 
-        verifier.verify(auth_contract, method_name, input).await?;
+        verifier.verify(auth_contract, method_name, input.into()).await?;
         Ok(())
     }
 
@@ -201,7 +202,7 @@ mod tests {
             "1749390032000000032243",
         ));
 
-        verifier.verify(auth_contract, method_name, input).await?;
+        verifier.verify(auth_contract, method_name, input.into()).await?;
         Ok(())
     }
 
@@ -214,7 +215,7 @@ mod tests {
             "2749390032000000032243",
         ));
 
-        let result = verifier.verify(auth_contract, method_name, input).await;
+        let result = verifier.verify(auth_contract, method_name, input.into()).await;
         result.expect_err("expected error");
         Ok(())
     }

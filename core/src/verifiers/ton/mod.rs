@@ -11,6 +11,7 @@ use serde_json::json;
 use std::str::FromStr;
 use std::sync::Arc;
 use tonlib_core::TonAddress;
+use hot_validation_primitives::bridge::{HotVerifyAuthCall, InputData};
 use crate::http_client::post_json_receive_json;
 use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
 
@@ -28,8 +29,9 @@ impl TonVerifier {
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: TonInputData,
+        input_data: InputData,
     ) -> Result<bool> {
+        let input: TonInputData = input_data.try_into()?;
         let treasury_address = TonAddress::from_base64_url(&auth_contract_id)?;
         let child_address = {
             let request = RpcRequest::build(&treasury_address, &method_name, input.treasury_call_args);
@@ -85,22 +87,22 @@ impl ThresholdVerifier<TonVerifier> {
         }
     }
 
+
     pub async fn verify(
         &self,
         auth_contract_id: String,
         method_name: String,
-        input: TonInputData,
+        input_data: InputData,
     ) -> Result<bool> {
         self.threshold_call(move |verifier| {
             let auth_contract_id = auth_contract_id.clone();
             let method_name = method_name.clone();
-            let input = input.clone();
+            let input_data = input_data.clone();
             async move {
-                verifier.verify(auth_contract_id, method_name, input).await
+                verifier.verify(auth_contract_id, method_name, input_data).await
             }
         }).await
-    }
-}
+    }}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -163,21 +165,22 @@ pub(crate) mod tests {
     async fn deposit_fist_and_second_call_combined() -> Result<()> {
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
+        let input =                 TonInputData {
+            treasury_call_args: vec![StackItem::from_nonce(
+                "1753218716000000003679".to_string(),
+            )],
+            child_call_method: "verify_withdraw".to_string(),
+            child_call_args: vec![StackItem::from_proof(
+                "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c"
+                    .to_string(),
+            )?],
+            action: Action::Deposit,
+        };
+
         verifier
             .verify(
                 "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
-                "get_deposit_jetton_address".to_string(),
-                TonInputData {
-                    treasury_call_args: vec![StackItem::from_nonce(
-                        "1753218716000000003679".to_string(),
-                    )],
-                    child_call_method: "verify_withdraw".to_string(),
-                    child_call_args: vec![StackItem::from_proof(
-                        "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c"
-                            .to_string(),
-                    )?],
-                    action: Action::Deposit,
-                },
+                "get_deposit_jetton_address".to_string(), input.into(),
             )
             .await?;
 
@@ -226,20 +229,22 @@ pub(crate) mod tests {
     async fn completed_withdrawal_fist_and_second_call_combined_low() -> Result<()> {
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
+        let input =                 TonInputData {
+            treasury_call_args: vec![StackItem::from_address(
+                "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
+            )?],
+            child_call_method: "get_last_withdrawn_nonce".to_string(),
+            child_call_args: vec![],
+            action: Action::CheckCompletedWithdrawal {
+                nonce: 1_753_218_716_000_000_003_679_u128,
+            },
+        };
+
         verifier
             .verify(
                 "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
                 "get_user_jetton_address".to_string(),
-                TonInputData {
-                    treasury_call_args: vec![StackItem::from_address(
-                        "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
-                    )?],
-                    child_call_method: "get_last_withdrawn_nonce".to_string(),
-                    child_call_args: vec![],
-                    action: Action::CheckCompletedWithdrawal {
-                        nonce: 1_753_218_716_000_000_003_679_u128,
-                    },
-                },
+input.into(),
             )
             .await?;
 
@@ -250,20 +255,22 @@ pub(crate) mod tests {
     async fn completed_withdrawal_fist_and_second_call_combined_high() -> Result<()> {
         let verifier = TonVerifier::new(Arc::new(reqwest::Client::new()), ton_rpc());
 
+        let input =                 TonInputData {
+            treasury_call_args: vec![StackItem::from_address(
+                "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
+            )?],
+            child_call_method: "get_last_withdrawn_nonce".to_string(),
+            child_call_args: vec![],
+            action: Action::CheckCompletedWithdrawal {
+                nonce: 2_753_218_716_000_000_003_679_u128,
+            },
+        };
+
         let result = verifier
             .verify(
                 "EQANEViM3AKQzi6Aj3sEeyqFu8pXqhy9Q9xGoId_0qp3CNVJ".to_string(),
                 "get_user_jetton_address".to_string(),
-                TonInputData {
-                    treasury_call_args: vec![StackItem::from_address(
-                        "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I",
-                    )?],
-                    child_call_method: "get_last_withdrawn_nonce".to_string(),
-                    child_call_args: vec![],
-                    action: Action::CheckCompletedWithdrawal {
-                        nonce: 2_753_218_716_000_000_003_679_u128,
-                    },
-                },
+input.into(),
             )
             .await;
         assert!(result.is_err());

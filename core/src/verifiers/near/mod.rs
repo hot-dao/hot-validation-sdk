@@ -156,26 +156,22 @@ impl Validation {
         let status = match auth_call.chain_id {
             ChainId::Stellar => {
                 let verifier = &self.stellar;
-                let args = auth_call.input.try_into()?;
-                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
             }
             ChainId::Ton | ChainId::TON_V2 => {
                 let verifier = &self.ton;
-                let args = auth_call.input.try_into()?;
-                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
             }
             ChainId::Evm(_) => {
                 let verifier = self
                     .evm
                     .get(&auth_call.chain_id)
                     .ok_or(anyhow::anyhow!("EVM validation is not configured for chain {:?}", auth_call.chain_id))?;
-                let args = auth_call.input.try_into()?;
-                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
             }
             ChainId::Solana => {
                 let verifier = &self.solana;
-                let args = auth_call.input.try_into()?;
-                verifier.verify(auth_call.contract_id, auth_call.method, args).await?
+                verifier.verify(auth_call.contract_id, auth_call.method, auth_call.input).await?
             }
             ChainId::Near => {
                 bail!("Auth call should not lead to NEAR")
