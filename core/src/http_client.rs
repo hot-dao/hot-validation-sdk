@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Result, anyhow};
 use reqwest::{Client, StatusCode, header::ACCEPT};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -10,18 +10,14 @@ const LOG_SNIP_MAX: usize = 600;
 
 #[derive(thiserror::Error, Debug)]
 pub enum HttpError {
-    #[error("transport error for {url}: {source}")]
-    Transport {
+    #[error("request failed for {url} (status={status:?} body_snip={body_snip:?}): {source}")]
+    RequestFailed {
         url: String,
-        #[source] source: reqwest::Error,
-    },
-    #[error("non-success status {status} for {url} (body_snip={body_snip})")]
-    Status {
-        url: String,
-        status: StatusCode,
-        /// Truncated body (UTF-8 lossy), safe for logs
+        status: Option<StatusCode>, // None ⇒ transport error
         body_snip: String,
+        #[source] source: anyhow::Error,
     },
+
     #[error("JSON decode failed for {url} (status={status} body_snip={body_snip}): {source}")]
     JsonDecode {
         url: String,
@@ -44,11 +40,10 @@ fn snip_bytes(b: &[u8]) -> String {
     }
 }
 
-/// Generic POST JSON → JSON with great error propagation.
+/// Generic POST JSON → JSON with unified error handling.
 ///
-/// - Preserves response body on errors (and includes a safe snippet)
-/// - Returns typed JSON (`U`) instead of `serde_json::Value` (but you can set `U=Value`)
-/// - Adds `Accept: application/json` and a per-request timeout
+/// - Combines transport & non-success HTTP into `RequestFailed`
+/// - Keeps `JsonDecode` separate for clarity
 pub async fn post_json_receive_json<T, U>(
     client: &Arc<Client>,
     url: &str,
@@ -64,23 +59,28 @@ where
         .header(ACCEPT, "application/json")
         .timeout(TIMEOUT);
 
-    let resp = req.send().await.map_err(|e| HttpError::Transport {
+    let resp = req.send().await.map_err(|e| HttpError::RequestFailed {
         url: url.to_string(),
-        source: e,
+        status: None,
+        body_snip: String::new(),
+        source: anyhow!(e),
     })?;
 
     let status = resp.status();
     let url_final = resp.url().to_string();
-    let bytes = resp.bytes().await.map_err(|e| HttpError::Transport {
+    let bytes = resp.bytes().await.map_err(|e| HttpError::RequestFailed {
         url: url_final.clone(),
-        source: e,
+        status: Some(status),
+        body_snip: String::new(),
+        source: anyhow!(e),
     })?;
 
     if !status.is_success() {
-        return Err(HttpError::Status {
+        return Err(HttpError::RequestFailed {
             url: url_final,
-            status,
+            status: Some(status),
             body_snip: snip_bytes(&bytes),
+            source: anyhow!("non-success status"),
         });
     }
 
