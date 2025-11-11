@@ -13,11 +13,8 @@ use futures_util::future::BoxFuture;
 use hot_validation_primitives::bridge::evm::EvmInputData;
 use hot_validation_primitives::{ChainId, ExtendedChainId};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use std::fmt::Display;
 use std::sync::Arc;
 use crate::http_client::{post_json_receive_json, TIMEOUT};
-use crate::verifiers::evm::types::INTERFACE;
 
 #[derive(Clone)]
 pub(crate) struct EvmVerifier {

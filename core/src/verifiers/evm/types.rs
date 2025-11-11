@@ -8,9 +8,8 @@ use alloy_json_abi::JsonAbi;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use crate::HOT_VERIFY_METHOD_NAME;
-// TODO: pub(crate) is not needed in most cases
 
-pub(crate) const BLOCK_DELAY: u64 = 1;
+pub const BLOCK_DELAY: u64 = 1;
 
 pub(crate) enum BlockSpecifier {
     Latest,
@@ -97,14 +96,14 @@ impl RpcRequest {
     }
 }
 
-pub(crate) static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
+static INTERFACE: std::sync::LazyLock<Interface> = std::sync::LazyLock::new(|| {
     let abi: JsonAbi =
         serde_json::from_str(HOT_VERIFY_EVM_ABI).expect("Invalid JSON ABI for hot_verify");
     Interface::new(abi)
 });
 
 // JSON ABI for `hot_verify` method
-pub const HOT_VERIFY_EVM_ABI: &str = r#"
+const HOT_VERIFY_EVM_ABI: &str = r#"
 [
   {
     "inputs": [
