@@ -133,7 +133,7 @@ impl Validation {
             .near
             .get_wallet_auth_methods(wallet_id.clone())
             .await
-            .context("Couldn't get wallet info")?;
+            .context(format!("Couldn't get auth methods for wallet {}", wallet_id))?;
 
         ensure!(
             proof.user_payloads.len() == wallet.access_list.len(),
@@ -142,7 +142,7 @@ impl Validation {
             wallet.access_list.len()
         );
 
-        let result = try_join_all(
+        try_join_all(
             wallet
                 .access_list
                 .into_iter()
@@ -156,10 +156,8 @@ impl Validation {
                         user_payload,
                     )
                 }),
-        )
-            .await;
+        ).await?;
 
-        result?;
         Ok(())
     }
 
