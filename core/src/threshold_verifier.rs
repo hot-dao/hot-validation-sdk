@@ -71,6 +71,7 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use super::*;
 
     use anyhow::Result;
@@ -341,4 +342,37 @@ mod tests {
         .unwrap();
         assert!(result);
     }
+    #[derive(Clone)]
+    struct CountVerifier {
+        counter: Arc<AtomicUsize>,
+    }
+
+    impl VerifierTag for CountVerifier {
+        fn get_endpoint(&self) -> &'static str { "count" }
+    }
+
+    #[tokio::test]
+    async fn stops_invoking_after_threshold_reached() {
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let verifiers = (0..5)
+            .map(|_| Arc::new(CountVerifier { counter: counter.clone() }))
+            .collect::<Vec<_>>();
+
+        let tv = ThresholdVerifier { threshold: 2, verifiers };
+
+        let functor = move |v: Arc<CountVerifier>| -> BoxFuture<'static, anyhow::Result<()>> {
+            let counter = v.counter.clone();
+            Box::pin(async move {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            })
+        };
+
+        tv.threshold_call(functor).await.unwrap();
+
+        let invoked = counter.load(Ordering::SeqCst);
+        assert_eq!(invoked, 2, "expected only threshold verifiers to be invoked");
+    }
+
 }
