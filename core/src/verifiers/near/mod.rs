@@ -388,10 +388,7 @@ pub(crate) mod tests {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
                 metadata: None,
-                chain_id: ChainId::Near,
             }],
-            key_gen: 1,
-            block_height: 0,
         };
 
         let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
@@ -408,10 +405,7 @@ pub(crate) mod tests {
             access_list: vec![AuthMethod {
                 account_id: "drops.nfts.tg".to_string(),
                 metadata: Some("{\"method\": \"hot_verify_deposit\"}".to_string()),
-                chain_id: ChainId::Near,
             }],
-            key_gen: 1,
-            block_height: 0,
         };
 
         let actual = rpc_caller.get_wallet(GetWalletArgs { wallet_id: wallet_id.to_string() }).await.unwrap();
@@ -438,10 +432,7 @@ pub(crate) mod tests {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
                 metadata: None,
-                chain_id: ChainId::Near,
             }],
-            key_gen: 1,
-            block_height: 0,
         };
 
         let actual = Arc::new(rpc_validation)
@@ -474,10 +465,7 @@ pub(crate) mod tests {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
                 metadata: None,
-                chain_id: ChainId::Near,
             }],
-            key_gen: 1,
-            block_height: 0,
         };
 
         let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
@@ -507,10 +495,7 @@ pub(crate) mod tests {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
                 metadata: None,
-                chain_id: ChainId::Near,
             }],
-            key_gen: 1,
-            block_height: 0,
         };
 
         let actual: WalletAuthMethods = serde_json::from_str(sample_json).unwrap();

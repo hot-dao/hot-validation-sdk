@@ -36,15 +36,12 @@ pub struct AuthMethod {
     pub account_id: String,
     /// Used to override what method is called on the `account_id`.
     pub metadata: Option<String>,
-    pub chain_id: ChainId, // TODO: always NEAR, legacy
 }
 
 /// The output of `get_wallet` on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Deserialize, PartialEq, Clone, Eq, Hash)]
 pub struct WalletAuthMethods {
     pub access_list: Vec<AuthMethod>,
-    pub key_gen: usize,  // TODO: unused, remove this
-    pub block_height: u64, // TODO: unused, remove this
 }
 
 /// The logic that prevents signing arbitrary messages.
@@ -182,11 +179,6 @@ impl Validation {
     ) -> Result<()> {
         let _timer = metrics::RPC_SINGLE_VERIFY_DURATION.start_timer();
 
-        ensure!(
-            matches!(auth_method.chain_id, ChainId::Near),
-            "Only Near auth methods are supported"
-        );
-
         let status = self.handle_near(
             &wallet_id,
             &auth_method,
@@ -198,8 +190,7 @@ impl Validation {
 
         ensure!(
             status,
-            "Auth method {} failed for wallet_id {}",
-            auth_method.chain_id,
+            "Auth method failed for wallet_id {}",
             wallet_id
         );
         Ok(())
