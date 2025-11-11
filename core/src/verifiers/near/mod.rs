@@ -83,12 +83,6 @@ impl ThresholdVerifier<NearVerifier> {
     ) -> Self {
         let threshold = near_validation_config.threshold;
         let servers = near_validation_config.servers;
-        assert!(
-            (threshold <= servers.len()),
-            "There should be at least {} servers, got {}",
-            threshold,
-            servers.len()
-        );
         let callers = servers
             .iter()
             .map(|s| {

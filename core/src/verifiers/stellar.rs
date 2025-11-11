@@ -108,12 +108,6 @@ impl ThresholdVerifier<StellarVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
         let servers = config.servers;
-        assert!(
-            (threshold <= servers.len()),
-            "There should be at least {} servers, got {}",
-            threshold,
-            servers.len()
-        );
         let verifiers = servers
             .iter()
             .map(|s| StellarVerifier::new(s.clone()).map(Arc::new))

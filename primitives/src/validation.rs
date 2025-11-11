@@ -1,4 +1,5 @@
 use crate::ChainId;
+use anyhow::{anyhow, ensure};
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::collections::HashMap;
@@ -27,10 +28,12 @@ pub struct ChainValidationConfig {
 fn validate_chain_config(
     cfg: &ChainValidationConfig,
 ) -> anyhow::Result<(), serde_valid::validation::Error> {
-    if cfg.threshold <= cfg.servers.len() / 2 {
-        return Err(serde_valid::validation::Error::Custom(
-            "threshold must be greater than half of servers.len()".into(),
-        ));
+    if !(cfg.servers.len() >= cfg.threshold) {
+        return Err(serde_valid::validation::Error::Custom(format!(
+            "Number of servers must be greater than or equal to threshold. Got {} servers and {} threshold.",
+            cfg.servers.len(),
+            cfg.threshold
+        )));
     }
     Ok(())
 }

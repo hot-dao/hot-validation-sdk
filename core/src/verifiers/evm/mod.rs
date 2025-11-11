@@ -98,13 +98,6 @@ impl ThresholdVerifier<EvmVerifier> {
     ) -> Self {
         let threshold = config.threshold;
         let servers = config.servers;
-        // TODO: this check needs to be done in the struct constructor
-        assert!(
-            (threshold <= servers.len()),
-            "Threshold {} > servers {}",
-            threshold,
-            servers.len()
-        );
         let verifiers = servers
             .into_iter()
             .map(|url| Arc::new(EvmVerifier::new(client.clone(), url, chain_id)))
