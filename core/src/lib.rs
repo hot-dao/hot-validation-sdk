@@ -263,6 +263,111 @@ impl Validation {
     }
 }
 
+#[cfg(any(test, feature = "test-data"))]
+pub mod test_data {
+    use crate::Validation;
+    use hot_validation_primitives::{ChainId, ChainValidationConfig};
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    #[must_use]
+    pub fn ton_rpc() -> String {
+        dotenv::var("TON_RPC")
+            .unwrap_or_else(|_| "https://toncenter.com/api/v2/jsonRPC".to_string())
+    }
+
+    #[must_use]
+    pub fn near_rpc() -> String {
+        dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
+    }
+
+    #[must_use]
+    pub fn bnb_rpc() -> String {
+        dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
+    }
+
+    #[must_use]
+    pub fn base_rpc() -> String {
+        dotenv::var("BASE_RPC").unwrap_or_else(|_| "https://base.llamarpc.com".to_string())
+    }
+
+    #[must_use]
+    pub fn create_validation_object() -> Arc<Validation> {
+        let configs = HashMap::from([
+            (
+                ChainId::Near,
+                ChainValidationConfig {
+                    threshold: 2,
+                    servers: vec![
+                        "https://rpc.near.org".to_string(),
+                        "http://ffooooo-bbbaaaar:3030/".to_string(),
+                        "https://nearrpc.aurora.dev".to_string(),
+                        "https://1rpc.io/near".to_string(),
+                        "https://allthatnode.com/protocol/near.dsrv".to_string(),
+                        near_rpc(),
+                    ],
+                },
+            ),
+            (
+                ChainId::Stellar,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://mainnet.sorobanrpc.com".to_string()],
+                },
+            ),
+            (
+                ChainId::Evm(1),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec![
+                        "https://eth.drpc.org".to_string(),
+                        "http://bad-rpc:8545".to_string(),
+                    ],
+                },
+            ),
+            (
+                ChainId::Evm(8453),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec![
+                        "https://1rpc.io/base".to_string(),
+                        "http://bad-rpc:8545".to_string(),
+                        base_rpc(),
+                    ],
+                },
+            ),
+            (
+                ChainId::Evm(56),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://bsc.blockrazor.xyz".to_string(), bnb_rpc()],
+                },
+            ),
+            (
+                ChainId::TON_V2,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec![
+                        "https://toncenter.com/api/v2/jsonRPC".to_string(),
+                        ton_rpc(),
+                    ],
+                },
+            ),
+            (
+                ChainId::Solana,
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
+                },
+            ),
+        ]);
+
+        let validation = Validation::new(configs).unwrap();
+        Arc::new(validation)
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::should_panic_without_expect)]
