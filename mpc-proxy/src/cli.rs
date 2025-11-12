@@ -1,34 +1,22 @@
 use clap::Parser;
-
-fn default_workers() -> usize {
-    // use at least 2; auto-detect otherwise
-    num_cpus::get().max(2)
-}
+use std::path::PathBuf;
 
 #[derive(Debug, Parser, Clone)]
-#[command(name = "actix-prod", about = "Actix Web prod server")]
+#[command()]
 pub struct Cli {
-    /// Bind address (e.g., 0.0.0.0:8080)
-    #[arg(long, env = "BIND_ADDR", default_value = "0.0.0.0:8080")]
-    pub bind_addr: String,
+    #[arg(long, env)]
+    pub port: u16,
 
-    /// Number of worker threads
-    #[arg(long, env = "WORKERS", default_value_t = default_workers())]
-    pub workers: usize,
+    #[arg(long, env)]
+    pub encrypted_config_path: PathBuf,
 
-    /// TCP keep-alive seconds
-    #[arg(long, env = "KEEP_ALIVE_SECS", default_value_t = 30u64)]
-    pub keep_alive_secs: u64,
+    #[arg(long, env)]
+    pub validation_config_path: PathBuf,
 
-    /// Client request timeout (ms)
-    #[arg(long, env = "CLIENT_TIMEOUT_MS", default_value_t = 10_000u64)]
-    pub client_timeout_ms: u64,
+    #[arg(long, env)]
+    pub cluster_config_path: PathBuf,
 
-    /// Client disconnect timeout (ms)
-    #[arg(long, env = "CLIENT_DISCONNECT_TIMEOUT", default_value_t = 3_000u64)]
-    pub client_disconnect_timeout: u64,
-
-    /// Max accepted connection rate
-    #[arg(long, env = "MAX_CONN_RATE", default_value_t = 256usize)]
-    pub max_conn_rate: usize,
+    #[cfg(feature = "debug")]
+    #[arg(long, env)]
+    pub encryption_key_path: PathBuf,
 }

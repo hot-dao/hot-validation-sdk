@@ -218,6 +218,7 @@ impl ExtendedChainId {
 #[cfg(test)]
 mod tests {
     use crate::{ChainId, ExtendedChainId};
+    use strum::IntoEnumIterator;
 
     #[test]
     fn test_cosmos_conversion() {
@@ -226,17 +227,12 @@ mod tests {
     }
 
     #[test]
-    fn chain_id_roundtrip() {
-        assert_eq!(ChainId::from(0u64), ChainId::Near);
-        assert_eq!(ChainId::from(1100u64), ChainId::Stellar);
-        assert_eq!(ChainId::from(42u64), ChainId::Evm(42));
-
-        let _: ExtendedChainId = ChainId::Evm(143).try_into().unwrap();
-        ExtendedChainId::try_from(143).unwrap();
-
-        assert_eq!(u64::from(ChainId::Near), 0u64);
-        assert_eq!(u64::from(ChainId::Stellar), 1100u64);
-        assert_eq!(u64::from(ChainId::Evm(7)), 7u64);
+    fn extended_chain_id_roundtrip() {
+        for chain_id in ExtendedChainId::iter() {
+            let serialized: u64 = chain_id.into();
+            let deserialized: ExtendedChainId = serialized.try_into().unwrap();
+            assert_eq!(chain_id, deserialized);
+        }
     }
 
     #[test]

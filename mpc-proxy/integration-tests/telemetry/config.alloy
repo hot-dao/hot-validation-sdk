@@ -1,0 +1,86 @@
+// Listen for OTLP logs and traces over gRPC
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+
+  output {
+    logs   = [otelcol.processor.batch.default.input]
+    traces = [otelcol.processor.tail_sampling.default.input]
+  }
+}
+
+// Tail-based sampling for traces
+otelcol.processor.tail_sampling "default" {
+  decision_wait = "10s"
+  num_traces = 10000
+  expected_new_traces_per_sec = 100
+
+  policy {
+    name = "always_sample_errors"
+    type = "status_code"
+    status_code {
+      status_codes = ["ERROR"]
+    }
+  }
+
+  policy {
+    name = "always_sample_slow"
+    type = "latency"
+    latency {
+      threshold_ms = 5000
+    }
+  }
+
+  policy {
+    name = "sample_successful"
+    type = "probabilistic"
+    probabilistic {
+      sampling_percentage = 10
+    }
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Batch logs and traces for efficient sending
+otelcol.processor.batch "default" {
+  output {
+    logs   = [otelcol.exporter.loki.grafana_cloud.input]
+    traces = [otelcol.exporter.otlp.grafana_cloud.input]
+  }
+}
+
+// Export logs to Grafana Cloud Loki
+otelcol.exporter.loki "grafana_cloud" {
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+// Export traces to Grafana Cloud Tempo (via OTLP)
+otelcol.exporter.otlp "grafana_cloud" {
+  client {
+    endpoint = env("GRAFANA_CLOUD_TEMPO_URL")
+
+    auth = otelcol.auth.basic.tempo.handler
+  }
+}
+
+// Basic auth for Tempo
+otelcol.auth.basic "tempo" {
+  username = env("GRAFANA_CLOUD_TEMPO_USERNAME")
+  password = env("GRAFANA_CLOUD_API_TOKEN")
+}
+
+// Write logs to Loki
+loki.write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOKI_USERNAME")
+      password = env("GRAFANA_CLOUD_API_TOKEN")
+    }
+  }
+}

@@ -1,3 +1,4 @@
+use crate::integer::U128String;
 use alloy_dyn_abi::DynSolValue;
 use alloy_primitives::U256;
 use alloy_sol_types::Word;
@@ -5,7 +6,9 @@ use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_hex::{SerHexSeq, StrictPfx};
+use serde_with::serde_as;
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
 pub enum EvmInputArg {
@@ -18,9 +21,8 @@ pub enum EvmInputArg {
     #[schemars(with = "[u8]")]
     Bytes(Vec<u8>),
     #[serde(rename = "uint128")]
-    #[serde(with = "crate::integer::u128_string")]
     #[schemars(with = "String")]
-    Uint(u128),
+    Uint(#[serde_as(as = "U128String")] u128),
 }
 
 impl From<EvmInputArg> for DynSolValue {

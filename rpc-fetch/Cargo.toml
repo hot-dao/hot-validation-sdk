@@ -5,17 +5,16 @@ version.workspace = true
 repository.workspace = true
 
 [dependencies]
-hot-validation-primitives = { workspace = true }
-hot-validation-rpc-healthcheck = { workspace = true }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
+hot-validation-primitives = { workspace = true }
+hot-validation-rpc-healthcheck = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
 strum = { workspace = true }
-strum_macros = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

@@ -1,0 +1,35 @@
+services:
+  mpc-proxy:
+    platform: linux/amd64
+    build:
+      context: ../../ # folder containing workspace `Cargo.toml`
+      args:
+        FEATURES: "debug"
+      dockerfile: mpc-proxy/Dockerfile
+    environment:
+      "PORT": "8080"
+      "RUST_LOG": "info,axum::rejection=trace"
+      "ENCRYPTED_CONFIG_PATH": "/data/secrets-config.yml.enc"
+      "VALIDATION_CONFIG_PATH": "/data/rpc_config.yaml"
+      "CLUSTER_CONFIG_PATH": "/data/cluster-config.yml"
+      "ENCRYPTION_KEY_PATH": "/data/enc.key"
+    volumes:
+      - "./test-data:/data"
+    ports:
+      - "8080:8080"
+
+  alloy:
+    image: grafana/alloy:latest
+    container_name: grafana-alloy
+    restart: unless-stopped
+    ports:
+      - "4317:4317"  # OTLP gRPC receiver
+      - "12345:12345" # Alloy UI (optional)
+    volumes:
+      - ./telemetry/config.alloy:/etc/alloy/config.alloy:ro
+    env_file:
+      - ./telemetry/secrets.env
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
