@@ -1,4 +1,5 @@
-use reqwest::Url;
+use async_trait::async_trait;
+use hot_validation_primitives::bridge::InputData;
 
 pub mod evm;
 pub mod near;
@@ -6,14 +7,12 @@ pub mod solana;
 pub mod stellar;
 pub mod ton;
 
-/// An identification of the verifier (rpc endpoint). Used only for logging.
-pub(crate) trait VerifierTag: Send + Sync + 'static {
-    fn get_endpoint(&self) -> &str;
-
-    fn sanitized_endpoint(&self) -> String {
-        let endpoint = self.get_endpoint();
-        Url::parse(endpoint)
-            .map(|e| e.host().map(|h| h.to_string()).unwrap_or_default())
-            .unwrap_or_default()
-    }
+#[async_trait]
+pub trait Verifier: Sized + Send + Sync {
+    async fn verify(
+        &self,
+        auth_contract_id: String,
+        method_name: String,
+        input_data: InputData,
+    ) -> anyhow::Result<bool>;
 }

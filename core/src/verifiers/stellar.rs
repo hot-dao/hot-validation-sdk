@@ -1,11 +1,11 @@
-use crate::metrics::{tick_metrics_verify_success_attempts, tick_metrics_verify_total_attempts};
+use crate::http_client::TIMEOUT;
 use crate::threshold_verifier::ThresholdVerifier;
-use crate::verifiers::VerifierTag;
-use crate::{ChainValidationConfig, Validation, TIMEOUT};
+use crate::verifiers::Verifier;
+use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
-use futures_util::future::BoxFuture;
+use async_trait::async_trait;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
-use hot_validation_primitives::ChainId;
+use hot_validation_primitives::bridge::InputData;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -20,13 +20,12 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
     client: Arc<Server>,
-    server: String,
 }
 
 impl StellarVerifier {
     pub fn new(server: String) -> Result<Self> {
         let client = Arc::new(Server::new(&server, Options::default())?);
-        Ok(Self { client, server })
+        Ok(Self { client })
     }
 
     fn create_transaction_builder() -> Result<TransactionBuilder> {
@@ -67,15 +66,19 @@ impl StellarVerifier {
         let operation = contract.call(method_name, Some(sc_args));
         Ok(operation)
     }
+}
 
+#[async_trait]
+impl Verifier for StellarVerifier {
     async fn verify(
         &self,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: StellarInputData,
+        auth_contract_id: String,
+        method_name: String,
+        input_data: InputData,
     ) -> Result<bool> {
-        tick_metrics_verify_total_attempts(ChainId::Stellar);
-        let operation = Self::build_contract_call(auth_contract_id, method_name, input)?;
+        let input: StellarInputData = input_data.try_into()?;
+
+        let operation = Self::build_contract_call(&auth_contract_id, &method_name, input)?;
 
         let tx = Self::create_transaction_builder()?
             .add_operation(operation)
@@ -89,7 +92,6 @@ impl StellarVerifier {
         }
         // extract the return‐value:
         if let Some((ScVal::Bool(b), _auths)) = simulation.to_result() {
-            tick_metrics_verify_success_attempts(ChainId::Stellar);
             Ok(b)
         } else {
             anyhow::bail!("unexpected simulation result: {simulation:?}");
@@ -97,22 +99,10 @@ impl StellarVerifier {
     }
 }
 
-impl VerifierTag for StellarVerifier {
-    fn get_endpoint(&self) -> &str {
-        self.server.as_str()
-    }
-}
-
 impl ThresholdVerifier<StellarVerifier> {
     pub fn new_stellar(config: ChainValidationConfig) -> Result<Self> {
         let threshold = config.threshold;
         let servers = config.servers;
-        assert!(
-            (threshold <= servers.len()),
-            "There should be at least {} servers, got {}",
-            threshold,
-            servers.len()
-        );
         let verifiers = servers
             .iter()
             .map(|s| StellarVerifier::new(s.clone()).map(Arc::new))
@@ -122,52 +112,12 @@ impl ThresholdVerifier<StellarVerifier> {
             verifiers,
         })
     }
-
-    pub async fn verify(
-        &self,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: StellarInputData,
-    ) -> Result<bool> {
-        let auth_contract_id = Arc::new(auth_contract_id.to_string());
-        let functor = move |verifier: Arc<StellarVerifier>| -> BoxFuture<'static, Result<bool>> {
-            let method_name = method_name.to_string();
-            Box::pin(async move {
-                verifier
-                    .verify(&auth_contract_id, &method_name, input)
-                    .await
-                    .context(format!(
-                        "Error calling stellar `verify` with {}",
-                        verifier.sanitized_endpoint()
-                    ))
-            })
-        };
-
-        let result = self.threshold_call(functor).await?;
-        Ok(result)
-    }
-}
-
-impl Validation {
-    pub(crate) async fn handle_stellar(
-        self: Arc<Self>,
-        auth_contract_id: &str,
-        method_name: &str,
-        input: StellarInputData,
-    ) -> Result<bool> {
-        let status = self
-            .stellar
-            .clone()
-            .verify(auth_contract_id, method_name, input)
-            .await
-            .context("Validation on Stellar failed")?;
-        Ok(status)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::verifiers::stellar::StellarVerifier;
+    use crate::verifiers::Verifier;
     use crate::HOT_VERIFY_METHOD_NAME;
     use anyhow::Result;
     use hot_validation_primitives::bridge::stellar::{StellarInputArg, StellarInputData};
@@ -177,14 +127,15 @@ mod tests {
     async fn single_verifier() -> Result<()> {
         let msg_hash = String::new();
         let user_payload = "000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string();
-        let auth_contract_id = "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG";
+        let auth_contract_id =
+            "CCLWL5NYSV2WJQ3VBU44AMDHEVKEPA45N2QP2LL62O3JVKPGWWAQUVAG".to_string();
         let validation = StellarVerifier::new("https://mainnet.sorobanrpc.com".to_string())?;
 
         validation
             .verify(
                 auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
-                StellarInputData::from_parts(msg_hash, user_payload)?,
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                StellarInputData::from_parts(msg_hash, user_payload)?.into(),
             )
             .await?;
 
@@ -200,9 +151,9 @@ mod tests {
 
         validation
             .verify(
-                auth_contract_id,
-                HOT_VERIFY_METHOD_NAME,
-                StellarInputData::from_parts(msg_hash, user_payload)?,
+                auth_contract_id.to_string(),
+                HOT_VERIFY_METHOD_NAME.to_string(),
+                StellarInputData::from_parts(msg_hash, user_payload)?.into(),
             )
             .await?;
 
@@ -217,9 +168,9 @@ mod tests {
 
         validation
             .verify(
-                auth_contract_id,
-                "is_executed",
-                StellarInputData(vec![StellarInputArg::U128(nonce)]),
+                auth_contract_id.to_string(),
+                "is_executed".to_string(),
+                StellarInputData(vec![StellarInputArg::U128(nonce)]).into(),
             )
             .await?;
 

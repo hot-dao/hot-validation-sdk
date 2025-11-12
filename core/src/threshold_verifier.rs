@@ -1,44 +1,42 @@
-use crate::verifiers::VerifierTag;
+use crate::verifiers::Verifier;
 use anyhow::anyhow;
-use futures_util::future::BoxFuture;
 use futures_util::{stream, StreamExt};
+use hot_validation_primitives::bridge::InputData;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::SeedableRng;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T: VerifierTag> {
+pub(crate) struct ThresholdVerifier<T> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
 
-impl<T: VerifierTag> ThresholdVerifier<T> {
-    /// We can request data from a `SingleVerifier`. Each verifier casts a vote on the data it has returned.
-    /// We collect all the votes and return a data with at least `threshold` votes.
-    /// This logic was abstracted because we might call `verify`, `get_wallet_auth` or something else in the future.
-    ///
-    /// `functor` should return an `Option<R>`,
-    /// with `None` being a vote for no data (when a server is unavailable), and `Some(R)` being a vote for `R`.
-    pub async fn threshold_call<F, R>(&self, functor: F) -> anyhow::Result<R>
+impl<T> ThresholdVerifier<T> {
+    pub async fn threshold_call<F, Fut, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,
-        F: Clone + FnOnce(Arc<T>) -> BoxFuture<'static, anyhow::Result<R>>,
+        F: Fn(Arc<T>) -> Fut + Clone,
+        Fut: Future<Output = anyhow::Result<R>> + Send + 'static,
     {
         let threshold = self.threshold;
-        let total = self.verifiers.len();
-
         let mut counts: HashMap<R, usize> = HashMap::new();
-        let mut rng = StdRng::from_os_rng();
 
-        let mut verifiers = self.verifiers.clone();
-        verifiers.shuffle(&mut rng);
-        let mut responses = stream::iter(self.verifiers.iter().cloned())
-            .map(|caller| functor.clone()(caller))
-            .buffer_unordered(total);
+        let shuffled_verifiers = {
+            let mut rng = StdRng::from_os_rng();
+            let mut verifiers = self.verifiers.clone();
+            verifiers.shuffle(&mut rng);
+            verifiers
+        };
+
+        let mut responses = stream::iter(shuffled_verifiers)
+            .map(functor)
+            .buffer_unordered(threshold);
 
         let mut errors = vec![];
         while let Some(result_response) = responses.next().await {
@@ -62,18 +60,39 @@ impl<T: VerifierTag> ThresholdVerifier<T> {
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
-            "No consensus for threshold call, got: {counts:?}, errors: {errors:?}"
+            "No consensus for threshold call, success: {counts:?}, errors: {errors:?}"
         ))
+    }
+}
+
+impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
+    pub async fn verify(
+        &self,
+        auth_contract_id: String,
+        method_name: String,
+        input_data: InputData,
+    ) -> anyhow::Result<bool> {
+        self.threshold_call(move |verifier| {
+            let auth_contract_id = auth_contract_id.clone();
+            let method_name = method_name.clone();
+            let input_data = input_data.clone();
+            async move {
+                verifier
+                    .verify(auth_contract_id, method_name, input_data)
+                    .await
+            }
+        })
+        .await
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use anyhow::Result;
 
-    use crate::VerifyArgs;
     use futures_util::future::BoxFuture;
     use tokio::time::{sleep, timeout, Duration};
 
@@ -81,12 +100,6 @@ mod tests {
     struct DummyVerifier {
         delay: Duration,
         resp: Option<u8>,
-    }
-
-    impl VerifierTag for DummyVerifier {
-        fn get_endpoint(&self) -> &'static str {
-            "dummy"
-        }
     }
 
     #[tokio::test]
@@ -195,7 +208,7 @@ mod tests {
     }
 
     impl BoolVerifier {
-        async fn verify(&self, _auth_contract_id: &str, _args: VerifyArgs) -> anyhow::Result<bool> {
+        async fn verify(&self, _auth_contract_id: &str) -> anyhow::Result<bool> {
             sleep(self.delay).await;
             match self.result {
                 Ok(b) => Ok(b),
@@ -204,23 +217,12 @@ mod tests {
         }
     }
 
-    impl VerifierTag for BoolVerifier {
-        fn get_endpoint(&self) -> &'static str {
-            "bool"
-        }
-    }
-
     impl ThresholdVerifier<BoolVerifier> {
-        pub async fn verify(
-            &self,
-            auth_contract_id: &str,
-            args: VerifyArgs,
-        ) -> anyhow::Result<bool> {
+        pub async fn verify(&self, auth_contract_id: &str) -> anyhow::Result<bool> {
             let auth_contract_id = Arc::new(auth_contract_id.to_string());
             let functor = move |verifier: Arc<BoolVerifier>| -> BoxFuture<'static, Result<bool>> {
                 let auth = auth_contract_id.clone();
-                let args = args.clone();
-                Box::pin(async move { verifier.verify(&auth, args).await })
+                Box::pin(async move { verifier.verify(&auth).await })
             };
 
             let result = self.threshold_call(functor).await?;
@@ -249,19 +251,7 @@ mod tests {
             verifiers,
         };
 
-        let res = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
-            .await
-            .unwrap();
+        let res = tv.verify("dummy").await.unwrap();
         assert!(res);
     }
 
@@ -286,19 +276,7 @@ mod tests {
             verifiers,
         };
 
-        let res = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
-            .await
-            .unwrap();
+        let res = tv.verify("dummy").await.unwrap();
         assert!(!res);
     }
 
@@ -323,19 +301,7 @@ mod tests {
             verifiers,
         };
 
-        let err = tv
-            .verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            )
-            .await
-            .unwrap_err();
+        let err = tv.verify("dummy").await.unwrap_err();
         assert!(err.to_string().contains("No consensus for threshold call"));
     }
 
@@ -360,22 +326,48 @@ mod tests {
             verifiers,
         };
 
-        let result = timeout(
-            Duration::from_millis(180),
-            tv.verify(
-                "dummy",
-                VerifyArgs {
-                    msg_body: String::new(),
-                    msg_hash: String::new(),
-                    wallet_id: None,
-                    user_payload: String::new(),
-                    metadata: None,
-                },
-            ),
-        )
-        .await
-        .expect("timed out")
-        .unwrap();
+        let result = timeout(Duration::from_millis(180), tv.verify("dummy"))
+            .await
+            .expect("timed out")
+            .unwrap();
         assert!(result);
+    }
+    #[derive(Clone)]
+    struct CountVerifier {
+        counter: Arc<AtomicUsize>,
+    }
+
+    #[tokio::test]
+    async fn stops_invoking_after_threshold_reached() {
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let verifiers = (0..5)
+            .map(|_| {
+                Arc::new(CountVerifier {
+                    counter: counter.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let tv = ThresholdVerifier {
+            threshold: 2,
+            verifiers,
+        };
+
+        let functor = move |v: Arc<CountVerifier>| -> BoxFuture<'static, anyhow::Result<()>> {
+            let counter = v.counter.clone();
+            Box::pin(async move {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            })
+        };
+
+        tv.threshold_call(functor).await.unwrap();
+
+        let invoked = counter.load(Ordering::SeqCst);
+        assert_eq!(
+            invoked, 2,
+            "expected only threshold verifiers to be invoked"
+        );
     }
 }
