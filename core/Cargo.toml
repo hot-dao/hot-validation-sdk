@@ -33,7 +33,7 @@ solana-client = { workspace = true }
 solana-commitment-config = { workspace = true }
 solana-sdk = { workspace = true }
 soroban-client = { workspace = true }
-thiserror = "2.0.17"
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tonlib-core = { workspace = true }
 tracing = { workspace = true }
