@@ -8,7 +8,7 @@ use hot_validation_primitives::bridge::solana::{
     anchor, DepositWithProof, SolanaInputData, UserAccount,
 };
 use hot_validation_primitives::bridge::{CompletedWithdrawal, InputData};
-use hot_validation_primitives::ChainValidationConfig;
+use hot_validation_primitives::{ChainValidationConfig, ExtendedChainId};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_config::RpcSimulateTransactionConfig;
 use solana_commitment_config::CommitmentConfig;
@@ -88,6 +88,8 @@ impl SolanaVerifier {
 
 #[async_trait]
 impl Verifier for SolanaVerifier {
+    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Solana }
+
     async fn verify(
         &self,
         auth_contract_id: String,

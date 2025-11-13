@@ -16,6 +16,7 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+use hot_validation_primitives::ExtendedChainId;
 
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
@@ -70,6 +71,8 @@ impl StellarVerifier {
 
 #[async_trait]
 impl Verifier for StellarVerifier {
+    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Stellar }
+
     async fn verify(
         &self,
         auth_contract_id: String,

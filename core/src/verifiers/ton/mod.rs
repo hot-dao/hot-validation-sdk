@@ -9,7 +9,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hot_validation_primitives::bridge::ton::{Action, StackItem, TonInputData};
 use hot_validation_primitives::bridge::InputData;
-use hot_validation_primitives::{ChainId, ChainValidationConfig};
+use hot_validation_primitives::{ChainId, ChainValidationConfig, ExtendedChainId};
 use primitive_types::U128;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -28,6 +28,8 @@ impl TonVerifier {
 
 #[async_trait]
 impl Verifier for TonVerifier {
+    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Ton }
+
     async fn verify(
         &self,
         auth_contract_id: String,

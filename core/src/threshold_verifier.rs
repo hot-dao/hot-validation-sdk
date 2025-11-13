@@ -9,6 +9,8 @@ use std::fmt::Debug;
 use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
+use thiserror::Error;
+use hot_validation_primitives::ExtendedChainId;
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
@@ -69,13 +71,34 @@ impl<T> ThresholdVerifier<T> {
     }
 }
 
+#[derive(Error, Debug)]
+#[error("Verification failed for {chain_id}, contract={auth_contract_id}, method={method_name}, input={input_data:#?}: {kind}")]
+pub struct VerificationError {
+    pub chain_id: ExtendedChainId,
+    pub auth_contract_id: String,
+    pub method_name: String,
+    pub input_data: InputData,
+    pub kind: anyhow::Error,
+}
+
 impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
+    fn chain_id(&self) -> ExtendedChainId {
+        self
+            .verifiers
+            .first()
+            .expect("There should be at least one verifier")
+            .chain_id()
+    }
+
     pub async fn verify(
         &self,
         auth_contract_id: String,
         method_name: String,
         input_data: InputData,
-    ) -> anyhow::Result<bool> {
+    ) -> Result<bool, VerificationError> {
+        let auth_contract_id_ = auth_contract_id.clone();
+        let method_name_ = method_name.clone();
+        let input_data_ = input_data.clone();
         self.threshold_call(move |verifier| {
             let auth_contract_id = auth_contract_id.clone();
             let method_name = method_name.clone();
@@ -86,7 +109,14 @@ impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
                     .await
             }
         })
-        .await
+            .await
+            .map_err(|kind| VerificationError {
+                chain_id: self.chain_id(),
+                auth_contract_id: auth_contract_id_,
+                method_name: method_name_,
+                input_data: input_data_,
+                kind,
+            })
     }
 }
 

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use hot_validation_primitives::bridge::InputData;
+use hot_validation_primitives::ExtendedChainId;
 
 pub mod evm;
 pub mod near;
@@ -9,6 +10,8 @@ pub mod ton;
 
 #[async_trait]
 pub trait Verifier: Sized + Send + Sync {
+    fn chain_id(&self) -> ExtendedChainId;
+
     async fn verify(
         &self,
         auth_contract_id: String,
