@@ -44,12 +44,12 @@ pub struct WalletAuthMethods {
 /// The logic that prevents signing arbitrary messages.
 #[derive(Clone)]
 pub struct Validation {
-    near: Arc<ThresholdVerifier<NearVerifier>>,
-    cosmos: HashMap<ChainId, Arc<ThresholdVerifier<CosmosVerifier>>>,
-    evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmVerifier>>>,
-    stellar: Arc<ThresholdVerifier<StellarVerifier>>,
-    ton: Arc<ThresholdVerifier<TonVerifier>>,
-    solana: Arc<ThresholdVerifier<SolanaVerifier>>,
+    pub near: Arc<ThresholdVerifier<NearVerifier>>,
+    pub cosmos: HashMap<ChainId, Arc<ThresholdVerifier<CosmosVerifier>>>,
+    pub evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmVerifier>>>,
+    pub stellar: Arc<ThresholdVerifier<StellarVerifier>>,
+    pub ton: Arc<ThresholdVerifier<TonVerifier>>,
+    pub solana: Arc<ThresholdVerifier<SolanaVerifier>>,
 }
 
 impl Validation {
@@ -362,7 +362,7 @@ pub mod test_data {
             ),
         ]);
 
-        let validation = Validation::new(configs).unwrap();
+        let validation = Validation::new(&configs).unwrap();
         Arc::new(validation)
     }
 }

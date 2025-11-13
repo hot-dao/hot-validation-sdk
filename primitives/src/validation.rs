@@ -18,6 +18,7 @@ pub struct ValidationConfig(pub HashMap<ChainId, ChainValidationConfig>);
 /// * `threshold` is the number of servers that need to give the same response to be able to accept it
 /// * `servers` is the available RPCs
 #[derive(Clone, Debug, Serialize, Deserialize, Validate)]
+#[validate(custom = validate_chain_config)]
 pub struct ChainValidationConfig {
     pub threshold: usize,
     #[validate(unique_items)]

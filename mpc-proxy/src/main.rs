@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
                 .context("failed to read validation config")?;
             serde_yaml::from_str(&file)?
         };
-        Validation::new(validation_config.into())?
+        Validation::new(&validation_config)?
     };
     let cluster_manager = {
         let cluster_config: Vec<Vec<Server>> = {
@@ -60,8 +60,6 @@ async fn main() -> Result<()> {
         };
         ClusterManager::new(cluster_config).await?
     };
-
-    let _validation_metrics_handle = tokio::spawn(validation.metrics().start_checker());
 
     let state = AppState {
         secrets_config: Arc::new(secrets_config),
