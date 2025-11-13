@@ -1,5 +1,5 @@
 use crate::http_client::TIMEOUT;
-use crate::threshold_verifier::ThresholdVerifier;
+use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::Verifier;
 use crate::ChainValidationConfig;
 use anyhow::{Context, Result};
@@ -21,12 +21,20 @@ use hot_validation_primitives::ExtendedChainId;
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
     client: Arc<Server>,
+    server: String,
 }
+
+impl Identifiable for StellarVerifier {
+    fn id(&self) -> String {
+        self.server.clone()
+    }
+}
+
 
 impl StellarVerifier {
     pub fn new(server: String) -> Result<Self> {
         let client = Arc::new(Server::new(&server, Options::default())?);
-        Ok(Self { client })
+        Ok(Self { client, server })
     }
 
     fn create_transaction_builder() -> Result<TransactionBuilder> {

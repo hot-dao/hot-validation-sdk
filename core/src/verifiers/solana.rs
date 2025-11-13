@@ -1,5 +1,5 @@
 use crate::http_client::TIMEOUT;
-use crate::threshold_verifier::ThresholdVerifier;
+use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::Verifier;
 use anyhow::{anyhow, ensure, Context, Result};
 use async_trait::async_trait;
@@ -20,12 +20,20 @@ use std::sync::Arc;
 
 pub(crate) struct SolanaVerifier {
     client: RpcClient,
+    server: String,
+}
+
+impl Identifiable for SolanaVerifier {
+    fn id(&self) -> String {
+        self.server.clone()
+    }
 }
 
 impl SolanaVerifier {
     pub fn new(server: String) -> Self {
         Self {
-            client: RpcClient::new_with_timeout(server, TIMEOUT),
+            client: RpcClient::new_with_timeout(server.clone(), TIMEOUT),
+            server,
         }
     }
 

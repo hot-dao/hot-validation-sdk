@@ -1,7 +1,7 @@
 mod types;
 
 use crate::http_client::post_json_receive_json;
-use crate::threshold_verifier::ThresholdVerifier;
+use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::evm::types::{BlockSpecifier, RpcRequest, RpcResponse, BLOCK_DELAY};
 use crate::verifiers::Verifier;
 use crate::ChainValidationConfig;
@@ -18,6 +18,12 @@ pub(crate) struct EvmVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,
+}
+
+impl Identifiable for EvmVerifier {
+    fn id(&self) -> String {
+        self.server.clone()
+    }
 }
 
 impl EvmVerifier {

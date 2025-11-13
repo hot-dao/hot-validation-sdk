@@ -1,7 +1,7 @@
 mod types;
 
 use crate::http_client::post_json_receive_json;
-use crate::threshold_verifier::ThresholdVerifier;
+use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
 use crate::{
     metrics, AuthMethod, ChainValidationConfig, WalletAuthMethods, HOT_VERIFY_METHOD_NAME,
@@ -17,6 +17,12 @@ use std::sync::Arc;
 pub(crate) struct NearVerifier {
     client: Arc<reqwest::Client>,
     server: String,
+}
+
+impl Identifiable for NearVerifier {
+    fn id(&self) -> String {
+        self.server.clone()
+    }
 }
 
 impl NearVerifier {

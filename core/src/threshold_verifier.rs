@@ -12,14 +12,20 @@ use std::sync::Arc;
 use thiserror::Error;
 use hot_validation_primitives::ExtendedChainId;
 
+type Id = String;
+
+pub(crate) trait Identifiable {
+    fn id(&self) -> String;
+}
+
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T> {
+pub(crate) struct ThresholdVerifier<T: Identifiable> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
 
-impl<T> ThresholdVerifier<T> {
+impl<T: Identifiable> ThresholdVerifier<T> {
     pub async fn threshold_call<F, Fut, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,
@@ -27,7 +33,6 @@ impl<T> ThresholdVerifier<T> {
         Fut: Future<Output = anyhow::Result<R>> + Send + 'static,
     {
         let threshold = self.threshold;
-        let mut counts: HashMap<R, usize> = HashMap::new();
 
         let shuffled_verifiers = {
             let mut rng = StdRng::from_os_rng();
@@ -37,34 +42,38 @@ impl<T> ThresholdVerifier<T> {
         };
 
         let mut responses = stream::iter(shuffled_verifiers)
-            .map(functor)
+            .map(|verifier| async {
+                (verifier.id(), functor(verifier).await)
+            })
             .buffer_unordered(threshold);
 
-        let mut errors = vec![];
-        while let Some(result_response) = responses.next().await {
-            match result_response {
-                Ok(response) => {
-                    let entry = counts.entry(response.clone()).or_insert(0);
-                    *entry += 1;
+        let mut votes: HashMap<R, Vec<Id>> = HashMap::new();
+        let mut errors: HashMap<Id, _> = HashMap::new();
+
+        while let Some((id, result)) = responses.next().await {
+            match result {
+                Ok(vote) => {
+                    let entry = votes
+                        .entry(vote.clone())
+                        .or_insert(vec![]);
+                    entry.push(id);
 
                     // as soon as any variant reaches the threshold, return it
-                    if *entry >= threshold {
-                        return Ok(response);
+                    if entry.len() >= threshold {
+                        return Ok(vote);
                     }
                 }
-                Err(err) => errors.push(err),
+                Err(err) => {
+                    errors.insert(id, err);
+                },
             }
-        }
-
-        if !errors.is_empty() {
-            tracing::warn!("threshold call encountered errors: {:?}", errors);
         }
 
         // if we exit the loop, nobody hit the threshold
         Err(anyhow!(
             "No consensus for threshold call, success({}): {:#?}, errors({}): {:#?}",
-            counts.len(),
-            counts,
+            votes.len(),
+            votes,
             errors.len(),
             errors,
         ))
@@ -81,7 +90,7 @@ pub struct VerificationError {
     pub kind: anyhow::Error,
 }
 
-impl<T: Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
+impl<T: Identifiable + Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
     fn chain_id(&self) -> ExtendedChainId {
         self
             .verifiers
@@ -134,6 +143,10 @@ mod tests {
     struct DummyVerifier {
         delay: Duration,
         resp: Option<u8>,
+    }
+
+    impl Identifiable for DummyVerifier {
+        fn id(&self) -> String { String::default() }
     }
 
     #[tokio::test]
@@ -239,6 +252,10 @@ mod tests {
     struct BoolVerifier {
         delay: Duration,
         result: Result<bool, ()>,
+    }
+
+    impl Identifiable for BoolVerifier {
+        fn id(&self) -> String { String::default() }
     }
 
     impl BoolVerifier {
@@ -369,6 +386,10 @@ mod tests {
     #[derive(Clone)]
     struct CountVerifier {
         counter: Arc<AtomicUsize>,
+    }
+
+    impl Identifiable for CountVerifier {
+        fn id(&self) -> String { String::default() }
     }
 
     #[tokio::test]
