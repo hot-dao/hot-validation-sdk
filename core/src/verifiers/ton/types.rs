@@ -33,8 +33,8 @@ impl RpcResponse {
             .collect::<Vec<StackItem>>();
         ensure!(
             stack.len() == 1,
-            "expected 1 item in stack, got {}",
-            stack.len()
+            "expected 1 item in stack, got {}: stack={:?}",
+            stack.len(), stack
         );
         Ok(stack[0].clone())
     }
