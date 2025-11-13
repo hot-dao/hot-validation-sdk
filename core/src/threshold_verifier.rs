@@ -81,7 +81,7 @@ impl<T: Identifiable> ThresholdVerifier<T> {
 }
 
 #[derive(Error, Debug)]
-#[error("Verification failed for {chain_id}, contract={auth_contract_id}, method={method_name}, input={input_data:#?}: {kind}")]
+#[error("Verification failed for {chain_id}, contract={auth_contract_id}, method={method_name}: {kind}")]
 pub struct VerificationError {
     pub chain_id: ExtendedChainId,
     pub auth_contract_id: String,
