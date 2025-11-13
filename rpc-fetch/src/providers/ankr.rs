@@ -34,7 +34,6 @@ impl SlugFromChainId for AnkrProvider {
             Arbitrum => Some("arbitrum".to_string()),
             Avax => Some("avalanche".to_string()),
             Scroll => Some("scroll".to_string()),
-            Ton => Some("premium-http/ton_api_v2".to_string()),
             Solana => Some("solana".to_string()),
             Kava => Some("kava_rpc".to_string()),
             XLayer => Some("xlayer".to_string()),
@@ -43,7 +42,9 @@ impl SlugFromChainId for AnkrProvider {
             Mantle => Some("mantle".to_string()),
             Flare => Some("flare".to_string()),
 
-            Near | Abstract | Ink | HyperEVM | BeraChain | Aurora => None,
+            // Ton => Some("premium-http/ton_api_v2".to_string()),
+            // TODO
+            Ton | Near | Abstract | Ink | HyperEVM | BeraChain | Aurora => None,
         }
     }
 }
