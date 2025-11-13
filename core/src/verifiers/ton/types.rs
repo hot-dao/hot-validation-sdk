@@ -3,7 +3,7 @@ use hot_validation_primitives::bridge::ton::{ResponseStackItem, StackItem};
 use serde::{Deserialize, Serialize};
 use tonlib_core::TonAddress;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub(crate) struct RpcRequest {
     jsonrpc: &'static str,
     id: &'static str,
@@ -11,7 +11,7 @@ pub(crate) struct RpcRequest {
     params: Params,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 struct Params {
     address: String,
     method: String,
