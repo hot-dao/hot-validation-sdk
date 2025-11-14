@@ -545,7 +545,7 @@ mod tests {
         ]);
         let validation = Arc::new(Validation::new(&configs).unwrap());
 
-        let uid = "114e0efee6a1c73dbc8403264db8537d38fdfa7bdf81ed6fcf4841b93b9a2b6a".to_string();
+        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string();
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
@@ -556,7 +556,7 @@ mod tests {
             ],
         };
 
-        validation.verify(uid, message, proof).await.unwrap();
+        validation.verify(wallet_id, message, proof).await.unwrap();
     }
 
     #[tokio::test]
@@ -582,7 +582,7 @@ mod tests {
     async fn bridge_deposit_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6".to_string();
         let payload = HotVerifyBridge::Deposit(DepositAction {
@@ -602,7 +602,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
         Ok(())
     }
 
@@ -610,7 +610,7 @@ mod tests {
     async fn bridge_deposit_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881".to_string();
         let payload = HotVerifyBridge::Deposit(DepositAction {
@@ -630,7 +630,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -639,7 +639,7 @@ mod tests {
     async fn bridge_deposit_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
         let payload = HotVerifyBridge::Deposit(DepositAction {
@@ -659,7 +659,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -668,7 +668,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_ton() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a".to_string();
         let payload = HotVerifyBridge::ClearCompletedWithdrawal(CompletedWithdrawalAction {
@@ -685,7 +685,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -694,7 +694,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_stellar() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52".to_string();
 
@@ -712,7 +712,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -721,7 +721,7 @@ mod tests {
     async fn bridge_withdraw_removal_validation_evm() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a".to_string();
 
@@ -739,7 +739,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -748,7 +748,7 @@ mod tests {
     async fn bridge_deposit_validation_solana() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c".to_string();
         let payload = HotVerifyBridge::Deposit(DepositAction {
@@ -775,7 +775,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
@@ -784,7 +784,7 @@ mod tests {
     async fn bridge_completed_withdrawal_validation_solana() -> Result<()> {
         let validation = create_validation_object();
 
-        let uid = staging_wallet_id();
+        let wallet_id = staging_wallet_id();
         let message =
             "170a154a02aa91beb4b2d29175028d8684ee38585b418f36600cdeeb6ca05a1c".to_string();
 
@@ -802,7 +802,7 @@ mod tests {
             user_payloads: vec![json.to_string()],
         };
 
-        validation.verify(uid, message, proof).await?;
+        validation.verify(wallet_id, message, proof).await?;
 
         Ok(())
     }
