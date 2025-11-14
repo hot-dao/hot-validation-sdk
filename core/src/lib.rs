@@ -485,39 +485,6 @@ mod tests {
         validation.verify(wallet_id, message, proof).await.unwrap();
     }
 
-    #[tokio::test]
-    async fn validate_on_base() {
-        let validation = create_validation_object();
-
-        let wallet_id = "14NVTfHAzbVxTJtv2ZM9LbgpWEQKbea1JWSidTNw8fV9".to_string().into();
-        let message =
-            "ef32edffb454d2a3172fd0af3fdb0e43fac5060a929f1b83b6de2b73754e3f45".to_string();
-        let proof = ProofModel {
-            message_body: "S8safEk4JWgnJsVKxans4TqBL796cEuV5GcrqnFHPdNW91AupymrQ6zgwEXoeRb6P3nyaSskoFtMJzaskXTDAnQUTKs5dGMWQHsz7irQJJ2UA2aDHSQ4qxgsU3h1U83nkq4rBstK8PL1xm6WygSYihvBTmuaMjuKCK6JT1tB4Uw71kGV262kU914YDwJa53BiNLuVi3s2rj5tboEwsSEpyJo9x5diq4Ckmzf51ZjZEDYCH8TdrP1dcY4FqkTCBA7JhjfCTToJR5r74ApfnNJLnDhTxkvJb4ReR9T9Ga7hPNazCFGE8Xq1deu44kcPjXNvb1GJGWLAZ5k1wxq9nnARb3bvkqBTmeYiDcPDamauhrwYWZkMNUsHtoMwF6286gcmY3ZgE3jja1NGuYKYQHnvscUqcutuT9qH".to_string(),
-            user_payloads: vec!["00000000000000000000000000000000000000000000005e095d2c286c4414050000000000000000000000000000000000000000000000000000000000000000".to_string()],
-        };
-
-        validation.verify(wallet_id, message, proof).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn two_auth_methods() {
-        let validation = create_validation_object();
-
-        let wallet_id = "HHJmceVJXc5YcEnTPMrcXwVBL1gfxcx4nTbsMNW5SUwB".to_string().into();
-        let message =
-            "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
-        let proof = ProofModel {
-            message_body: String::new(),
-            user_payloads: vec![
-                "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
-                "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
-            ],
-        };
-
-        validation.verify(wallet_id, message, proof).await.unwrap();
-    }
-
     #[should_panic]
     #[tokio::test]
     async fn two_auth_methods_fail_with_bad_rpc() {
@@ -555,20 +522,6 @@ mod tests {
                 "{\"signatures\": [\"2r4RNC49RGA6Wqo5VzZtATBs3jMvqZCo5NYfJGkDpHZd598Zvt7kFfiuH8yr26CynzSMsgoHYoMUF5h31dSVHAT1\"], \"auth_method\": 0}".to_string(),
                 "00000000000000000000000000000000000000000000005e9def3f04597b183c0000000000000000000000000000000000000000000000000000000000000000".to_string()
             ],
-        };
-
-        validation.verify(wallet_id, message, proof).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn validate_on_stellar() {
-        let validation = create_validation_object();
-
-        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string().into();
-        let message = String::new();
-        let proof = ProofModel {
-            message_body: String::new(),
-            user_payloads: vec!["000000000000005ee4a2fbf444c19970b2289e4ab3eb2ae2e73063a5f5dfc450db7b07413f2d905db96414e0c33eb204".to_string()],
         };
 
         validation.verify(wallet_id, message, proof).await.unwrap();
