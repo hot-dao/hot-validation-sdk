@@ -153,11 +153,7 @@ pub(crate) mod tests {
     use hot_validation_primitives::ChainValidationConfig;
     use std::sync::Arc;
     use hot_validation_primitives::uid::WalletId;
-
-    // TODO: Remove?
-    pub(crate) fn near_rpc() -> String {
-        dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
-    }
+    use crate::test_data::near_rpc;
 
     fn sample_wallet_id() -> WalletId {
         "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into()

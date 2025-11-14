@@ -103,13 +103,13 @@ impl ThresholdVerifier<EvmVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::base_rpc;
     use crate::threshold_verifier::ThresholdVerifier;
     use crate::{ChainValidationConfig, HOT_VERIFY_METHOD_NAME};
     use anyhow::Result;
     use hot_validation_primitives::bridge::evm::EvmInputData;
     use hot_validation_primitives::ChainId;
     use std::sync::Arc;
+    use crate::test_data::base_rpc;
 
     #[tokio::test]
     async fn base_threshold_verifier_with_bad_rpcs() -> Result<()> {

@@ -18,10 +18,10 @@ use crate::verifiers::ton::TonVerifier;
 use anyhow::{bail, ensure, Context, Result};
 use futures_util::future::try_join_all;
 use hot_validation_primitives::bridge::HotVerifyResult;
+use hot_validation_primitives::uid::WalletId;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use hot_validation_primitives::uid::WalletId;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -374,101 +374,12 @@ mod tests {
     #![allow(clippy::should_panic_without_expect)]
 
     use super::*;
-    use crate::verifiers::near::tests::near_rpc;
-    use crate::verifiers::ton::tests::ton_rpc;
     use base64::prelude::BASE64_STANDARD;
     use base64::Engine;
+    use crate::test_data::{create_validation_object, near_rpc, ton_rpc};
     use hot_validation_primitives::bridge::{
         CompletedWithdrawal, CompletedWithdrawalAction, DepositAction, DepositData, HotVerifyBridge,
     };
-
-    pub(crate) fn bnb_rpc() -> String {
-        dotenv::var("BNB_RPC").unwrap_or_else(|_| "https://bsc.therpc.io".to_string())
-    }
-
-    pub(crate) fn base_rpc() -> String {
-        dotenv::var("BASE_RPC").unwrap_or_else(|_| "https://base.llamarpc.com".to_string())
-    }
-
-    fn create_validation_object() -> Arc<Validation> {
-        let configs = HashMap::from([
-            (
-                ChainId::Near,
-                ChainValidationConfig {
-                    threshold: 2,
-                    servers: vec![
-                        "https://rpc.near.org".to_string(),
-                        "http://ffooooo-bbbaaaar:3030/".to_string(),
-                        "https://nearrpc.aurora.dev".to_string(),
-                        "https://1rpc.io/near".to_string(),
-                        near_rpc(),
-                    ],
-                },
-            ),
-            (
-                ChainId::Stellar,
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec!["https://mainnet.sorobanrpc.com".to_string()],
-                },
-            ),
-            (
-                ChainId::Evm(1),
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec![
-                        "https://eth.drpc.org".to_string(),
-                        "http://bad-rpc:8545".to_string(),
-                    ],
-                },
-            ),
-            (
-                ChainId::Evm(8453),
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec![
-                        "https://1rpc.io/base".to_string(),
-                        "http://bad-rpc:8545".to_string(),
-                        base_rpc(),
-                    ],
-                },
-            ),
-            (
-                ChainId::Evm(56),
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec!["https://bsc.blockrazor.xyz".to_string(), bnb_rpc()],
-                },
-            ),
-            (
-                ChainId::TON_V2,
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec![
-                        "https://toncenter.com/api/v2/jsonRPC".to_string(),
-                        ton_rpc(),
-                    ],
-                },
-            ),
-            (
-                ChainId::Solana,
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
-                },
-            ),
-            (
-                ChainId::Evm(4444_118),
-                ChainValidationConfig {
-                    threshold: 1,
-                    servers: vec!["https://juno-api.stakeandrelax.net".to_string()],
-                },
-            ),
-        ]);
-
-        let validation = Validation::new(&configs).unwrap();
-        Arc::new(validation)
-    }
 
     #[tokio::test]
     async fn validate_on_near() {
