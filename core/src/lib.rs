@@ -588,10 +588,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Evm(56),
             data: DepositData {
-                sender: [0; 32],
-                receiver: [0; 32],
-                token_id: vec![],
-                amount: 0,
+                sender: None,
+                receiver: None,
+                token_id: None,
+                amount: None,
                 nonce: 1_754_431_900_000_000_013_182,
             },
         });
@@ -616,10 +616,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Stellar,
             data: DepositData {
-                sender: [0; 32],
-                receiver: [0; 32],
-                token_id: vec![],
-                amount: 0,
+                sender: None,
+                receiver: None,
+                token_id: None,
+                amount: None,
                 nonce: 1_754_531_354_365_901_458_000,
             },
         });
@@ -645,10 +645,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::TON_V2,
             data: DepositData {
-                sender: [0; 32],
-                receiver: [0; 32],
-                token_id: vec![],
-                amount: 0,
+                sender: None,
+                receiver: None,
+                token_id: None,
+                amount: None,
                 nonce: 1_753_218_716_000_000_003_679,
             },
         });
@@ -675,7 +675,7 @@ mod tests {
             chain_id: ChainId::TON_V2,
             data: CompletedWithdrawal {
                 nonce: 1_753_218_716_000_000_003_679,
-                receiver_address: "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string(),
+                receiver_address: Some("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string()),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -702,7 +702,7 @@ mod tests {
             chain_id: ChainId::Stellar,
             data: CompletedWithdrawal {
                 nonce: 1_754_631_474_000_000_070_075,
-                receiver_address: "dontcare".to_string(),
+                receiver_address: Some("dontcare".to_string()),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -729,7 +729,7 @@ mod tests {
             chain_id: ChainId::Evm(56),
             data: CompletedWithdrawal {
                 nonce: 1_754_790_996_000_000_073_027,
-                receiver_address: "dontcare".to_string(),
+                receiver_address: Some("dontcare".to_string()),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -754,17 +754,17 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Solana,
             data: DepositData {
-                sender: bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
+                sender: Some(bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
                     .into_vec()?
                     .try_into()
-                    .unwrap(),
-                receiver: bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
+                    .unwrap()),
+                receiver: Some(bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
                     .into_vec()?
                     .try_into()
-                    .unwrap(),
-                token_id: bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
-                    .into_vec()?,
-                amount: 10_000_000,
+                    .unwrap()),
+                token_id: Some(bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
+                    .into_vec()?),
+                amount: Some(10_000_000),
                 nonce: 1_757_984_522_000_007_228,
             },
         });
@@ -792,7 +792,7 @@ mod tests {
             chain_id: ChainId::Solana,
             data: CompletedWithdrawal {
                 nonce: 1_749_390_032_000_000_032_243,
-                receiver_address: "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string(),
+                receiver_address: Some("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string()),
             },
         });
         let json = serde_json::to_value(&payload)?;
