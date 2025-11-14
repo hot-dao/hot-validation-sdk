@@ -21,6 +21,7 @@ use hot_validation_primitives::bridge::HotVerifyResult;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
+use hot_validation_primitives::uid::WalletId;
 
 pub const HOT_VERIFY_METHOD_NAME: &str = "hot_verify";
 pub const MPC_HOT_WALLET_CONTRACT: &str = "mpc.hot.tg";
@@ -135,7 +136,7 @@ impl Validation {
 
     pub async fn verify(
         self: Arc<Self>,
-        wallet_id: String,
+        wallet_id: WalletId,
         message_hex: String,
         proof: ProofModel,
     ) -> Result<()> {
@@ -176,7 +177,7 @@ impl Validation {
 
     pub(crate) async fn verify_auth_method(
         self: &Arc<Self>,
-        wallet_id: String,
+        wallet_id: WalletId,
         auth_method: AuthMethod,
         message_body: String,
         message_hex: String,
@@ -473,7 +474,7 @@ mod tests {
     async fn validate_on_near() {
         let validation = create_validation_object();
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into();
         let message =
             "57f42da8350f6a7c6ad567d678355a3bbd17a681117e7a892db30656d5caee32".to_string();
         let proof = ProofModel {
@@ -488,7 +489,7 @@ mod tests {
     async fn validate_on_base() {
         let validation = create_validation_object();
 
-        let wallet_id = "14NVTfHAzbVxTJtv2ZM9LbgpWEQKbea1JWSidTNw8fV9".to_string();
+        let wallet_id = "14NVTfHAzbVxTJtv2ZM9LbgpWEQKbea1JWSidTNw8fV9".to_string().into();
         let message =
             "ef32edffb454d2a3172fd0af3fdb0e43fac5060a929f1b83b6de2b73754e3f45".to_string();
         let proof = ProofModel {
@@ -503,7 +504,7 @@ mod tests {
     async fn two_auth_methods() {
         let validation = create_validation_object();
 
-        let wallet_id = "HHJmceVJXc5YcEnTPMrcXwVBL1gfxcx4nTbsMNW5SUwB".to_string();
+        let wallet_id = "HHJmceVJXc5YcEnTPMrcXwVBL1gfxcx4nTbsMNW5SUwB".to_string().into();
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
@@ -545,7 +546,7 @@ mod tests {
         ]);
         let validation = Arc::new(Validation::new(&configs).unwrap());
 
-        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string();
+        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string().into();
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
@@ -563,7 +564,7 @@ mod tests {
     async fn validate_on_stellar() {
         let validation = create_validation_object();
 
-        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string();
+        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string().into();
         let message = String::new();
         let proof = ProofModel {
             message_body: String::new(),
@@ -574,8 +575,8 @@ mod tests {
     }
 
     /// wallet id for testing. It has only one auth method, which is `bridge.kuksag.tg` with `hot_verify_locker_state` method.
-    fn staging_wallet_id() -> String {
-        "EvXjdccDCzZfofBsk6NL8LKKNSa6RcBmrXqjymM9mmnn".to_string()
+    fn staging_wallet_id() -> WalletId {
+        "EvXjdccDCzZfofBsk6NL8LKKNSa6RcBmrXqjymM9mmnn".to_string().into()
     }
 
     #[tokio::test]

@@ -2,11 +2,12 @@ use crate::verifiers::near::types::base64_json::Base64OfJson;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::serde_as;
+use hot_validation_primitives::uid::WalletId;
 
 /// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Serialize)]
 pub struct GetWalletArgs {
-    pub(crate) wallet_id: String,
+    pub(crate) wallet_id: WalletId,
 }
 
 /// An input to the `hot_verify` method. A proof that a message is correct and can be signed.
@@ -17,7 +18,7 @@ pub struct VerifyArgs {
     /// The hash of the message that we try to sign.
     pub msg_hash: String,
     /// The wallet id, that initates the signing
-    pub wallet_id: Option<String>,
+    pub wallet_id: Option<WalletId>,
     /// The actual data, that authorizes signing
     pub user_payload: String,
     /// Additional field for the future, in case we need to override something

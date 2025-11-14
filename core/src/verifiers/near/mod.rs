@@ -12,6 +12,7 @@ use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
 use serde::Deserialize;
 use std::sync::Arc;
+use hot_validation_primitives::uid::WalletId;
 
 #[derive(Clone)]
 pub(crate) struct NearVerifier {
@@ -30,7 +31,7 @@ impl NearVerifier {
         Self { client, server }
     }
 
-    async fn get_wallet(&self, wallet_id: String) -> Result<WalletAuthMethods> {
+    async fn get_wallet(&self, wallet_id: WalletId) -> Result<WalletAuthMethods> {
         let wallet_id = GetWalletArgs { wallet_id };
         let rpc_args =
             RpcRequest::build(MPC_HOT_WALLET_CONTRACT, MPC_GET_WALLET_METHOD, &wallet_id);
@@ -41,7 +42,7 @@ impl NearVerifier {
 
     async fn verify(
         &self,
-        wallet_id: String,
+        wallet_id: WalletId,
         auth_method: AuthMethod,
         message_hex: String,
         message_body: String,
@@ -65,7 +66,7 @@ impl NearVerifier {
             .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
 
         let args = VerifyArgs {
-            wallet_id: Some(wallet_id.to_string()),
+            wallet_id: Some(wallet_id),
             msg_hash: message_bs58,
             metadata: auth_method.metadata.clone(),
             user_payload: user_payload.clone(),
@@ -101,7 +102,7 @@ impl ThresholdVerifier<NearVerifier> {
 
     pub async fn get_wallet_auth_methods(
         self: &Arc<Self>,
-        wallet_id: String,
+        wallet_id: WalletId,
     ) -> Result<WalletAuthMethods> {
         let _timer = metrics::RPC_GET_AUTH_METHODS_DURATION.start_timer();
         self.threshold_call(move |verifier| {
@@ -113,7 +114,7 @@ impl ThresholdVerifier<NearVerifier> {
 
     pub async fn verify(
         &self,
-        wallet_id: String,
+        wallet_id: WalletId,
         auth_method: AuthMethod,
         message_hex: String,
         message_body: String,
@@ -151,9 +152,15 @@ pub(crate) mod tests {
     use anyhow::Result;
     use hot_validation_primitives::ChainValidationConfig;
     use std::sync::Arc;
+    use hot_validation_primitives::uid::WalletId;
 
+    // TODO: Remove?
     pub(crate) fn near_rpc() -> String {
         dotenv::var("NEAR_RPC").unwrap_or_else(|_| "https://rpc.mainnet.near.org".to_string())
+    }
+
+    fn sample_wallet_id() -> WalletId {
+        "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into()
     }
 
     #[tokio::test]
@@ -161,7 +168,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = sample_wallet_id();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -194,7 +201,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -227,7 +234,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = sample_wallet_id();
 
         let auth_method = AuthMethod {
             account_id: "kek.auth.hot.tg".to_string(),
@@ -259,7 +266,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = sample_wallet_id();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -302,7 +309,7 @@ pub(crate) mod tests {
             &Arc::new(reqwest::Client::new()),
         );
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = sample_wallet_id();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -345,7 +352,7 @@ pub(crate) mod tests {
             &Arc::new(reqwest::Client::new()),
         );
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string();
+        let wallet_id = sample_wallet_id();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -377,7 +384,8 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let wallet_id = sample_wallet_id();
+
         let expected = WalletAuthMethods {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
@@ -385,7 +393,7 @@ pub(crate) mod tests {
             }],
         };
 
-        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
+        let actual = rpc_caller.get_wallet(wallet_id).await.unwrap();
         assert_eq!(actual.access_list, expected.access_list);
     }
 
@@ -394,7 +402,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "Puvk3GR7bvBmJqg2Sdzs4D2AFGAW3rXq9iwpJraBkGJ".to_string();
+        let wallet_id = "Puvk3GR7bvBmJqg2Sdzs4D2AFGAW3rXq9iwpJraBkGJ".to_string().into();
         let expected = WalletAuthMethods {
             access_list: vec![AuthMethod {
                 account_id: "drops.nfts.tg".to_string(),
@@ -402,7 +410,7 @@ pub(crate) mod tests {
             }],
         };
 
-        let actual = rpc_caller.get_wallet(wallet_id.to_string()).await.unwrap();
+        let actual = rpc_caller.get_wallet(wallet_id).await.unwrap();
         assert_eq!(actual.access_list, expected.access_list);
     }
 
@@ -421,7 +429,8 @@ pub(crate) mod tests {
             &Arc::new(reqwest::Client::new()),
         );
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let wallet_id = sample_wallet_id();
+
         let expected = WalletAuthMethods {
             access_list: vec![AuthMethod {
                 account_id: "keys.auth.hot.tg".to_string(),
@@ -430,7 +439,7 @@ pub(crate) mod tests {
         };
 
         let actual = Arc::new(rpc_validation)
-            .get_wallet_auth_methods(wallet_id.to_string())
+            .get_wallet_auth_methods(wallet_id)
             .await
             .unwrap();
 
@@ -462,9 +471,10 @@ pub(crate) mod tests {
             }],
         };
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
+        let wallet_id = sample_wallet_id();
+
         let actual = Arc::new(rpc_validation)
-            .get_wallet_auth_methods(wallet_id.to_string())
+            .get_wallet_auth_methods(wallet_id)
             .await
             .unwrap();
 

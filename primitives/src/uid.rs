@@ -1,5 +1,7 @@
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
+
+use std::fmt;
 use anyhow::{Context, Result};
 use derive_more::{Deref, From, Into};
 use serde::{Deserialize, Serialize};
@@ -10,6 +12,12 @@ pub struct Uid(pub String);
 
 #[derive(Serialize, Deserialize, Clone, Debug, From, Into, Deref)]
 pub struct WalletId(pub String);
+
+impl fmt::Display for WalletId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 impl Uid {
     pub fn to_wallet_id(&self) -> Result<WalletId> {
