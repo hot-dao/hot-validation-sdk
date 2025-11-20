@@ -1,5 +1,7 @@
 mod types;
 
+use std::fmt::Debug;
+use std::hash::Hash;
 use crate::http_client::post_json_receive_json;
 use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
@@ -10,12 +12,13 @@ use crate::{
 use anyhow::Result;
 use hot_validation_primitives::bridge::HotVerifyResult;
 use hot_validation_primitives::ChainId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use serde::de::DeserializeOwned;
 use hot_validation_primitives::uid::WalletId;
 
 #[derive(Clone)]
-pub(crate) struct NearVerifier {
+pub struct NearVerifier {
     client: Arc<reqwest::Client>,
     server: String,
 }
@@ -33,11 +36,11 @@ impl NearVerifier {
 
     async fn get_wallet(&self, wallet_id: WalletId) -> Result<WalletAuthMethods> {
         let wallet_id = GetWalletArgs { wallet_id };
-        let rpc_args =
-            RpcRequest::build(MPC_HOT_WALLET_CONTRACT, MPC_GET_WALLET_METHOD, &wallet_id);
-        let wallet_model: RpcResponse<WalletAuthMethods> =
-            post_json_receive_json(&self.client, &self.server, &rpc_args, ChainId::Near).await?;
-        Ok(wallet_model.unpack())
+        self.call_view_method(
+            MPC_HOT_WALLET_CONTRACT.to_string(),
+            MPC_GET_WALLET_METHOD.to_string(),
+            &wallet_id
+        ).await
     }
 
     async fn verify(
@@ -73,8 +76,25 @@ impl NearVerifier {
             msg_body: message_body.clone(),
         };
 
-        let rpc_args = RpcRequest::build(&auth_method.account_id, &method_name, &args);
-        let result: RpcResponse<HotVerifyResult> =
+        self.call_view_method(
+            auth_method.account_id,
+            method_name,
+            &args
+        ).await
+    }
+
+    async fn call_view_method<R, T>(
+        &self,
+        account_id: String,
+        method_name: String,
+        args: T,
+    ) -> Result<R>
+    where
+        T: Serialize + Sized,
+        R: DeserializeOwned,
+    {
+        let rpc_args = RpcRequest::build(&account_id, &method_name, &args);
+        let result: RpcResponse<R> =
             post_json_receive_json(&self.client, &self.server, &rpc_args, ChainId::Near).await?;
         Ok(result.unpack())
     }
@@ -139,6 +159,33 @@ impl ThresholdVerifier<NearVerifier> {
             }
         })
         .await
+    }
+
+    pub async fn call_view_method<T, R>(
+        &self,
+        account_id: String,
+        method_name: String,
+        args: T,
+    ) -> Result<R>
+    where
+        T: Serialize + Sized + Sync + Clone + Send + 'static,
+        R: DeserializeOwned + Eq + Hash + Clone + Debug,
+    {
+        self.threshold_call(move |verifier| {
+            let account_id = account_id.clone();
+            let method_name = method_name.clone();
+            let args = args.clone();
+            async move {
+                verifier
+                    .call_view_method(
+                        account_id,
+                        method_name,
+                        args,
+                    )
+                    .await
+            }
+        })
+            .await
     }
 }
 

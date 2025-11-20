@@ -14,13 +14,13 @@ use thiserror::Error;
 
 type Id = String;
 
-pub(crate) trait Identifiable {
+pub trait Identifiable {
     fn id(&self) -> String;
 }
 
 /// An interface, to call `hot_verify` concurrently on each `SingleVerifier`,
 /// and checking whether there's at least `threshold` successes.
-pub(crate) struct ThresholdVerifier<T: Identifiable> {
+pub struct ThresholdVerifier<T: Identifiable> {
     pub(crate) threshold: usize,
     pub(crate) verifiers: Vec<Arc<T>>,
 }
