@@ -1,6 +1,7 @@
 //! A helper to serialize u128 with enclosed quoutes (i.e. serialize it as a string).
 //! It's needed when dealing with NEAR JSON RPC, which handles u128 differently.
 //! This is the same as `near_sdk::U128`, but we can't import the latter because it brings `get_rand` dependency.
+//! todo: use `#[serde_as(as = "DisplayFromStr")]`
 use serde::{Deserialize, Deserializer, Serializer};
 use std::str::FromStr;
 
