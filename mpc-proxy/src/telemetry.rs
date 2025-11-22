@@ -2,7 +2,7 @@ use anyhow::Result;
 use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::trace::Sampler;
 use opentelemetry_sdk::Resource;
 use std::sync::LazyLock;
@@ -11,8 +11,6 @@ use tracing_subscriber::fmt::time::UtcTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{fmt, EnvFilter, Layer};
-
-const ALLOY_ENDPOINT: &str = "http://alloy:4317";
 
 static RESOURCE: LazyLock<Resource> = LazyLock::new(|| {
     Resource::builder()
@@ -40,12 +38,12 @@ impl Drop for TelemetryGuard {
     }
 }
 
-fn init_logs() -> Result<opentelemetry_sdk::logs::SdkLoggerProvider> {
+fn init_logs<T: Into<String>>(alloy_endpoint: T) -> Result<opentelemetry_sdk::logs::SdkLoggerProvider> {
     use opentelemetry_sdk::logs::SdkLoggerProvider;
 
     let exporter = opentelemetry_otlp::LogExporter::builder()
         .with_tonic()
-        .with_endpoint(ALLOY_ENDPOINT)
+        .with_endpoint(alloy_endpoint)
         .build()?;
 
     let provider = SdkLoggerProvider::builder()
@@ -56,10 +54,10 @@ fn init_logs() -> Result<opentelemetry_sdk::logs::SdkLoggerProvider> {
     Ok(provider)
 }
 
-fn init_traces() -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
+fn init_traces<T: Into<String>>(alloy_endpoint: T) -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
-        .with_endpoint(ALLOY_ENDPOINT)
+        .with_endpoint(alloy_endpoint)
         .build()?;
 
     let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
@@ -71,7 +69,7 @@ fn init_traces() -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
     Ok(provider)
 }
 
-pub fn init_telemetry() -> Result<TelemetryGuard> {
+pub fn init_telemetry(alloy_endpoint: &str) -> Result<TelemetryGuard> {
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         EnvFilter::new("info,axum::rejection=trace,tower_http=info,hyper=warn,h2=warn") // TODO: revise
     });
@@ -83,10 +81,10 @@ pub fn init_telemetry() -> Result<TelemetryGuard> {
         .with_current_span(true)
         .with_span_list(true);
 
-    let log_provider = init_logs()?;
+    let log_provider = init_logs(alloy_endpoint)?;
     let otel_log_layer = OpenTelemetryTracingBridge::new(&log_provider).boxed();
 
-    let trace_provider = init_traces()?;
+    let trace_provider = init_traces(alloy_endpoint)?;
     let otel_trace_layer = tracing_opentelemetry::layer()
         .with_tracer(trace_provider.tracer(env!("CARGO_PKG_NAME")))
         .boxed();

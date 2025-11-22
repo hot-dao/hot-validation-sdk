@@ -29,8 +29,8 @@ use tracing::{Level, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let _telemetry_guard = init_telemetry()?;
     let cli = Cli::parse();
+    let _telemetry_guard = init_telemetry(&cli.alloy_endpoint)?;
 
     info!(?cli, "starting server");
 

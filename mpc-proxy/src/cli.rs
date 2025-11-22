@@ -16,6 +16,9 @@ pub struct Cli {
     #[arg(long, env)]
     pub cluster_config_path: PathBuf,
 
+    #[arg(long, env)]
+    pub alloy_endpoint: String,
+
     #[cfg(feature = "debug")]
     #[arg(long, env)]
     pub encryption_key_path: PathBuf,

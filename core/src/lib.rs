@@ -135,7 +135,7 @@ impl Validation {
     }
 
     pub async fn verify(
-        self: Arc<Self>,
+        self: &Arc<Self>,
         wallet_id: WalletId,
         message_hex: String,
         proof: ProofModel,

@@ -5,3 +5,12 @@ args = [
     "up",
     "--build"
 ]
+
+[tasks.up]
+command = "cargo"
+env_files = [".env"]
+args = [
+    "run",
+    "--features",
+    "debug"
+]

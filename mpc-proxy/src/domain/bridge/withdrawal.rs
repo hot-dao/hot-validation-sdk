@@ -2,7 +2,7 @@ use crate::domain::WithdrawRequest;
 use crate::domain::mpc::cluster::ClusterManager;
 use crate::secrets::UidRegistry;
 use anyhow::Result;
-use hot_validation_core::{Validation, from_bytes_to_json};
+use hot_validation_core::Validation;
 use hot_validation_primitives::bridge::DepositAction;
 use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
 use hot_validation_primitives::uid::Uid;
@@ -15,14 +15,11 @@ async fn get_withdrawal(
 ) -> Result<Option<DepositAction>> {
     let contract = "v2_1.omni.hot.tg";
     let method = "get_transfer";
-    let args = json!({
-        "nonce": nonce.to_string(),
-    });
-    let bytes = validation
+    let args = json!({ "nonce": nonce.to_string() });
+    let result: Option<DepositAction> = validation
         .near
         .call_view_method(contract.to_string(), method.to_string(), args)
         .await?;
-    let result = from_bytes_to_json(&bytes)?;
     Ok(result)
 }
 
