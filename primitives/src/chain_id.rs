@@ -114,6 +114,7 @@ define_u64_enum_with_reverse! {
         Flare = 14,
         Bsc = 56,
         Polygon = 137,
+        MonadMainnet = 143,
         XLayer = 196,
         ZkSync = 324,
         HyperEVM = 999,
@@ -178,6 +179,7 @@ impl ExtendedChainId {
             | Self::ZkSync
             | Self::Linea
             | Self::Mantle
+            | Self::MonadMainnet
             | Self::MonadTestnet
             | Self::Flare => true,
 

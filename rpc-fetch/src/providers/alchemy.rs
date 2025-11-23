@@ -18,14 +18,15 @@ impl SlugFromChainId for AlchemyProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
             Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
-            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
-            Stellar, Ton, XLayer, ZkSync,
+            Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism, Polygon, Scroll,
+            Solana, Stellar, Ton, XLayer, ZkSync,
         };
         match chain_id {
             Eth => Some("eth-mainnet".to_string()),
             Optimism => Some("opt-mainnet".to_string()),
             Bsc => Some("bnb-mainnet".to_string()),
             Polygon => Some("polygon-mainnet".to_string()),
+            MonadMainnet => Some("monad-mainnet".to_string()),
             MonadTestnet => Some("monad-testnet".to_string()),
             ZkSync => Some("zksync-mainnet".to_string()),
             Base => Some("base-mainnet".to_string()),

@@ -20,13 +20,14 @@ impl SlugFromChainId for QuicknodeProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
             Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
-            Kaia, Kava, Linea, Mantle, MonadTestnet, Near, Optimism, Polygon, Scroll, Solana,
-            Stellar, Ton, XLayer, ZkSync,
+            Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism, Polygon, Scroll,
+            Solana, Stellar, Ton, XLayer, ZkSync,
         };
         match chain_id {
             Optimism => Some("optimism".to_string()),
             Bsc => Some("bsc".to_string()),
             Polygon => Some("matic".to_string()),
+            MonadMainnet => Some("monad-mainnet".to_string()),
             MonadTestnet => Some("monad-testnet".to_string()),
             ZkSync => Some("zksync-mainnet".to_string()),
             Stellar => Some("stellar-mainnet".to_string()),
