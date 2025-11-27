@@ -18,9 +18,9 @@ impl AnkrProvider {
 impl SlugFromChainId for AnkrProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
-            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
-            Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism, Polygon, Scroll,
-            Solana, Stellar, Ton, XLayer, ZkSync,
+            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka, HyperEVM,
+            Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism,
+            Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
         };
         match chain_id {
             Eth => Some("eth".to_string()),
@@ -43,8 +43,8 @@ impl SlugFromChainId for AnkrProvider {
             Flare => Some("flare".to_string()),
 
             // Ton => Some("premium-http/ton_api_v2".to_string()),
-            // TODO
-            MonadMainnet | Ton | Near | Abstract | Ink | HyperEVM | BeraChain | Aurora => None,
+            Juno | Gonka | MonadMainnet | Ton | Near | Abstract | Ink | HyperEVM | BeraChain
+            | Aurora => None,
         }
     }
 }

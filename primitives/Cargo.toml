@@ -23,7 +23,7 @@ serde = { workspace = true }
 serde-hex = { workspace = true }
 serde_json = { workspace = true }
 serde_valid = { workspace = true }
-serde_with = { workspace = true, features = ["hex"] }
+serde_with = { workspace = true, features = ["hex", "base64"] }
 sha2 = { workspace = true }
 solana-message = { workspace = true }
 solana-pubkey = { workspace = true, features = ["curve25519"] }

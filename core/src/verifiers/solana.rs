@@ -96,7 +96,9 @@ impl SolanaVerifier {
 
 #[async_trait]
 impl Verifier for SolanaVerifier {
-    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Solana }
+    fn chain_id(&self) -> ExtendedChainId {
+        ExtendedChainId::Solana
+    }
 
     async fn verify(
         &self,

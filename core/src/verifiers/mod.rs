@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use hot_validation_primitives::bridge::InputData;
 use hot_validation_primitives::ExtendedChainId;
 
+pub mod cosmos;
 pub mod evm;
 pub mod near;
 pub mod solana;

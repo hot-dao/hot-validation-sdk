@@ -9,6 +9,7 @@ mod threshold_verifier;
 pub use hot_validation_primitives::*;
 
 use crate::threshold_verifier::ThresholdVerifier;
+use crate::verifiers::cosmos::CosmosVerifier;
 use crate::verifiers::evm::EvmVerifier;
 use crate::verifiers::near::NearVerifier;
 use crate::verifiers::solana::SolanaVerifier;
@@ -44,6 +45,7 @@ pub struct WalletAuthMethods {
 #[derive(Clone)]
 pub struct Validation {
     near: Arc<ThresholdVerifier<NearVerifier>>,
+    cosmos: HashMap<ChainId, Arc<ThresholdVerifier<CosmosVerifier>>>,
     evm: HashMap<ChainId, Arc<ThresholdVerifier<EvmVerifier>>>,
     stellar: Arc<ThresholdVerifier<StellarVerifier>>,
     ton: Arc<ThresholdVerifier<TonVerifier>>,
@@ -75,9 +77,24 @@ impl Validation {
             Arc::new(verifier)
         };
 
+        let cosmos = configs
+            .clone()
+            .into_iter()
+            // Some chains that are not EVM (Ton, Cosmos) are being included too, but we dont really care.
+            .filter(|(id, _)| id.is_cosmos())
+            .map(|(id, config)| {
+                let threshold_verifier = {
+                    let verifier = ThresholdVerifier::new_cosmos(config, &client.clone(), id);
+                    Arc::new(verifier)
+                };
+                (id, threshold_verifier)
+            })
+            .collect();
+
         let evm = configs
             .clone()
             .into_iter()
+            // Some chains that are not EVM (Ton, Cosmos) are being included too, but we dont really care.
             .filter(|(id, _)| matches!(id, ChainId::Evm(_)))
             .map(|(id, config)| {
                 let threshold_verifier = {
@@ -107,6 +124,7 @@ impl Validation {
 
         let validation = Self {
             near,
+            cosmos,
             evm,
             stellar,
             ton,
@@ -190,12 +208,32 @@ impl Validation {
                             .verify(auth_call.contract_id, auth_call.method, auth_call.input)
                             .await?
                     }
+
+                    chain_id if chain_id.is_cosmos() => {
+                        let verifier =
+                            self.cosmos.get(&auth_call.chain_id).ok_or(anyhow::anyhow!(
+                                "Cosmos validation is not configured for chain {:?}",
+                                auth_call.chain_id
+                            ))?;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+
                     ChainId::Ton | ChainId::TON_V2 => {
                         let verifier = &self.ton;
                         verifier
                             .verify(auth_call.contract_id, auth_call.method, auth_call.input)
                             .await?
                     }
+
+                    ChainId::Solana => {
+                        let verifier = &self.solana;
+                        verifier
+                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
+                            .await?
+                    }
+
                     ChainId::Evm(_) => {
                         let verifier = self.evm.get(&auth_call.chain_id).ok_or(anyhow::anyhow!(
                             "EVM validation is not configured for chain {:?}",
@@ -205,12 +243,7 @@ impl Validation {
                             .verify(auth_call.contract_id, auth_call.method, auth_call.input)
                             .await?
                     }
-                    ChainId::Solana => {
-                        let verifier = &self.solana;
-                        verifier
-                            .verify(auth_call.contract_id, auth_call.method, auth_call.input)
-                            .await?
-                    }
+
                     ChainId::Near => {
                         bail!("Auth call should not lead to NEAR")
                     }
@@ -233,9 +266,12 @@ impl Validation {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::should_panic_without_expect)]
+
     use super::*;
     use crate::verifiers::near::tests::near_rpc;
     use crate::verifiers::ton::tests::ton_rpc;
+    use base64::prelude::BASE64_STANDARD;
+    use base64::Engine;
     use hot_validation_primitives::bridge::{
         CompletedWithdrawal, CompletedWithdrawalAction, DepositAction, DepositData, HotVerifyBridge,
     };
@@ -313,6 +349,13 @@ mod tests {
                 ChainValidationConfig {
                     threshold: 1,
                     servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
+                },
+            ),
+            (
+                ChainId::Evm(4444_118),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://juno-api.stakeandrelax.net".to_string()],
                 },
             ),
         ]);
@@ -649,6 +692,34 @@ mod tests {
         });
         let json = serde_json::to_value(&payload)?;
         dbg!(&json);
+        let proof = ProofModel {
+            message_body: String::new(),
+            user_payloads: vec![json.to_string()],
+        };
+
+        validation.verify(uid, message, proof).await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bridge_deposit_validation_cosmos_juno() -> Result<()> {
+        let validation = create_validation_object();
+
+        let uid = staging_wallet_id();
+        let message =
+            hex::encode(BASE64_STANDARD.decode("utaIqDt2xuY7c2V+b2JU1B+I5dJ10EbaFzvmLpjpx+U=")?);
+        let payload = HotVerifyBridge::Deposit(DepositAction {
+            chain_id: ChainId::Evm(4444_118),
+            data: DepositData {
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
+                nonce: 1764175051000000000008,
+            },
+        });
+        let json = serde_json::to_value(&payload)?;
         let proof = ProofModel {
             message_body: String::new(),
             user_payloads: vec![json.to_string()],

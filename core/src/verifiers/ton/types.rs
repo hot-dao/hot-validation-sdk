@@ -34,7 +34,8 @@ impl RpcResponse {
         ensure!(
             stack.len() == 1,
             "expected 1 item in stack, got {}: stack={:?}",
-            stack.len(), stack
+            stack.len(),
+            stack
         );
         Ok(stack[0].clone())
     }

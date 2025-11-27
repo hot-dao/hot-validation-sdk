@@ -59,8 +59,7 @@ impl EvmVerifier {
 #[async_trait]
 impl Verifier for EvmVerifier {
     fn chain_id(&self) -> ExtendedChainId {
-        self
-            .chain_id
+        self.chain_id
             .try_into()
             .expect("Couldn't convert ChainId to ExtendedChainId")
     }

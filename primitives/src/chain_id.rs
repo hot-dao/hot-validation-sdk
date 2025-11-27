@@ -32,6 +32,12 @@ pub enum ChainId {
 impl ChainId {
     /// Note: it should always go before EVM branch when pattern matching
     pub const TON_V2: Self = Self::Evm(1117);
+
+    #[must_use]
+    pub fn is_cosmos(&self) -> bool {
+        let chain_id: u64 = (*self).into();
+        chain_id.to_string().starts_with("4444")
+    }
 }
 
 impl Display for ChainId {
@@ -133,6 +139,8 @@ define_u64_enum_with_reverse! {
         Linea = 59144,
         BeraChain = 80094,
         Scroll = 534352,
+        Juno = 4444_118,
+        Gonka = 4444_119,
         Aurora = 1313161554,
     }
 }
@@ -198,25 +206,41 @@ impl ExtendedChainId {
             | Self::Ton
             | Self::Solana
             | Self::Scroll
+            | Self::Juno
+            | Self::Gonka
             | Self::Ink => false,
         }
     }
 }
 
-#[test]
-fn chain_id_roundtrip() {
-    assert_eq!(ChainId::from(0u64), ChainId::Near);
-    assert_eq!(ChainId::from(1100u64), ChainId::Stellar);
-    assert_eq!(ChainId::from(42u64), ChainId::Evm(42));
+#[cfg(test)]
+mod tests {
+    use crate::{ChainId, ExtendedChainId};
 
-    assert_eq!(u64::from(ChainId::Near), 0u64);
-    assert_eq!(u64::from(ChainId::Stellar), 1100u64);
-    assert_eq!(u64::from(ChainId::Evm(7)), 7u64);
-}
+    #[test]
+    fn test_cosmos_conversion() {
+        let chain_id: ChainId = ExtendedChainId::Gonka.into();
+        assert!(chain_id.is_cosmos());
+    }
 
-#[test]
-fn chain_id_display() {
-    assert_eq!(ChainId::Near.to_string(), "0");
-    assert_eq!(ChainId::Stellar.to_string(), "1100");
-    assert_eq!(ChainId::Evm(5).to_string(), "5");
+    #[test]
+    fn chain_id_roundtrip() {
+        assert_eq!(ChainId::from(0u64), ChainId::Near);
+        assert_eq!(ChainId::from(1100u64), ChainId::Stellar);
+        assert_eq!(ChainId::from(42u64), ChainId::Evm(42));
+
+        let _: ExtendedChainId = ChainId::Evm(143).try_into().unwrap();
+        ExtendedChainId::try_from(143).unwrap();
+
+        assert_eq!(u64::from(ChainId::Near), 0u64);
+        assert_eq!(u64::from(ChainId::Stellar), 1100u64);
+        assert_eq!(u64::from(ChainId::Evm(7)), 7u64);
+    }
+
+    #[test]
+    fn chain_id_display() {
+        assert_eq!(ChainId::Near.to_string(), "0");
+        assert_eq!(ChainId::Stellar.to_string(), "1100");
+        assert_eq!(ChainId::Evm(5).to_string(), "5");
+    }
 }

@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use hot_validation_primitives::bridge::stellar::StellarInputData;
 use hot_validation_primitives::bridge::InputData;
+use hot_validation_primitives::ExtendedChainId;
 use soroban_client::account::{Account, AccountBehavior};
 use soroban_client::contract::{ContractBehavior, Contracts};
 use soroban_client::keypair::{Keypair, KeypairBehavior};
@@ -16,7 +17,6 @@ use soroban_client::{xdr, Options, Server};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-use hot_validation_primitives::ExtendedChainId;
 
 #[derive(Clone)]
 pub(crate) struct StellarVerifier {
@@ -29,7 +29,6 @@ impl Identifiable for StellarVerifier {
         self.server.clone()
     }
 }
-
 
 impl StellarVerifier {
     pub fn new(server: String) -> Result<Self> {
@@ -79,7 +78,9 @@ impl StellarVerifier {
 
 #[async_trait]
 impl Verifier for StellarVerifier {
-    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Stellar }
+    fn chain_id(&self) -> ExtendedChainId {
+        ExtendedChainId::Stellar
+    }
 
     async fn verify(
         &self,

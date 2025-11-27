@@ -2,6 +2,7 @@
 #![allow(clippy::missing_errors_doc)]
 //! Types for bridge validation, which include flows for deposit and completed withdrawal verification.
 
+pub mod cosmos;
 pub mod evm;
 pub mod solana;
 pub mod stellar;
@@ -10,6 +11,7 @@ pub mod ton;
 use crate::Base58;
 use crate::Base58Array;
 use crate::ChainId;
+use crate::bridge::cosmos::CosmosInputData;
 use crate::bridge::solana::SolanaInputData;
 use anyhow::{Result, bail};
 use borsh::BorshSerialize;
@@ -169,6 +171,7 @@ pub enum InputData {
     Stellar(StellarInputData),
     Ton(TonInputData),
     Solana(SolanaInputData),
+    Cosmos(CosmosInputData),
 }
 
 impl HotVerifyResult {

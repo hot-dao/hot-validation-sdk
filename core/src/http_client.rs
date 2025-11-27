@@ -112,3 +112,50 @@ where
         source: e,
     })
 }
+
+/// Generic GET → JSON with unified error handling.
+///
+/// - Combines transport & non-success HTTP into `RequestFailed`
+/// - Keeps `JsonDecode` separate for clarity
+pub async fn get_json<U>(
+    client: &Arc<Client>,
+    url: &str,
+    chain_id: ChainId, // for metrics
+) -> std::result::Result<U, HttpError>
+where
+    U: DeserializeOwned,
+{
+    metrics::bump_metrics_rpc_call_total(chain_id, url);
+
+    let req = client
+        .get(url)
+        .header(ACCEPT, "application/json")
+        .timeout(TIMEOUT);
+
+    let resp = req.send().await.map_err(|e| {
+        HttpError::request_failed_error(chain_id, url.to_string(), None, None, anyhow!(e))
+    })?;
+
+    let status = resp.status();
+    let url_final = resp.url().to_string();
+    let bytes = resp.bytes().await.map_err(|e| {
+        HttpError::request_failed_error(chain_id, url_final.clone(), Some(status), None, anyhow!(e))
+    })?;
+
+    if !status.is_success() {
+        return Err(HttpError::request_failed_error(
+            chain_id,
+            url_final,
+            Some(status),
+            Some(bytes.to_vec()),
+            anyhow!("HTTP non-success status code"),
+        ));
+    }
+
+    serde_json::from_slice::<U>(&bytes).map_err(|e| HttpError::JsonDecode {
+        url: url_final,
+        status,
+        body_snip: snip_bytes(&bytes),
+        source: e,
+    })
+}

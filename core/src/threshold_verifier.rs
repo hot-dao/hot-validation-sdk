@@ -2,6 +2,7 @@ use crate::verifiers::Verifier;
 use anyhow::anyhow;
 use futures_util::{stream, StreamExt};
 use hot_validation_primitives::bridge::InputData;
+use hot_validation_primitives::ExtendedChainId;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::SeedableRng;
 use std::collections::HashMap;
@@ -10,7 +11,6 @@ use std::future::Future;
 use std::hash::Hash;
 use std::sync::Arc;
 use thiserror::Error;
-use hot_validation_primitives::ExtendedChainId;
 
 type Id = String;
 
@@ -42,9 +42,7 @@ impl<T: Identifiable> ThresholdVerifier<T> {
         };
 
         let mut responses = stream::iter(shuffled_verifiers)
-            .map(|verifier| async {
-                (verifier.id(), functor(verifier).await)
-            })
+            .map(|verifier| async { (verifier.id(), functor(verifier).await) })
             .buffer_unordered(threshold);
 
         let mut votes: HashMap<R, Vec<Id>> = HashMap::new();
@@ -53,9 +51,7 @@ impl<T: Identifiable> ThresholdVerifier<T> {
         while let Some((id, result)) = responses.next().await {
             match result {
                 Ok(vote) => {
-                    let entry = votes
-                        .entry(vote.clone())
-                        .or_insert(vec![]);
+                    let entry = votes.entry(vote.clone()).or_default();
                     entry.push(id);
 
                     // as soon as any variant reaches the threshold, return it
@@ -65,7 +61,7 @@ impl<T: Identifiable> ThresholdVerifier<T> {
                 }
                 Err(err) => {
                     errors.insert(id, err);
-                },
+                }
             }
         }
 
@@ -81,7 +77,9 @@ impl<T: Identifiable> ThresholdVerifier<T> {
 }
 
 #[derive(Error, Debug)]
-#[error("Verification failed for {chain_id}, contract={auth_contract_id}, method={method_name}: {kind}")]
+#[error(
+    "Verification failed for {chain_id}, contract={auth_contract_id}, method={method_name}: {kind}"
+)]
 pub struct VerificationError {
     pub chain_id: ExtendedChainId,
     pub auth_contract_id: String,
@@ -92,8 +90,7 @@ pub struct VerificationError {
 
 impl<T: Identifiable + Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
     fn chain_id(&self) -> ExtendedChainId {
-        self
-            .verifiers
+        self.verifiers
             .first()
             .expect("There should be at least one verifier")
             .chain_id()
@@ -118,14 +115,14 @@ impl<T: Identifiable + Verifier + Sync + Send + 'static> ThresholdVerifier<T> {
                     .await
             }
         })
-            .await
-            .map_err(|kind| VerificationError {
-                chain_id: self.chain_id(),
-                auth_contract_id: auth_contract_id_,
-                method_name: method_name_,
-                input_data: input_data_,
-                kind,
-            })
+        .await
+        .map_err(|kind| VerificationError {
+            chain_id: self.chain_id(),
+            auth_contract_id: auth_contract_id_,
+            method_name: method_name_,
+            input_data: input_data_,
+            kind,
+        })
     }
 }
 
@@ -146,7 +143,9 @@ mod tests {
     }
 
     impl Identifiable for DummyVerifier {
-        fn id(&self) -> String { String::default() }
+        fn id(&self) -> String {
+            String::default()
+        }
     }
 
     #[tokio::test]
@@ -255,7 +254,9 @@ mod tests {
     }
 
     impl Identifiable for BoolVerifier {
-        fn id(&self) -> String { String::default() }
+        fn id(&self) -> String {
+            String::default()
+        }
     }
 
     impl BoolVerifier {
@@ -389,7 +390,9 @@ mod tests {
     }
 
     impl Identifiable for CountVerifier {
-        fn id(&self) -> String { String::default() }
+        fn id(&self) -> String {
+            String::default()
+        }
     }
 
     #[tokio::test]

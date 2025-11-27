@@ -17,9 +17,9 @@ impl InfuraProvider {
 impl SlugFromChainId for InfuraProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
-            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, HyperEVM, Ink,
-            Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism, Polygon, Scroll,
-            Solana, Stellar, Ton, XLayer, ZkSync,
+            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka, HyperEVM,
+            Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism,
+            Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
         };
         match chain_id {
             Eth => Some("mainnet".to_string()),
@@ -34,8 +34,10 @@ impl SlugFromChainId for InfuraProvider {
             Linea => Some("linea-mainnet".to_string()),
             Mantle => Some("mantle-mainnet".to_string()),
 
-            Near | Abstract | Ink | Flare | HyperEVM | MonadMainnet | MonadTestnet | XLayer
-            | Stellar | Kava | BeraChain | Aurora | Solana | Kaia | Ton => None,
+            Juno | Gonka | Near | Abstract | Ink | Flare | HyperEVM | MonadMainnet
+            | MonadTestnet | XLayer | Stellar | Kava | BeraChain | Aurora | Solana | Kaia | Ton => {
+                None
+            }
         }
     }
 }

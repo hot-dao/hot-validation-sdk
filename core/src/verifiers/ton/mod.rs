@@ -47,28 +47,21 @@ impl TonVerifier {
         method_name: String,
         input: TonInputData,
     ) -> Result<TonAddress> {
-        let request =
-            RpcRequest::build(&treasury_address, &method_name, input.treasury_call_args);
+        let request = RpcRequest::build(&treasury_address, &method_name, input.treasury_call_args);
         let item: RpcResponse =
-            post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2)
-                .await?;
+            post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2).await?;
         let address = item.unpack()?.as_cell()?.parser().load_address()?;
         Ok(address)
     }
 
-    async fn child_call(
-        &self,
-        child_address: TonAddress,
-        input: TonInputData,
-    ) -> Result<String> {
+    async fn child_call(&self, child_address: TonAddress, input: TonInputData) -> Result<String> {
         let request = RpcRequest::build(
             &child_address,
             &input.child_call_method,
             input.child_call_args,
         );
         let item: RpcResponse =
-            post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2)
-                .await?;
+            post_json_receive_json(&self.client, &self.server, &request, ChainId::TON_V2).await?;
         let item = item.unpack()?.as_num()?;
         Ok(item)
     }
@@ -97,7 +90,9 @@ impl TonVerifier {
 
 #[async_trait]
 impl Verifier for TonVerifier {
-    fn chain_id(&self) -> ExtendedChainId { ExtendedChainId::Ton }
+    fn chain_id(&self) -> ExtendedChainId {
+        ExtendedChainId::Ton
+    }
 
     async fn verify(
         &self,
@@ -108,22 +103,14 @@ impl Verifier for TonVerifier {
         let input: TonInputData = input_data.try_into()?;
         let treasury_address = TonAddress::from_base64_url(&auth_contract_id)?;
         let child_address = self
-            .treasury_call(
-                treasury_address,
-                method_name,
-                input.clone(),
-            )
+            .treasury_call(treasury_address, method_name, input.clone())
             .await
             .map_err(TonError::TreasuryCall)?;
         let num = self
-            .child_call(
-                child_address,
-                input.clone(),
-            )
+            .child_call(child_address, input.clone())
             .await
             .map_err(TonError::ChildCall)?;
-        Self::verification_stage(num, input.action)
-            .map_err(TonError::VerificationStage)?;
+        Self::verification_stage(num, input.action).map_err(TonError::VerificationStage)?;
         Ok(true)
     }
 }
