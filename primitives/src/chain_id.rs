@@ -133,6 +133,7 @@ define_u64_enum_with_reverse! {
         Kaia = 8217,
         Base = 8453,
         MonadTestnet = 10143,
+        ADI = 36900,
         Arbitrum = 42161,
         Avax = 43114,
         Ink = 57073,
@@ -189,6 +190,7 @@ impl ExtendedChainId {
             | Self::Mantle
             | Self::MonadMainnet
             | Self::MonadTestnet
+            | Self::ADI
             | Self::Flare => true,
 
             // 🧱 BFT / PoA / deterministic

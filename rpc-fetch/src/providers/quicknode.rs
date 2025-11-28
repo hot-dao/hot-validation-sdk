@@ -19,9 +19,9 @@ impl QuicknodeProvider {
 impl SlugFromChainId for QuicknodeProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
-            Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka, HyperEVM,
-            Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near, Optimism,
-            Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
+            ADI, Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka,
+            HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near,
+            Optimism, Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
         };
         match chain_id {
             Optimism => Some("optimism".to_string()),
@@ -50,6 +50,7 @@ impl SlugFromChainId for QuicknodeProvider {
             Near | // it's "near-mainnet", but the load is too high, so we don't add it automatically, 
                    // rather we supply custom endpoints for it
             Eth | // has to return base endpoint
+            ADI |
             Kava |
             Juno |
             Gonka |
