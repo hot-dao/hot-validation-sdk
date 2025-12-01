@@ -15,7 +15,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, timeout};
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, warn};
 
 const HEALTHCHECK_INTERVAL: Duration = Duration::from_secs(15);
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(2);
@@ -61,6 +61,10 @@ impl ClusterManager {
         Ok(Arc::new(clusters))
     }
 
+    #[instrument(
+        skip(self, uid, message),
+        fields(message_hex = %hex::encode(&message)),
+    )]
     pub async fn sign(
         self: &Arc<Self>,
         uid: Uid,

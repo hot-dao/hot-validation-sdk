@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
                             .and_then(|v| v.to_str().ok())
                             .unwrap_or("-");
                         tracing::span!(
-                            Level::INFO, "http",
+                            Level::INFO, "mpc-proxy",
                             method=%req.method(),
                             uri=%req.uri(),
                             route,

@@ -10,12 +10,18 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use tracing::instrument;
 
 const TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Into, From, Deserialize)]
 pub(crate) struct Server(pub String);
 
+
+
+#[instrument(
+    skip(rb, url),
+)]
 async fn send_json<T: DeserializeOwned>(rb: reqwest::RequestBuilder, url: &str) -> Result<T> {
     let rb = rb.timeout(TIMEOUT);
     let resp = rb.send().await.context("error sending json")?;
@@ -27,6 +33,10 @@ async fn send_json<T: DeserializeOwned>(rb: reqwest::RequestBuilder, url: &str) 
     resp.json().await.context("error receiving json")
 }
 
+
+#[instrument(
+    skip(rb, url),
+)]
 async fn send_ok(rb: reqwest::RequestBuilder, url: &str) -> Result<()> {
     let rb = rb.timeout(TIMEOUT);
     let resp = rb.send().await?;
@@ -62,7 +72,10 @@ impl Server {
         send_json(client.post(&url).json(&req), &url).await
     }
 
-    /// TODO: Can we pass the data by reference there?
+
+    #[instrument(
+        skip(client, uid, message, proof, key_type),
+    )]
     pub(crate) async fn sign(
         &self,
         client: &reqwest::Client,

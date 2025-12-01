@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
+use tracing::instrument;
 
 #[derive(Clone)]
 pub struct NearVerifier {
@@ -34,6 +35,7 @@ impl NearVerifier {
         Self { client, server }
     }
 
+    #[instrument(skip(self))]
     async fn get_wallet(&self, wallet_id: WalletId) -> Result<WalletAuthMethods> {
         let wallet_id = GetWalletArgs { wallet_id };
         self.call_view_method(
@@ -48,7 +50,7 @@ impl NearVerifier {
         &self,
         wallet_id: WalletId,
         auth_method: AuthMethod,
-        message_hex: String,
+        message: Vec<u8>,
         message_body: String,
         user_payload: String,
     ) -> Result<HotVerifyResult> {
@@ -64,10 +66,7 @@ impl NearVerifier {
             HOT_VERIFY_METHOD_NAME.to_string()
         };
 
-        // TODO: maybe the message should be plain bytes in the first place, and base58 conversion
-        //  put into serialization logic.
-        let message_bs58 = hex::decode(&message_hex)
-            .map(|message_bytes| bs58::encode(message_bytes).into_string())?;
+        let message_bs58 = bs58::encode(message).into_string();
 
         let args = VerifyArgs {
             wallet_id: Some(wallet_id),
@@ -81,6 +80,7 @@ impl NearVerifier {
             .await
     }
 
+    #[instrument(skip(self, args))]
     async fn call_view_method<R, T>(
         &self,
         account_id: String,
@@ -118,6 +118,7 @@ impl ThresholdVerifier<NearVerifier> {
         }
     }
 
+    #[instrument(skip(self))]
     pub async fn get_wallet_auth_methods(
         self: &Arc<Self>,
         wallet_id: WalletId,
@@ -134,25 +135,19 @@ impl ThresholdVerifier<NearVerifier> {
         &self,
         wallet_id: WalletId,
         auth_method: AuthMethod,
-        message_hex: String,
+        message: Vec<u8>,
         message_body: String,
         user_payload: String,
     ) -> Result<HotVerifyResult> {
         self.threshold_call(move |verifier| {
             let wallet_id = wallet_id.clone();
             let auth_method = auth_method.clone();
-            let message_hex = message_hex.clone();
+            let message = message.clone();
             let message_body = message_body.clone();
             let user_payload = user_payload.clone();
             async move {
                 verifier
-                    .verify(
-                        wallet_id,
-                        auth_method,
-                        message_hex,
-                        message_body,
-                        user_payload,
-                    )
+                    .verify(wallet_id, auth_method, message, message_body, user_payload)
                     .await
             }
         })
@@ -214,21 +209,14 @@ pub(crate) mod tests {
         };
 
         let message_body = String::new();
-        let message_hex = {
+        let message = {
             let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec().unwrap()
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
         rpc_caller
-            .verify(
-                wallet_id,
-                auth_method,
-                message_hex,
-                message_body,
-                user_payload,
-            )
+            .verify(wallet_id, auth_method, message, message_body, user_payload)
             .await
             .unwrap();
     }
@@ -247,21 +235,14 @@ pub(crate) mod tests {
         };
 
         let message_body = String::new();
-        let message_hex = {
+        let message = {
             let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec().unwrap()
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
         rpc_caller
-            .verify(
-                wallet_id,
-                auth_method,
-                message_hex,
-                message_body,
-                user_payload,
-            )
+            .verify(wallet_id, auth_method, message, message_body, user_payload)
             .await
             .unwrap();
     }
@@ -280,21 +261,14 @@ pub(crate) mod tests {
         };
 
         let message_body = String::new();
-        let message_hex = {
+        let message = {
             let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec().unwrap()
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
         rpc_caller
-            .verify(
-                wallet_id,
-                auth_method,
-                message_hex,
-                message_body,
-                user_payload,
-            )
+            .verify(wallet_id, auth_method, message, message_body, user_payload)
             .await
             .unwrap();
     }
@@ -312,21 +286,14 @@ pub(crate) mod tests {
         };
 
         let message_body = String::new();
-        let message_hex = {
+        let message = {
             let bs58 = "7vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec()?
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
         let result = rpc_caller
-            .verify(
-                wallet_id,
-                auth_method,
-                message_hex,
-                message_body,
-                user_payload,
-            )
+            .verify(wallet_id, auth_method, message, message_body, user_payload)
             .await;
         assert!(result.is_err());
         Ok(())
@@ -357,8 +324,7 @@ pub(crate) mod tests {
         let message_body = String::new();
         let message_hex = {
             let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec().unwrap()
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
@@ -398,21 +364,14 @@ pub(crate) mod tests {
         };
 
         let message_body = String::new();
-        let message_hex = {
+        let message = {
             let bs58 = "6vLRVXiHvroXw1LEU1BNhz7QSaG73U41WM45m87X55H3";
-            let bytes = bs58::decode(bs58).into_vec().unwrap();
-            hex::encode(bytes)
+            bs58::decode(bs58).into_vec().unwrap()
         };
         let user_payload = r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string();
 
         rpc_validation
-            .verify(
-                wallet_id,
-                auth_method,
-                message_hex,
-                message_body,
-                user_payload,
-            )
+            .verify(wallet_id, auth_method, message, message_body, user_payload)
             .await
             .unwrap();
     }

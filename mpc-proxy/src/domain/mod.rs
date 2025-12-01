@@ -16,7 +16,11 @@ use hot_validation_primitives::uid::{Uid, WalletId};
 use std::sync::Arc;
 use tracing::instrument;
 
-#[instrument(skip(cluster_manager, validation, uid), err(Debug))]
+#[instrument(
+    skip(cluster_manager, validation, uid, message),
+    fields(message_hex = %hex::encode(&message)),
+    err(Debug)
+)]
 pub(crate) async fn validate_and_sign(
     cluster_manager: &Arc<ClusterManager>,
     validation: &Arc<Validation>,

@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::instrument;
 
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
 const LOG_SNIP_MAX: usize = 600;
@@ -67,6 +68,7 @@ fn snip_bytes(b: &[u8]) -> String {
 ///
 /// - Combines transport & non-success HTTP into `RequestFailed`
 /// - Keeps `JsonDecode` separate for clarity
+#[instrument(skip(client, body))]
 pub async fn post_json_receive_json<T, U>(
     client: &Arc<Client>,
     url: &str,
