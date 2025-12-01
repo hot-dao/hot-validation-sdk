@@ -361,6 +361,13 @@ pub mod test_data {
                     servers: vec!["https://api.mainnet-beta.solana.com".to_string()],
                 },
             ),
+            (
+                ChainId::Evm(4444_118),
+                ChainValidationConfig {
+                    threshold: 1,
+                    servers: vec!["https://juno-api.stakeandrelax.net".to_string()],
+                },
+            ),
         ]);
 
         let validation = Validation::new(&configs).unwrap();
@@ -368,24 +375,24 @@ pub mod test_data {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::should_panic_without_expect)]
 
     use super::*;
+    use crate::test_data::{create_validation_object, near_rpc};
     use base64::prelude::BASE64_STANDARD;
     use base64::Engine;
-    use crate::test_data::{create_validation_object, near_rpc, ton_rpc};
     use hot_validation_primitives::bridge::{
         CompletedWithdrawal, CompletedWithdrawalAction, DepositAction, DepositData, HotVerifyBridge,
     };
+    use std::str::FromStr;
 
     #[tokio::test]
     async fn validate_on_near() {
         let validation = create_validation_object();
 
-        let wallet_id = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into();
+        let wallet_id = WalletId::from_str("A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn").unwrap();
         let message =
             "57f42da8350f6a7c6ad567d678355a3bbd17a681117e7a892db30656d5caee32".to_string();
         let proof = ProofModel {
@@ -424,7 +431,7 @@ mod tests {
         ]);
         let validation = Arc::new(Validation::new(&configs).unwrap());
 
-        let wallet_id = "GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ".to_string().into();
+        let wallet_id = WalletId::from_str("GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ").unwrap();
         let message =
             "6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4".to_string();
         let proof = ProofModel {
@@ -440,7 +447,7 @@ mod tests {
 
     /// wallet id for testing. It has only one auth method, which is `bridge.kuksag.tg` with `hot_verify_locker_state` method.
     fn staging_wallet_id() -> WalletId {
-        "EvXjdccDCzZfofBsk6NL8LKKNSa6RcBmrXqjymM9mmnn".to_string().into()
+        WalletId::from_str("EvXjdccDCzZfofBsk6NL8LKKNSa6RcBmrXqjymM9mmnn").unwrap()
     }
 
     #[tokio::test]
@@ -453,10 +460,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Evm(56),
             data: DepositData {
-                sender: None,
-                receiver: None,
-                token_id: None,
-                amount: None,
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
                 nonce: 1_754_431_900_000_000_013_182,
             },
         });
@@ -481,10 +488,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Stellar,
             data: DepositData {
-                sender: None,
-                receiver: None,
-                token_id: None,
-                amount: None,
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
                 nonce: 1_754_531_354_365_901_458_000,
             },
         });
@@ -510,10 +517,10 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::TON_V2,
             data: DepositData {
-                sender: None,
-                receiver: None,
-                token_id: None,
-                amount: None,
+                sender: [0; 32],
+                receiver: [0; 32],
+                token_id: vec![],
+                amount: 0,
                 nonce: 1_753_218_716_000_000_003_679,
             },
         });
@@ -540,7 +547,7 @@ mod tests {
             chain_id: ChainId::TON_V2,
             data: CompletedWithdrawal {
                 nonce: 1_753_218_716_000_000_003_679,
-                receiver_address: Some("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string()),
+                receiver_address: "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string(),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -567,7 +574,7 @@ mod tests {
             chain_id: ChainId::Stellar,
             data: CompletedWithdrawal {
                 nonce: 1_754_631_474_000_000_070_075,
-                receiver_address: Some("dontcare".to_string()),
+                receiver_address: "dontcare".to_string(),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -594,7 +601,7 @@ mod tests {
             chain_id: ChainId::Evm(56),
             data: CompletedWithdrawal {
                 nonce: 1_754_790_996_000_000_073_027,
-                receiver_address: Some("dontcare".to_string()),
+                receiver_address: "dontcare".to_string(),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -619,17 +626,17 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Solana,
             data: DepositData {
-                sender: Some(bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
+                sender: bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
                     .into_vec()?
                     .try_into()
-                    .unwrap()),
-                receiver: Some(bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
+                    .unwrap(),
+                receiver: bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
                     .into_vec()?
                     .try_into()
-                    .unwrap()),
-                token_id: Some(bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
-                    .into_vec()?),
-                amount: Some(10_000_000),
+                    .unwrap(),
+                token_id: bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
+                    .into_vec()?,
+                amount: 10_000_000,
                 nonce: 1_757_984_522_000_007_228,
             },
         });
@@ -657,7 +664,7 @@ mod tests {
             chain_id: ChainId::Solana,
             data: CompletedWithdrawal {
                 nonce: 1_749_390_032_000_000_032_243,
-                receiver_address: Some("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string()),
+                receiver_address: "5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho".to_string(),
             },
         });
         let json = serde_json::to_value(&payload)?;

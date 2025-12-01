@@ -1,5 +1,5 @@
 use crate::bridge::{CompletedWithdrawal, DepositData};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as};
@@ -94,11 +94,7 @@ pub mod anchor {
 
 impl CompletedWithdrawal {
     pub fn get_user_address(&self, program_id: &Address) -> Result<Address> {
-        let receiver_address = self
-            .receiver_address
-            .as_ref()
-            .ok_or(anyhow!("receiver address missing"))?;
-        let receiver_bytes = bs58::decode(receiver_address).into_vec()?;
+        let receiver_bytes = bs58::decode(&self.receiver_address).into_vec()?;
         let seed: &[&[u8]] = &[b"user", &receiver_bytes];
         let (pda, _bump) = Pubkey::find_program_address(seed, program_id);
         Ok(pda)
@@ -106,29 +102,25 @@ impl CompletedWithdrawal {
 }
 
 impl DepositWithProof {
-    fn get_user_address(&self, program_id: &Address) -> Result<Address> {
-        let sender = self.deposit_data.get_sender()?;
-        let seed: &[&[u8]] = &[b"user", sender];
+    fn get_user_address(&self, program_id: &Address) -> Address {
+        let seed: &[&[u8]] = &[b"user", &self.deposit_data.sender];
         let (pda, _bump) = Pubkey::find_program_address(seed, program_id);
-        Ok(pda)
+        pda
     }
 
-    fn get_deposit_address(&self, program_id: &Address) -> Result<Address> {
-        let sender = self.deposit_data.get_sender()?;
-        let amount = <u64>::try_from(self.deposit_data.get_amount()?)
+    fn get_deposit_address(&self, program_id: &Address) -> Address {
+        let amount = <u64>::try_from(self.deposit_data.amount)
             .expect("Unsuccessful downcast from u128 to u64");
-        let receiver = self.deposit_data.get_receiver()?;
-        let token_id = self.deposit_data.get_token_id()?;
         let seed: &[&[u8]] = &[
             b"deposit",
             &self.deposit_data.nonce.to_be_bytes(),
-            sender,
-            receiver,
-            token_id,
+            &self.deposit_data.sender,
+            &self.deposit_data.receiver,
+            &self.deposit_data.token_id,
             &amount.to_be_bytes(),
         ];
         let (pda, _bump) = Pubkey::find_program_address(seed, program_id);
-        Ok(pda)
+        pda
     }
 
     fn get_state_address(program_id: &Address) -> Address {
@@ -137,12 +129,9 @@ impl DepositWithProof {
     }
 
     fn get_instruction(&self, program_id: &Address, method_name: &str) -> Result<Instruction> {
-        let sender = {
-            let sender = *self.deposit_data.get_sender()?;
-            Pubkey::from(sender)
-        };
-        let deposit = self.get_deposit_address(program_id)?;
-        let user = self.get_user_address(program_id)?;
+        let sender = Pubkey::from(self.deposit_data.sender);
+        let deposit = self.get_deposit_address(program_id);
+        let user = self.get_user_address(program_id);
         let state = Self::get_state_address(program_id);
 
         let accounts = vec![
@@ -166,10 +155,7 @@ impl DepositWithProof {
     pub fn get_message(&self, program_id: &Address, method_name: &str) -> Result<Message> {
         // We dont care about specific signer here, since there's no signature checking.
         // But we need to provide an existent signer.
-        let signer_pubkey = {
-            let sender = *self.deposit_data.get_sender()?;
-            Pubkey::from(sender)
-        };
+        let signer_pubkey = Pubkey::from(self.deposit_data.sender);
         let ix = self.get_instruction(program_id, method_name)?;
         let msg = Message::new(&[ix], Some(&signer_pubkey));
         Ok(msg)
@@ -218,7 +204,7 @@ mod tests {
     fn get_user_address() -> Result<()> {
         let program_id = Pubkey::from_str("8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC")?;
         let deposit_with_proof = get_deposit_with_proof();
-        let actual = deposit_with_proof.get_user_address(&program_id)?;
+        let actual = deposit_with_proof.get_user_address(&program_id);
         let expected = "uSCWARfV7dxmvv9kUfBjuHCC5UjXgDRMxgKmhop6vQf";
         assert_eq!(actual.to_string(), expected);
         Ok(())
@@ -237,7 +223,7 @@ mod tests {
     fn get_deposit_address() -> Result<()> {
         let program_id = Pubkey::from_str("8sXzdKW2jFj7V5heRwPMcygzNH3JZnmie5ZRuNoTuKQC")?;
         let deposit_with_proof = get_deposit_with_proof();
-        let actual = deposit_with_proof.get_deposit_address(&program_id)?;
+        let actual = deposit_with_proof.get_deposit_address(&program_id);
         let expected = "GRmeLkQAVHDFBPrSBZ7jBhCwMhEBrMdCFzLKfxhxnUcx";
         assert_eq!(actual.to_string(), expected);
         Ok(())
