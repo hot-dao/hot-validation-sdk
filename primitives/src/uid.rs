@@ -98,9 +98,9 @@ impl FromStr for WalletId {
         Ok(WalletId(array))
     }
 }
-impl From<Uid> for WalletId {
-    fn from(value: Uid) -> Self {
-        let hashed = Sha256::digest(value.0).into();
+impl From<&Uid> for WalletId {
+    fn from(value: &Uid) -> Self {
+        let hashed = Sha256::digest(&value.0).into();
         Self(hashed)
     }
 }
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_wallet_id_consistency() -> Result<()> {
         let uid = Uid::from_hex(UID_HEX)?;
-        let wallet_ud = WalletId::from(uid);
+        let wallet_ud = WalletId::from(&uid);
         dbg!(wallet_ud.to_string());
 
         assert_eq!(bs58::encode(*wallet_ud).into_string(), WALLET_ID_HEX,);
