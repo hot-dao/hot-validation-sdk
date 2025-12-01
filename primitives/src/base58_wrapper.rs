@@ -38,8 +38,11 @@ impl<const N: usize> SerializeAs<[u8; N]> for Base58Array<N> {
     }
 }
 
-impl<'de, const N: usize> DeserializeAs<'de, [u8; N]> for Base58Array<N> {
-    fn deserialize_as<D>(deserializer: D) -> Result<[u8; N], D::Error>
+impl<'de, I, const N: usize> DeserializeAs<'de, I> for Base58Array<N>
+where
+    I: From<[u8; N]>
+{
+    fn deserialize_as<D>(deserializer: D) -> Result<I, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -55,6 +58,6 @@ impl<'de, const N: usize> DeserializeAs<'de, [u8; N]> for Base58Array<N> {
         }
         let mut out = [0u8; N];
         out.copy_from_slice(&v);
-        Ok(out)
+        Ok(out.into())
     }
 }

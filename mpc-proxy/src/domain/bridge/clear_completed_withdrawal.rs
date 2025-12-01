@@ -14,12 +14,12 @@ pub(crate) async fn sign_clear_completed_withdrawal(
     validation: &Arc<Validation>,
     completed_withdrawal_action: CompletedWithdrawalAction,
 ) -> Result<OffchainSignatureResponse, AppError> {
-    let uid = uid_registry.get_bridge_deposit(); // TODO: Replace with proper uid
+    let uid = uid_registry.get_bridge_withdrawal(); // TODO: Replace with proper uid
     let challenge = completed_withdrawal_action
         .data
-        .build_challenge_for_removal_owned();
-    let message = hex::encode(challenge);
+        .build_challenge_for_removal_owned()
+        .to_vec();
     let proof_model =
         ClearCompletedWithdrawalRequest::create_proof_model(completed_withdrawal_action)?;
-    validate_and_sign(cluster_manager, validation, uid, message, proof_model).await
+    validate_and_sign(cluster_manager, validation, uid, challenge, proof_model).await
 }

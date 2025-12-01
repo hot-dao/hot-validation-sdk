@@ -16,8 +16,8 @@ pub(crate) async fn sign_deposit(
     let uid = uid_registry.get_bridge_deposit();
     let challenge = deposit_action
         .build_challenge_for_deposit()
-        .map_err(AppError::DataConversionError)?;
-    let message = hex::encode(challenge);
+        .map_err(AppError::DataConversionError)?
+        .to_vec();
     let proof_model = DepositRequest::create_proof_model(deposit_action)?;
-    validate_and_sign(cluster_manager, validation, uid, message, proof_model).await
+    validate_and_sign(cluster_manager, validation, uid, challenge, proof_model).await
 }

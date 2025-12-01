@@ -41,11 +41,10 @@ pub(crate) async fn sign_withdrawal(
         })?;
     let uid: Uid = uid_registry.get_bridge_withdrawal();
 
-    let challenge = withdrawal.build_challenge_for_deposit()?;
-    let message = hex::encode(challenge.as_ref());
+    let challenge = withdrawal.build_challenge_for_deposit()?.to_vec();
     let proof_model = withdrawal_request.create_proof_model();
     let signature = cluster_manager
-        .sign(uid, message, proof_model, KeyType::Ecdsa)
+        .sign(uid, challenge, proof_model, KeyType::Ecdsa)
         .await?;
     Ok(signature)
 }

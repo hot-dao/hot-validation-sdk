@@ -1,14 +1,22 @@
 use crate::Base58Array;
 use anyhow::{Context, Result};
-use derive_more::{AsRef, Deref, DerefMut, From, Into};
+use derive_more::{AsRef, Deref, DerefMut, From, Into, TryFrom, TryInto};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_with::{DeserializeAs, serde_as};
+use serde_with::{serde_as, DeserializeAs};
 use sha2::{Digest, Sha256};
 use std::fmt;
+use std::fmt::{Debug, Formatter};
 use std::str::FromStr;
 
 #[derive(Clone, From, Into, Deref, DerefMut, Eq, PartialEq, AsRef)]
 pub struct Uid(pub [u8; 32]);
+
+impl From<Vec<u8>> for Uid {
+    fn from(value: Vec<u8>) -> Self {
+        Self::from_bytes(value.as_slice())
+            .expect(format!("Expected 32 bytes, got {}", value.len()).as_str())
+    }
+}
 
 impl AsRef<[u8]> for Uid {
     fn as_ref(&self) -> &[u8] {
@@ -19,35 +27,6 @@ impl AsRef<[u8]> for Uid {
 impl fmt::Debug for Uid {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Uid").field(&"[REDACTED]").finish()
-    }
-}
-
-pub struct HexOrBase58;
-
-impl<'de> DeserializeAs<'de, Uid> for HexOrBase58 {
-    fn deserialize_as<D>(deserializer: D) -> Result<Uid, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = <&str>::deserialize(deserializer)?;
-        let mut errors = Vec::new();
-
-        // Try hex first
-        match Uid::from_hex(s) {
-            Ok(uid) => return Ok(uid),
-            Err(e) => errors.push(format!("hex: {e:#}")),
-        }
-
-        // Try base58
-        match Uid::from_bs58(s) {
-            Ok(uid) => return Ok(uid),
-            Err(e) => errors.push(format!("base58: {e:#}")),
-        }
-
-        Err(serde::de::Error::custom(format!(
-            "Failed to parse UID from any format:\n  {}",
-            errors.join("\n  ")
-        )))
     }
 }
 
@@ -75,8 +54,14 @@ impl Uid {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Clone, Debug, From, Into, Deref, DerefMut)]
+#[derive(Serialize, Deserialize, Clone, From, Into, Deref, DerefMut)]
 pub struct WalletId(#[serde_as(as = "Base58Array<32>")] pub [u8; 32]);
+
+impl fmt::Debug for WalletId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
 
 impl fmt::Display for WalletId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -118,8 +103,9 @@ impl Uid {
 
 #[cfg(test)]
 mod tests {
-    use crate::uid::Uid;
-    use crate::uid::{HexOrBase58, WalletId};
+    use crate::Base58Array;
+use crate::uid::Uid;
+    use crate::uid::{WalletId};
     use anyhow::Result;
     use derive_more::{Deref, DerefMut, From, Into};
     use serde::{Deserialize, Serialize};
@@ -131,27 +117,25 @@ mod tests {
     const TWEAK_HEX: &str = "6fad344c80c6e813ecbe2ca6309c9bda422ffae0b6b6857ed30b25a7534dddba";
     const WALLET_ID_HEX: &str = "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn";
 
-    #[serde_as]
-    #[derive(Serialize, Deserialize, Into, From, Deref, DerefMut)]
-    struct UidWrapper(#[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")] Uid);
-
     #[test]
     fn test_se_uid_into_hex() -> Result<()> {
+        #[serde_as]
+        #[derive(Serialize, Deserialize, Into, From, Deref, DerefMut)]
+        struct UidWrapper(#[serde_as(as = "Hex")] Uid);
+
         let uid = Uid::from_hex(UID_HEX)?;
         let wrapper: UidWrapper = uid.into();
         let json = serde_json::to_string(&wrapper)?;
         println!("{json}");
-        Ok(())
-    }
-
-    #[test]
-    fn test_de_uid_from_hex() -> Result<()> {
         let _: UidWrapper = serde_json::from_str(&format!("\"{UID_HEX}\""))?;
         Ok(())
     }
 
     #[test]
     fn test_de_uid_from_bs58() -> Result<()> {
+        #[serde_as]
+        #[derive(Serialize, Deserialize, Into, From, Deref, DerefMut)]
+        struct UidWrapper(#[serde_as(as = "Base58Array<32>")] Uid);
         let _: UidWrapper = serde_json::from_str(&format!("\"{UID_BS58}\""))?;
         Ok(())
     }

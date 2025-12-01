@@ -1,5 +1,4 @@
 use crate::ProofModel;
-use crate::uid::HexOrBase58;
 use crate::uid::Uid;
 use cait_sith::ecdsa::sign::FullSignature;
 use cait_sith::{frost_ed25519, frost_secp256k1};
@@ -11,7 +10,7 @@ use serde_with::serde_as;
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PublicKeyRequest {
-    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
+    #[serde_as(as = "Hex")]
     pub uid: Uid,
 }
 
@@ -54,9 +53,10 @@ pub enum KeyType {
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OffchainSignatureRequest {
-    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
+    #[serde_as(as = "Hex")]
     pub uid: Uid,
-    pub message: String,
+    #[serde_as(as = "Hex")]
+    pub message: Vec<u8>,
     pub proof: ProofModel,
     pub key_type: KeyType,
     #[serde(skip_serializing_if = "Option::is_none")]

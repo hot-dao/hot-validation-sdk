@@ -21,7 +21,7 @@ pub(crate) async fn validate_and_sign(
     cluster_manager: &Arc<ClusterManager>,
     validation: &Arc<Validation>,
     uid: Uid,
-    message: String,
+    message: Vec<u8>,
     proof_model: ProofModel,
 ) -> Result<OffchainSignatureResponse, AppError> {
     let wallet_id = WalletId::from(&uid);

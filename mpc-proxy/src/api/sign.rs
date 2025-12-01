@@ -1,5 +1,6 @@
+use hot_validation_primitives::Base58Array;
+use hot_validation_primitives::Base58;
 use serde_with::hex::Hex;
-use hot_validation_core::uid::HexOrBase58;
 use crate::api::AppState;
 use crate::domain::errors::AppError;
 use crate::domain::validate_and_sign;
@@ -13,9 +14,9 @@ use serde_with::serde_as;
 use tracing::instrument;
 
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub(crate) struct SignRawRequest {
-    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
+    #[serde_as(deserialize_as = "Hex")]
     uid: Uid,
     message: String,
     proof: ProofModel,
@@ -24,12 +25,13 @@ pub(crate) struct SignRawRequest {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub(crate) struct SignRequest {
-    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
+    #[serde_as(deserialize_as = "Base58Array<32>")]
     wallet_derive: Uid,
     /// Hashed message that we want to sign
-    message: String,
+    #[serde_as(as = "Base58")]
+    message: Vec<u8>,
     /// Image of the message
     message_body: String,
     user_payloads: Vec<String>,
