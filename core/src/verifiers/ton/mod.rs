@@ -139,12 +139,12 @@ pub(crate) mod tests {
     use std::sync::Arc;
 
     use crate::http_client::post_json_receive_json;
+    use crate::test_data::ton_rpc;
     use crate::verifiers::ton::types::{RpcRequest, RpcResponse};
     use crate::verifiers::ton::TonVerifier;
     use crate::verifiers::Verifier;
     use hot_validation_primitives::ChainId;
     use tonlib_core::TonAddress;
-    use crate::test_data::ton_rpc;
 
     #[tokio::test]
     async fn deposit_first_call() -> Result<()> {

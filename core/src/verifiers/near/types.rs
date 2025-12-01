@@ -1,8 +1,8 @@
 use crate::verifiers::near::types::base64_json::Base64OfJson;
+use hot_validation_primitives::uid::WalletId;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::serde_as;
-use hot_validation_primitives::uid::WalletId;
 
 /// Arguments for `get_wallet` method on Near `mpc.hot.tg` smart contract.
 #[derive(Debug, Serialize)]
