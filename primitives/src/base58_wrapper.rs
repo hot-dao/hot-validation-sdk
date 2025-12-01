@@ -2,6 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Deserializer, Serializer};
 use serde_with::{DeserializeAs, SerializeAs};
 
+// TODO: It can be generalized with `T: Impl AsRef<[u8]>` or something
 pub struct Base58;
 
 impl SerializeAs<Vec<u8>> for Base58 {
