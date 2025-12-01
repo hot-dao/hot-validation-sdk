@@ -27,7 +27,6 @@ pub struct ThresholdVerifier<T: Identifiable> {
 }
 
 impl<T: Identifiable> ThresholdVerifier<T> {
-    #[instrument(skip(self, functor))]
     pub async fn threshold_call<F, Fut, R>(&self, functor: F) -> anyhow::Result<R>
     where
         R: Eq + Hash + Clone + Debug,

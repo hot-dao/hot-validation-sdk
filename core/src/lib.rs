@@ -137,7 +137,8 @@ impl Validation {
 
     #[instrument(
         skip(self, message),
-        fields(message_hex = %hex::encode(&message))
+        fields(message_hex = %hex::encode(&message)),
+        err(Debug)
     )]
     pub async fn verify(
         self: &Arc<Self>,
@@ -183,7 +184,8 @@ impl Validation {
 
     #[instrument(
         skip(self, message),
-        fields(message_hex = %hex::encode(&message))
+        fields(message_hex = %hex::encode(&message)),
+        err(Debug)
     )]
     pub(crate) async fn verify_auth_method(
         self: &Arc<Self>,

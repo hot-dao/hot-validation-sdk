@@ -68,7 +68,6 @@ fn snip_bytes(b: &[u8]) -> String {
 ///
 /// - Combines transport & non-success HTTP into `RequestFailed`
 /// - Keeps `JsonDecode` separate for clarity
-#[instrument(skip(client, body))]
 pub async fn post_json_receive_json<T, U>(
     client: &Arc<Client>,
     url: &str,

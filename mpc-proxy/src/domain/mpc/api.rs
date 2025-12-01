@@ -19,9 +19,6 @@ pub(crate) struct Server(pub String);
 
 
 
-#[instrument(
-    skip(rb, url),
-)]
 async fn send_json<T: DeserializeOwned>(rb: reqwest::RequestBuilder, url: &str) -> Result<T> {
     let rb = rb.timeout(TIMEOUT);
     let resp = rb.send().await.context("error sending json")?;
@@ -34,9 +31,6 @@ async fn send_json<T: DeserializeOwned>(rb: reqwest::RequestBuilder, url: &str) 
 }
 
 
-#[instrument(
-    skip(rb, url),
-)]
 async fn send_ok(rb: reqwest::RequestBuilder, url: &str) -> Result<()> {
     let rb = rb.timeout(TIMEOUT);
     let resp = rb.send().await?;
@@ -75,6 +69,7 @@ impl Server {
 
     #[instrument(
         skip(client, uid, message, proof, key_type),
+        err(Debug)
     )]
     pub(crate) async fn sign(
         &self,

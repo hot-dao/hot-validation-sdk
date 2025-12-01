@@ -64,6 +64,7 @@ impl ClusterManager {
     #[instrument(
         skip(self, uid, message),
         fields(message_hex = %hex::encode(&message)),
+        err(Debug)
     )]
     pub async fn sign(
         self: &Arc<Self>,
