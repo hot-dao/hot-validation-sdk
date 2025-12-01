@@ -12,7 +12,7 @@ use hot_validation_primitives::bridge::{
     CompletedWithdrawalAction, DepositAction, HotVerifyBridge,
 };
 use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
-use hot_validation_primitives::uid::Uid;
+use hot_validation_primitives::uid::{Uid, WalletId};
 use std::sync::Arc;
 use tracing::instrument;
 
@@ -24,10 +24,7 @@ pub(crate) async fn validate_and_sign(
     message: String,
     proof_model: ProofModel,
 ) -> Result<OffchainSignatureResponse, AppError> {
-    let wallet_id = uid
-        .to_wallet_id()
-        .context("Failed to convert UID to WalletID")
-        .map_err(AppError::DataConversionError)?;
+    let wallet_id = WalletId::from(&uid);
     validation
         .verify(wallet_id, message.clone(), proof_model.clone())
         .await

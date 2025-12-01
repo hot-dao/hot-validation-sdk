@@ -324,9 +324,7 @@ mod tests {
         let cluster = load_cluster_from_config()?;
         let cluster_manager = ClusterManager::new(cluster).await?;
 
-        let uid: Uid = "0887d14fbe253e8b6a7b8193f3891e04f88a9ed744b91f4990d567ffc8b18e5f"
-            .to_string()
-            .into();
+        let uid = Uid::from_hex("0887d14fbe253e8b6a7b8193f3891e04f88a9ed744b91f4990d567ffc8b18e5f")?;
         let message =
             "57f42da8350f6a7c6ad567d678355a3bbd17a681117e7a892db30656d5caee32".to_string();
         let proof = ProofModel {

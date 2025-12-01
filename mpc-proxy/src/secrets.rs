@@ -1,3 +1,5 @@
+use serde_with::hex::Hex;
+use hot_validation_core::uid::HexOrBase58;
 use crate::domain::errors::AppError;
 use aes::{Aes128, Aes192, Aes256};
 use anyhow::{Context, anyhow};
@@ -12,11 +14,15 @@ use rpassword::prompt_password;
 use serde::{Deserialize, Serialize};
 use std::fs::read_to_string;
 use std::path::Path;
+use serde_with::serde_as;
 
 /// A registry of helper-uids, that's used for protocol-specific actions
+#[serde_as]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct UidRegistry {
+    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
     bridge_deposit: Uid,
+    #[serde_as(deserialize_as = "HexOrBase58", serialize_as = "Hex")]
     bridge_withdrawal: Uid,
 }
 
