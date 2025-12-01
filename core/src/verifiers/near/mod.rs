@@ -1,7 +1,5 @@
 mod types;
 
-use std::fmt::Debug;
-use std::hash::Hash;
 use crate::http_client::post_json_receive_json;
 use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::near::types::{GetWalletArgs, RpcRequest, RpcResponse, VerifyArgs};
@@ -11,11 +9,13 @@ use crate::{
 };
 use anyhow::Result;
 use hot_validation_primitives::bridge::HotVerifyResult;
-use hot_validation_primitives::ChainId;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use serde::de::DeserializeOwned;
 use hot_validation_primitives::uid::WalletId;
+use hot_validation_primitives::ChainId;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct NearVerifier {
@@ -39,8 +39,9 @@ impl NearVerifier {
         self.call_view_method(
             MPC_HOT_WALLET_CONTRACT.to_string(),
             MPC_GET_WALLET_METHOD.to_string(),
-            &wallet_id
-        ).await
+            &wallet_id,
+        )
+        .await
     }
 
     async fn verify(
@@ -76,11 +77,8 @@ impl NearVerifier {
             msg_body: message_body.clone(),
         };
 
-        self.call_view_method(
-            auth_method.account_id,
-            method_name,
-            &args
-        ).await
+        self.call_view_method(auth_method.account_id, method_name, &args)
+            .await
     }
 
     async fn call_view_method<R, T>(
@@ -177,15 +175,11 @@ impl ThresholdVerifier<NearVerifier> {
             let args = args.clone();
             async move {
                 verifier
-                    .call_view_method(
-                        account_id,
-                        method_name,
-                        args,
-                    )
+                    .call_view_method(account_id, method_name, args)
                     .await
             }
         })
-            .await
+        .await
     }
 }
 
@@ -193,17 +187,18 @@ impl ThresholdVerifier<NearVerifier> {
 pub(crate) mod tests {
     #![allow(clippy::should_panic_without_expect)]
 
+    use crate::test_data::near_rpc;
     use crate::threshold_verifier::ThresholdVerifier;
     use crate::verifiers::near::NearVerifier;
     use crate::{AuthMethod, WalletAuthMethods};
     use anyhow::Result;
-    use hot_validation_primitives::ChainValidationConfig;
-    use std::sync::Arc;
     use hot_validation_primitives::uid::WalletId;
-    use crate::test_data::near_rpc;
+    use hot_validation_primitives::ChainValidationConfig;
+    use std::str::FromStr;
+    use std::sync::Arc;
 
     fn sample_wallet_id() -> WalletId {
-        "A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into()
+        WalletId::from_str("A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn").unwrap()
     }
 
     #[tokio::test]
@@ -244,7 +239,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn".to_string().into();
+        let wallet_id = WalletId::from_str("B8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn").unwrap();
 
         let auth_method = AuthMethod {
             account_id: "keys.auth.hot.tg".to_string(),
@@ -445,7 +440,7 @@ pub(crate) mod tests {
         let client = Arc::new(reqwest::Client::new());
         let rpc_caller = NearVerifier::new(client, near_rpc());
 
-        let wallet_id = "Puvk3GR7bvBmJqg2Sdzs4D2AFGAW3rXq9iwpJraBkGJ".to_string().into();
+        let wallet_id = WalletId::from_str("Puvk3GR7bvBmJqg2Sdzs4D2AFGAW3rXq9iwpJraBkGJ").unwrap();
         let expected = WalletAuthMethods {
             access_list: vec![AuthMethod {
                 account_id: "drops.nfts.tg".to_string(),
