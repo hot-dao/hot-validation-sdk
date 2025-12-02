@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::hex::Hex;
 use serde_with::serde_as;
 
+pub use k256;
+pub use cait_sith;
+
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PublicKeyRequest {
