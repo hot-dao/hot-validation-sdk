@@ -8,7 +8,7 @@ pub(crate) enum AppError {
     DataConversionError(anyhow::Error),
     ValidationError(anyhow::Error),
     InitializationError(anyhow::Error),
-    MpcSignError(anyhow::Error),
+    MpcError(anyhow::Error),
     OsError(anyhow::Error),
 }
 

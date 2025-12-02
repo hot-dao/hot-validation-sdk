@@ -3,7 +3,7 @@ use crate::domain::mpc::api::Server;
 use anyhow::anyhow;
 use futures_util::{StreamExt, stream};
 use hot_validation_primitives::ProofModel;
-use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse, ParticipantsInfo};
+use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse, ParticipantsInfo, PublicKeyResponse};
 use hot_validation_primitives::uid::Uid;
 use itertools::Itertools;
 use rand::SeedableRng;
@@ -16,6 +16,7 @@ use tokio::task::JoinHandle;
 use tokio::time::{interval, timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, instrument, warn};
+use crate::domain::errors::AppError::MpcError;
 
 const HEALTHCHECK_INTERVAL: Duration = Duration::from_secs(15);
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(2);
@@ -59,6 +60,32 @@ impl ClusterManager {
         let clusters = Self { client, clusters };
 
         Ok(Arc::new(clusters))
+    }
+
+
+    #[instrument(
+        skip(self, uid),
+        err(Debug)
+    )]
+    pub async fn get_public_key(
+        self: &Arc<Self>,
+        uid: Uid,
+    ) -> Result<PublicKeyResponse, AppError> {
+        let mut errors = vec![];
+        for cluster in self.clusters.iter() {
+            let live_servers = cluster.alive_snapshot().await;
+            for server in live_servers.servers {
+                let response = server.server.get_public_key(
+                    &self.client,
+                    uid.clone(),
+                ).await;
+                match response {
+                    Ok(response) => return Ok(response),
+                    Err(e) => errors.push(e),
+                }
+            }
+        }
+        Err(MpcError(anyhow!("No public retrieved errors: {:#?}", errors)))
     }
 
     #[instrument(
@@ -117,7 +144,7 @@ impl ClusterManager {
                 }
             }
         }
-        Err(AppError::MpcSignError(anyhow!(
+        Err(AppError::MpcError(anyhow!(
             "sign failed for all combinations"
         )))
     }

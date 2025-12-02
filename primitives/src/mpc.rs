@@ -1,3 +1,4 @@
+use crate::Base58Array;
 use crate::ProofModel;
 use crate::uid::Uid;
 use cait_sith::ecdsa::sign::FullSignature;
@@ -10,7 +11,7 @@ use serde_with::serde_as;
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PublicKeyRequest {
-    #[serde_as(as = "Hex")]
+    #[serde_as(as = "Base58Array<32>")]
     pub uid: Uid,
 }
 

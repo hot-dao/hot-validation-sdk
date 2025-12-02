@@ -19,6 +19,11 @@ pub(crate) struct Server(pub String);
 
 
 
+
+#[instrument(
+    skip(rb, url),
+    err(Debug)
+)]
 async fn send_json<T: DeserializeOwned>(rb: reqwest::RequestBuilder, url: &str) -> Result<T> {
     let rb = rb.timeout(TIMEOUT);
     let resp = rb.send().await.context("error sending json")?;
