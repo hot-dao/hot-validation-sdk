@@ -65,7 +65,7 @@ impl SignRequest {
 pub(crate) async fn sign_raw(
     State(state): State<AppState>,
     Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
-) -> Result<Json<OffchainSignatureResponse>, AppError> {
+) -> Result<Json<OffchainSignatureResponse>, AppError> { // TODO: Actual return type is different
     let proof_model = ProofModel::from(proof);
     let signature = validate_and_sign(
         &state.cluster_manager,
