@@ -64,18 +64,14 @@ mod tests {
         let expected = DepositAction {
             chain_id: ChainId::Solana,
             data: DepositData {
-                sender: bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
+                sender: None,
+                receiver: Some(bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
                     .into_vec()?
                     .try_into()
-                    .unwrap(),
-                receiver: bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
-                    .into_vec()?
-                    .try_into()
-                    .unwrap(),
-                token_id: bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
-                    .into_vec()?,
-                amount: 10_000_000,
-                nonce: 1_757_984_522_000_007_228,
+                    .unwrap()),
+                token_id: Some(vec![206, 1, 14, 96, 175, 237, 178, 39, 23, 189, 99, 25, 47, 84, 20, 90, 63, 150, 90, 51, 187, 130, 210, 199, 2, 158, 178, 206, 30, 32, 130, 100]),
+                amount: Some(998_289),
+                nonce: 1_749_390_032_000_000_032_243_u128,
             },
         };
         let opt_withdrawal = get_withdrawal(&validation, nonce).await?;

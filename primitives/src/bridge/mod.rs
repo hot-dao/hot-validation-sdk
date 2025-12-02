@@ -41,10 +41,10 @@ pub struct DepositAction {
 impl DepositAction {
     pub fn build_challenge_for_deposit(&self) -> Result<[u8; 32]> {
         let challenge = DepositData::build_challenge_for_deposit(
-            &self.data.receiver,
+            self.data.get_receiver()?,
             self.chain_id,
-            &self.data.token_id,
-            self.data.amount,
+            self.data.get_token_id()?,
+            self.data.get_amount()?,
             self.data.nonce,
         );
         Ok(challenge)
@@ -54,30 +54,75 @@ impl DepositAction {
 /// Many of the fields are optional, because there are different use cases for this structure.
 /// You want to be those fields `Some(...)` only when building a challenge. In other cases, it's enough to have `nonce` only.
 /// Note: order and types of fields should stay persistent, as it being deserialized to borsh for further
-/// cryptograpich processing (e.g. in Solana logic)
+/// cryptographic processing (e.g. in Solana logic)
+///
+/// Most of the time optional, because it's needed for Solana only
 #[serde_as]
 #[derive(
     Debug, Serialize, Deserialize, BorshSerialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone,
 )]
 pub struct DepositData {
-    #[serde_as(as = "Base58Array<32>")]
-    #[schemars(with = "String")]
-    pub sender: [u8; 32],
-    #[serde_as(as = "Base58Array<32>")]
-    #[schemars(with = "String")]
-    pub receiver: [u8; 32],
-    #[serde_as(as = "Base58")]
-    #[schemars(with = "String")]
-    pub token_id: Vec<u8>,
-    #[serde_as(as = "DisplayFromStr")]
-    #[schemars(with = "String")]
-    pub amount: u128,
+    #[serde_as(as = "Option<Base58Array<32>>")]
+    #[schemars(with = "Option<String>")]
+    #[serde(alias = "sender_id")]
+    pub sender: Option<[u8; 32]>,
+    #[serde_as(as = "Option<Base58Array<32>>")]
+    #[schemars(with = "Option<String>")]
+    #[serde(alias = "receiver_id")]
+    pub receiver: Option<[u8; 32]>,
+    #[serde_as(as = "Option<Base58>")]
+    #[schemars(with = "Option<String>")]
+    #[serde(alias = "contract_id")]
+    pub token_id: Option<Vec<u8>>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    #[schemars(with = "Option<String>")]
+    pub amount: Option<u128>,
     #[serde_as(as = "DisplayFromStr")]
     #[schemars(with = "String")]
     pub nonce: u128,
 }
 
 impl DepositData {
+    #[must_use]
+    pub fn from_nonce(nonce: u128) -> Self {
+        Self {
+            sender: None,
+            receiver: None,
+            token_id: None,
+            amount: None,
+            nonce,
+        }
+    }
+
+    fn get_sender(&self) -> Result<&[u8; 32]> {
+        let sender = self
+            .sender
+            .as_ref()
+            .ok_or(anyhow::anyhow!("Sender not set"))?;
+        Ok(sender)
+    }
+
+    fn get_amount(&self) -> Result<u128> {
+        let amount = self.amount.ok_or(anyhow::anyhow!("Amount not set"))?;
+        Ok(amount)
+    }
+
+    fn get_receiver(&self) -> Result<&[u8; 32]> {
+        let receiver = self
+            .receiver
+            .as_ref()
+            .ok_or(anyhow::anyhow!("Receiver not set"))?;
+        Ok(receiver)
+    }
+
+    fn get_token_id(&self) -> Result<&[u8]> {
+        let token_id = self
+            .token_id
+            .as_ref()
+            .ok_or(anyhow::anyhow!("Token ID not set"))?;
+        Ok(token_id)
+    }
+
     #[must_use]
     pub fn build_challenge_for_deposit(
         receiver_id: &[u8],
@@ -136,7 +181,8 @@ pub struct CompletedWithdrawal {
     #[schemars(with = "String")]
     #[serde_as(as = "DisplayFromStr")]
     pub nonce: u128,
-    pub receiver_address: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receiver_address: Option<String>,
 }
 
 impl CompletedWithdrawal {
