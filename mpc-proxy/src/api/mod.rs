@@ -1,4 +1,4 @@
-use crate::api::bridge::{clear_completed_withdrawal, sign_deposit, sign_withdraw};
+use crate::api::bridge::{clear_completed_withdrawal, sign_deposit_endpoint, sign_withdraw_endpoint};
 use crate::api::healthcheck::healthcheck;
 use crate::api::public_key::public_key;
 use crate::api::sign::{sign, sign_raw};
@@ -27,8 +27,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/healthcheck", get(healthcheck))
         .route("/prometheus-metrics", get(prometheus_metrics))
-        .route("/deposit/sign", post(sign_deposit))
-        .route("/withdraw/sign", post(sign_withdraw))
+        .route("/deposit/sign", post(sign_deposit_endpoint))
+        .route("/withdraw/sign", post(sign_withdraw_endpoint))
         .route("/clear/sign", post(clear_completed_withdrawal))
         .route("/sign_raw", post(sign_raw))
         .route("/sign", post(sign))

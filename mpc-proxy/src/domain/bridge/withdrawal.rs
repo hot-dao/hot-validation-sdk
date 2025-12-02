@@ -8,8 +8,14 @@ use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
 use hot_validation_primitives::uid::Uid;
 use serde_json::json;
 use std::sync::Arc;
+use tracing::instrument;
 use crate::domain::errors::AppError;
 
+
+#[instrument(
+    skip(validation),
+    err(Debug)
+)]
 async fn get_withdrawal(
     validation: &Arc<Validation>,
     nonce: u128,
@@ -26,7 +32,7 @@ async fn get_withdrawal(
 
 /// We don't need to do `validation.verify()` here, because it will check the state of NEAR bridge,
 /// but we've formed our data by reading the state of NEAR bridge.
-pub(crate) async fn sign_withdrawal(
+pub(crate) async fn sign_withdraw(
     uid: Uid,
     cluster_manager: &Arc<ClusterManager>,
     validation: &Arc<Validation>,

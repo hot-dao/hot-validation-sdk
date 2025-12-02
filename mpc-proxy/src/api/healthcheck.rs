@@ -6,7 +6,7 @@ pub(crate) struct Health {
     status: &'static str,
 }
 
-#[instrument(skip_all)]
+#[instrument]
 pub(crate) async fn healthcheck() -> Json<Health> {
     Json(Health { status: "ok" })
 }

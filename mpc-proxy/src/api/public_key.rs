@@ -5,7 +5,10 @@ use hot_validation_primitives::mpc::{PublicKeyRequest, PublicKeyResponse};
 use crate::api::AppState;
 use crate::domain::errors::AppError;
 
-#[instrument(skip_all)]
+#[instrument(
+    skip_all,
+    err(Debug)
+)]
 pub(crate) async fn public_key(
     State(state): State<AppState>,
     Json(public_key_request): Json<PublicKeyRequest>,

@@ -6,18 +6,19 @@ use hot_validation_core::Validation;
 use hot_validation_primitives::bridge::DepositAction;
 use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
 use std::sync::Arc;
+use hot_validation_primitives::uid::Uid;
 
 pub(crate) async fn sign_deposit(
-    uid_registry: &Arc<UidRegistry>,
+    uid: Uid,
     cluster_manager: &Arc<ClusterManager>,
     validation: &Arc<Validation>,
     deposit_action: DepositAction,
+    key_type: KeyType,
 ) -> Result<OffchainSignatureResponse, AppError> {
-    let uid = uid_registry.get_bridge_deposit();
     let challenge = deposit_action
         .build_challenge_for_deposit()
         .map_err(AppError::DataConversionError)?
         .to_vec();
     let proof_model = DepositRequest::create_proof_model(deposit_action)?;
-    validate_and_sign(cluster_manager, validation, uid, challenge, proof_model, KeyType::Ecdsa).await
+    validate_and_sign(cluster_manager, validation, uid, challenge, proof_model, key_type).await
 }

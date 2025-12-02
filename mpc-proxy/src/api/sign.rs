@@ -16,7 +16,7 @@ use hot_validation_primitives::mpc::cait_sith::frost_ed25519;
 use hot_validation_primitives::mpc::cait_sith::frost_ed25519::VerifyingKey;
 use hot_validation_primitives::mpc::k256::elliptic_curve::sec1::ToEncodedPoint;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ProofRaw {
     message_body: String,
     user_payloads: Vec<serde_json::Value>,
@@ -93,7 +93,10 @@ impl From<OffchainSignatureResponse> for ProxySignatureResponse {
     }
 }
 
-#[instrument(skip_all)]
+#[instrument(
+    skip(state, uid),
+    err(Debug)
+)]
 pub(crate) async fn sign_raw(
     State(state): State<AppState>,
     Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
@@ -111,7 +114,10 @@ pub(crate) async fn sign_raw(
     Ok(Json(signature.into()))
 }
 
-#[instrument(skip_all)]
+#[instrument(
+    skip(state, uid),
+    err(Debug)
+)]
 pub(crate) async fn sign(
     State(state): State<AppState>,
     Json(SignRequest { uid, message, proof, key_type }): Json<SignRequest>,

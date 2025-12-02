@@ -75,16 +75,6 @@ impl DepositRequest {
     }
 }
 
-impl From<DepositRequest> for DepositAction {
-    fn from(value: DepositRequest) -> Self {
-        let chain_id = value.chain_id.into();
-        Self {
-            chain_id,
-            data: value.deposit_data,
-        }
-    }
-}
-
 impl WithdrawRequest {
     pub fn create_proof_model(&self) -> ProofModel {
         let payload = self.nonce.to_string();
