@@ -6,12 +6,15 @@ use axum::extract::State;
 use hot_validation_primitives::Base58;
 use hot_validation_primitives::Base58Array;
 use hot_validation_primitives::ProofModel;
-use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
+use hot_validation_primitives::mpc::{k256, KeyType, OffchainSignatureResponse};
 use hot_validation_primitives::uid::Uid;
 use serde::{Deserialize, Serialize};
 use serde_with::hex::Hex;
 use serde_with::serde_as;
 use tracing::instrument;
+use hot_validation_primitives::mpc::cait_sith::frost_ed25519;
+use hot_validation_primitives::mpc::cait_sith::frost_ed25519::VerifyingKey;
+use hot_validation_primitives::mpc::k256::elliptic_curve::sec1::ToEncodedPoint;
 
 #[derive(Deserialize)]
 struct ProofRaw {
@@ -61,11 +64,40 @@ impl SignRequest {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum ProxySignatureResponse {
+    Ecdsa {
+        r: String,
+        s: k256::Scalar,
+    },
+    Eddsa {
+        signature: frost_ed25519::Signature,
+        public_key: VerifyingKey,
+    },
+}
+
+impl From<OffchainSignatureResponse> for ProxySignatureResponse {
+    fn from(value: OffchainSignatureResponse) -> Self {
+        match value {
+            OffchainSignatureResponse::Ecdsa { big_r, signature, .. } => {
+                Self::Ecdsa {
+                    r: big_r.to_encoded_point(true).to_string()[2..].to_string(),
+                    s: signature,
+                }
+            }
+            OffchainSignatureResponse::Eddsa { signature, public_key, .. } => {
+                Self::Eddsa { signature, public_key }
+            }
+        }
+    }
+}
+
 #[instrument(skip_all)]
 pub(crate) async fn sign_raw(
     State(state): State<AppState>,
     Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
-) -> Result<Json<OffchainSignatureResponse>, AppError> { // TODO: Actual return type is different
+) -> Result<Json<ProxySignatureResponse>, AppError> {
     let proof_model = ProofModel::from(proof);
     let signature = validate_and_sign(
         &state.cluster_manager,
@@ -76,14 +108,14 @@ pub(crate) async fn sign_raw(
         key_type,
     )
         .await?;
-    Ok(Json(signature))
+    Ok(Json(signature.into()))
 }
 
 #[instrument(skip_all)]
 pub(crate) async fn sign(
     State(state): State<AppState>,
     Json(SignRequest { uid, message, proof, key_type }): Json<SignRequest>,
-) -> Result<Json<OffchainSignatureResponse>, AppError> {
+) -> Result<Json<ProxySignatureResponse>, AppError> {
     let signature = validate_and_sign(
         &state.cluster_manager,
         &state.validation,
@@ -93,5 +125,5 @@ pub(crate) async fn sign(
         key_type,
     )
         .await?;
-    Ok(Json(signature))
+    Ok(Json(signature.into()))
 }
