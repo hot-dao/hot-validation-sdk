@@ -43,9 +43,9 @@ pub(crate) struct NearRegistryAccount {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SecretsConfig {
-    near_registry_account: NearRegistryAccount,
-    mpc_auth_key: String,
-    uid_registry: UidRegistry,
+    pub near_registry_account: NearRegistryAccount,
+    pub mpc_auth_key: String,
+    pub uid_registry: UidRegistry,
 }
 
 impl SecretsConfig {

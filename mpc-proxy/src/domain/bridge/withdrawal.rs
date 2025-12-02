@@ -8,6 +8,7 @@ use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
 use hot_validation_primitives::uid::Uid;
 use serde_json::json;
 use std::sync::Arc;
+use crate::domain::errors::AppError;
 
 async fn get_withdrawal(
     validation: &Arc<Validation>,
@@ -26,25 +27,29 @@ async fn get_withdrawal(
 /// We don't need to do `validation.verify()` here, because it will check the state of NEAR bridge,
 /// but we've formed our data by reading the state of NEAR bridge.
 pub(crate) async fn sign_withdrawal(
-    uid_registry: &Arc<UidRegistry>,
+    uid: Uid,
     cluster_manager: &Arc<ClusterManager>,
     validation: &Arc<Validation>,
     withdrawal_request: WithdrawRequest,
-) -> Result<OffchainSignatureResponse> {
+    key_type: KeyType,
+) -> Result<OffchainSignatureResponse, AppError> {
     let withdrawal = get_withdrawal(validation, withdrawal_request.nonce)
-        .await?
+        .await
+        .map_err(AppError::ValidationError)?
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "withdrawal {} not found on omni bridge",
                 withdrawal_request.nonce
             )
-        })?;
-    let uid: Uid = uid_registry.get_bridge_withdrawal();
-
-    let challenge = withdrawal.build_challenge_for_deposit()?.to_vec();
+        })
+        .map_err(AppError::ValidationError)?;
+    let challenge = withdrawal
+        .build_challenge_for_deposit()
+        .map_err(AppError::ValidationError)?
+        .to_vec();
     let proof_model = withdrawal_request.create_proof_model();
     let signature = cluster_manager
-        .sign(uid, challenge, proof_model, KeyType::Ecdsa)
+        .sign(uid, challenge, proof_model, key_type)
         .await?;
     Ok(signature)
 }
