@@ -20,19 +20,9 @@ use serde_with::serde_as;
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct UidRegistry {
     #[serde_as(as = "Hex")]
-    bridge_deposit: Uid,
+    pub bridge_deposit: Uid,
     #[serde_as(as = "Hex")]
-    bridge_withdrawal: Uid, // todo: rename bridge completed withdrawal
-}
-
-impl UidRegistry {
-    pub fn get_bridge_deposit(&self) -> Uid {
-        self.bridge_deposit.clone()
-    }
-
-    pub fn get_bridge_withdrawal(&self) -> Uid {
-        self.bridge_withdrawal.clone()
-    }
+    pub bridge_withdraw: Uid,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -158,6 +148,8 @@ fn decrypt_config(key: &[u8], encrypted_config_b64: &str) -> Result<String, AppE
         .map_err(AppError::DataConversionError)
 }
 
+/// If any changes are made to the secrets-config.yml, one can run the test-suite to re-encrypt the
+/// config file.
 #[cfg(test)]
 mod tests {
     use aes::{Aes128, Aes192, Aes256};
