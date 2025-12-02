@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer, Serializer};
 use serde_with::{DeserializeAs, SerializeAs};
 
@@ -47,17 +47,19 @@ where
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let v = bs58::decode(&s)
+        let bytes = bs58::decode(&s)
             .into_vec()
+            .context("failed to decode from base58")
             .map_err(serde::de::Error::custom)?;
-        if v.len() != N {
-            return Err(serde::de::Error::custom(format!(
-                "length mismatch: expected {N}, got {}",
-                v.len()
-            )));
-        }
-        let mut out = [0u8; N];
-        out.copy_from_slice(&v);
-        Ok(out.into())
+        let arr: [u8; N] = bytes
+            .try_into()
+            .map_err(|v: Vec<u8>| {
+                serde::de::Error::invalid_length(
+                    v.len(),
+                    &format!("expected {N} bytes after base58 decoding").as_str(),
+                )
+            })?;
+
+        Ok(arr.into())
     }
 }
