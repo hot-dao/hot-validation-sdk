@@ -22,7 +22,7 @@ pub(crate) struct UidRegistry {
     #[serde_as(as = "Hex")]
     bridge_deposit: Uid,
     #[serde_as(as = "Hex")]
-    bridge_withdrawal: Uid,
+    bridge_withdrawal: Uid, // todo: rename bridge completed withdrawal
 }
 
 impl UidRegistry {

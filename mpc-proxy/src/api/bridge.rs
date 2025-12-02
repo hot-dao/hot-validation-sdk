@@ -3,6 +3,7 @@ use hot_validation_core::integer::U128String;
 use hot_validation_primitives::ExtendedChainId;
 use hot_validation_primitives::bridge::{CompletedWithdrawal, DepositData};
 use serde_with::serde_as;
+use tracing::instrument;
 
 #[serde_as]
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -27,14 +28,17 @@ pub(crate) struct ClearCompletedWithdrawalRequest {
     pub completed_withdrawal: CompletedWithdrawal,
 }
 
+#[instrument(skip_all)]
 pub(crate) async fn sign_withdraw(withdraw_request: Json<WithdrawRequest>) -> Json<String> {
     Json(String::from("Ok"))
 }
 
+#[instrument(skip_all)]
 pub(crate) async fn sign_deposit(deposit_request: Json<DepositRequest>) -> Json<String> {
     Json(String::from("Ok"))
 }
 
+#[instrument(skip_all)]
 pub(crate) async fn clear_completed_withdrawal(
     clear_completed_withdrawal_request: Json<ClearCompletedWithdrawalRequest>,
 ) -> Json<String> {

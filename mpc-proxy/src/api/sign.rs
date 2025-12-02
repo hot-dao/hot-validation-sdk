@@ -44,13 +44,13 @@ pub(crate) struct SignRawRequest {
 #[derive(Deserialize)]
 pub(crate) struct SignRequest {
     #[serde_as(deserialize_as = "Base58Array<32>")]
-    wallet_derive: Uid,
+    #[serde(rename = "wallet_derive")]
+    uid: Uid,
     /// Hashed message that we want to sign
     #[serde_as(as = "Base58")]
     message: Vec<u8>,
-    /// Image of the message
-    message_body: String,
-    user_payloads: Vec<String>,
+    #[serde(flatten)]
+    proof: ProofModel,
     #[serde(default = "SignRequest::default_key_type")]
     key_type: KeyType,
 }
@@ -61,38 +61,37 @@ impl SignRequest {
     }
 }
 
+#[instrument(skip_all)]
 pub(crate) async fn sign_raw(
     State(state): State<AppState>,
-    Json(sign_raw_request): Json<SignRawRequest>,
+    Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
 ) -> Result<Json<OffchainSignatureResponse>, AppError> {
-    let proof_model = ProofModel::from(sign_raw_request.proof);
+    let proof_model = ProofModel::from(proof);
     let signature = validate_and_sign(
         &state.cluster_manager,
         &state.validation,
-        sign_raw_request.uid,
-        sign_raw_request.message,
+        uid,
+        message,
         proof_model,
+        key_type,
     )
         .await?;
     Ok(Json(signature))
 }
 
-#[instrument(skip(state, sign_request), err(Debug))]
+#[instrument(skip_all)]
 pub(crate) async fn sign(
     State(state): State<AppState>,
-    Json(sign_request): Json<SignRequest>,
+    Json(SignRequest { uid, message, proof, key_type }): Json<SignRequest>,
 ) -> Result<Json<OffchainSignatureResponse>, AppError> {
-    let proof_model = ProofModel {
-        message_body: sign_request.message_body,
-        user_payloads: sign_request.user_payloads,
-    };
     let signature = validate_and_sign(
         &state.cluster_manager,
         &state.validation,
-        sign_request.wallet_derive,
-        sign_request.message,
-        proof_model,
+        uid,
+        message,
+        proof,
+        key_type,
     )
-    .await?;
+        .await?;
     Ok(Json(signature))
 }

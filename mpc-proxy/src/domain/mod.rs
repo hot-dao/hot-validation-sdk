@@ -22,16 +22,16 @@ pub(crate) async fn validate_and_sign(
     uid: Uid,
     message: Vec<u8>,
     proof_model: ProofModel,
+    key_type: KeyType
 ) -> Result<OffchainSignatureResponse, AppError> {
     let wallet_id = WalletId::from(&uid);
     validation
         .verify(wallet_id, message.clone(), proof_model.clone())
         .await
-        .context("validation failed")
         .map_err(AppError::ValidationError)?;
 
     let signature = cluster_manager
-        .sign(uid, message, proof_model, KeyType::Ecdsa)
+        .sign(uid, message, proof_model, key_type)
         .await?;
     Ok(signature)
 }
