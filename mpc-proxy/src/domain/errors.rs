@@ -9,6 +9,7 @@ pub(crate) enum AppError {
     ValidationError(anyhow::Error),
     InitializationError(anyhow::Error),
     MpcError(anyhow::Error),
+    NearSigner(anyhow::Error),
     OsError(anyhow::Error),
 }
 

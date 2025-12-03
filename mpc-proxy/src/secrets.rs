@@ -7,7 +7,7 @@ use base64::prelude::BASE64_STANDARD;
 use cbc::Decryptor;
 use cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use hot_validation_primitives::uid::Uid;
-use near_workspaces::AccountId;
+use near_workspaces::{AccountId, InMemorySigner};
 use near_workspaces::types::SecretKey;
 use rpassword::prompt_password;
 use serde::{Deserialize, Serialize};
@@ -27,8 +27,14 @@ pub(crate) struct UidRegistry {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(crate) struct NearRegistryAccount {
-    account_id: AccountId,
-    private_key: SecretKey,
+    pub account_id: AccountId,
+    pub private_key: SecretKey,
+}
+
+impl From<NearRegistryAccount> for InMemorySigner {
+    fn from(NearRegistryAccount { account_id, private_key }: NearRegistryAccount) -> Self {
+        Self::from_secret_key(account_id, private_key)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

@@ -7,6 +7,6 @@ pub(crate) struct Health {
 }
 
 #[instrument]
-pub(crate) async fn healthcheck() -> Json<Health> {
+pub(crate) async fn healthcheck_endpoint() -> Json<Health> {
     Json(Health { status: "ok" })
 }

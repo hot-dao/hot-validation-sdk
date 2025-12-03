@@ -97,7 +97,7 @@ impl From<OffchainSignatureResponse> for ProxySignatureResponse {
     skip(state, uid),
     err(Debug)
 )]
-pub(crate) async fn sign_raw(
+pub(crate) async fn sign_raw_endpoint(
     State(state): State<AppState>,
     Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
 ) -> Result<Json<ProxySignatureResponse>, AppError> {
@@ -118,7 +118,7 @@ pub(crate) async fn sign_raw(
     skip(state, uid),
     err(Debug)
 )]
-pub(crate) async fn sign(
+pub(crate) async fn sign_endpoint(
     State(state): State<AppState>,
     Json(SignRequest { uid, message, proof, key_type }): Json<SignRequest>,
 ) -> Result<Json<ProxySignatureResponse>, AppError> {

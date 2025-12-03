@@ -9,7 +9,7 @@ use crate::domain::errors::AppError;
     skip_all,
     err(Debug)
 )]
-pub(crate) async fn public_key(
+pub(crate) async fn public_key_endpoint(
     State(state): State<AppState>,
     Json(public_key_request): Json<PublicKeyRequest>,
 ) -> Result<Json<PublicKeyResponse>, AppError> {
