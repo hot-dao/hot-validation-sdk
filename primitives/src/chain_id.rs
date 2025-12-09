@@ -190,11 +190,11 @@ impl ExtendedChainId {
             | Self::Mantle
             | Self::MonadMainnet
             | Self::MonadTestnet
-            | Self::ADI
             | Self::Flare => true,
 
             // 🧱 BFT / PoA / deterministic
             Self::Near
+            | Self::ADI
             | Self::Bsc
             | Self::Avax
             | Self::Kaia
