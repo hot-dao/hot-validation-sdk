@@ -10,7 +10,7 @@ use hot_validation_primitives::{ChainId, ChainValidationConfig, ExtendedChainId}
 use serde::Deserialize;
 use std::sync::Arc;
 
-pub(crate) struct CosmosVerifier {
+pub struct CosmosVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,

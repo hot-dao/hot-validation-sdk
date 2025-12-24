@@ -1,16 +1,15 @@
 use anyhow::Result;
-use opentelemetry::trace::TracerProvider;
 use opentelemetry::KeyValue;
+use opentelemetry::trace::TracerProvider;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{WithExportConfig, WithHttpConfig};
-use opentelemetry_sdk::trace::Sampler;
+use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::trace::Sampler;
 use std::sync::LazyLock;
-use tracing_error::ErrorLayer;
 use tracing_subscriber::fmt::time::UtcTime;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{fmt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 static RESOURCE: LazyLock<Resource> = LazyLock::new(|| {
     Resource::builder()
@@ -38,7 +37,9 @@ impl Drop for TelemetryGuard {
     }
 }
 
-fn init_logs<T: Into<String>>(alloy_endpoint: T) -> Result<opentelemetry_sdk::logs::SdkLoggerProvider> {
+fn init_logs<T: Into<String>>(
+    alloy_endpoint: T,
+) -> Result<opentelemetry_sdk::logs::SdkLoggerProvider> {
     use opentelemetry_sdk::logs::SdkLoggerProvider;
 
     let exporter = opentelemetry_otlp::LogExporter::builder()
@@ -54,7 +55,9 @@ fn init_logs<T: Into<String>>(alloy_endpoint: T) -> Result<opentelemetry_sdk::lo
     Ok(provider)
 }
 
-fn init_traces<T: Into<String>>(alloy_endpoint: T) -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
+fn init_traces<T: Into<String>>(
+    alloy_endpoint: T,
+) -> Result<opentelemetry_sdk::trace::SdkTracerProvider> {
     let exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(alloy_endpoint)
@@ -96,5 +99,8 @@ pub fn init_telemetry(alloy_endpoint: &str) -> Result<TelemetryGuard> {
         .with(otel_trace_layer)
         .init();
 
-    Ok(TelemetryGuard { log_provider, trace_provider })
+    Ok(TelemetryGuard {
+        log_provider,
+        trace_provider,
+    })
 }

@@ -3,10 +3,10 @@ use crate::domain::errors::AppError;
 use crate::domain::mpc::cluster::ClusterManager;
 use crate::domain::validate_and_sign;
 use hot_validation_core::Validation;
-use hot_validation_primitives::bridge::{CompletedWithdrawal, CompletedWithdrawalAction};
+use hot_validation_primitives::bridge::CompletedWithdrawalAction;
 use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
-use std::sync::Arc;
 use hot_validation_primitives::uid::Uid;
+use std::sync::Arc;
 
 pub(crate) async fn sign_clear_completed_withdrawal(
     uid: Uid,
@@ -21,5 +21,13 @@ pub(crate) async fn sign_clear_completed_withdrawal(
         .to_vec();
     let proof_model =
         ClearCompletedWithdrawalRequest::create_proof_model(completed_withdrawal_action)?;
-    validate_and_sign(cluster_manager, validation, uid, challenge, proof_model, key_type).await
+    validate_and_sign(
+        cluster_manager,
+        validation,
+        uid,
+        challenge,
+        proof_model,
+        key_type,
+    )
+    .await
 }

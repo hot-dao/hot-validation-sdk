@@ -1,14 +1,14 @@
-use serde_with::hex::Hex;
-use std::str::FromStr;
-use axum::extract::State;
-use axum::Json;
-use near_workspaces::{AccountId, CryptoHash, InMemorySigner};
-use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use hot_validation_primitives::ChainId;
-use hot_validation_primitives::uid::WalletId;
 use crate::api::AppState;
 use crate::domain::errors::AppError;
+use axum::Json;
+use axum::extract::State;
+use hot_validation_primitives::ChainId;
+use hot_validation_primitives::uid::WalletId;
+use near_workspaces::{AccountId, InMemorySigner};
+use serde::{Deserialize, Serialize};
+use serde_with::hex::Hex;
+use serde_with::serde_as;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct AuthMethod {
@@ -27,8 +27,8 @@ pub(crate) enum CreateWalletProof {
         signature: (),
     },
     Proof {
-        proof: String
-    }
+        proof: String,
+    },
 }
 
 #[derive(Deserialize)]
@@ -62,25 +62,24 @@ impl From<CreateWalletRequest> for OnChainArgs {
 #[derive(Serialize)]
 pub(crate) struct CreateWalletResponse {
     #[serde_as(as = "Hex")]
-    hash: [u8; 32]
+    hash: [u8; 32],
 }
 
 pub(crate) async fn create_wallet_endpoint(
     State(state): State<AppState>,
     Json(request): Json<CreateWalletRequest>,
 ) -> Result<Json<CreateWalletResponse>, AppError> {
-    let worker = near_workspaces::mainnet()
-        .await
-        .unwrap();
+    let worker = near_workspaces::mainnet().await.unwrap();
     let signer = InMemorySigner::from(state.secrets_config.near_registry_account.clone());
 
     // TODO: Validation
 
-    let tx = worker.call(
-        &signer,
-        &AccountId::from_str("mpc.hot.tg").unwrap(),
-        "create_wallet",
-    )
+    let tx = worker
+        .call(
+            &signer,
+            &AccountId::from_str("mpc.hot.tg").unwrap(),
+            "create_wallet",
+        )
         .args_json(OnChainArgs::from(request))
         .transact()
         .await

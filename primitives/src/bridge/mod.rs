@@ -15,7 +15,7 @@ use crate::bridge::cosmos::CosmosInputData;
 use crate::bridge::solana::SolanaInputData;
 use anyhow::{Result, bail};
 use borsh::BorshSerialize;
-use derive_more::{From, TryFrom, TryInto};
+use derive_more::{From, TryInto};
 use evm::EvmInputData;
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};

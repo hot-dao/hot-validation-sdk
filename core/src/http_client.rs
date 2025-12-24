@@ -6,7 +6,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::instrument;
 
 pub const TIMEOUT: Duration = Duration::from_millis(1500);
 const LOG_SNIP_MAX: usize = 600;

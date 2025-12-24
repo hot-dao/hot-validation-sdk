@@ -1,6 +1,6 @@
 use crate::domain::WithdrawRequest;
+use crate::domain::errors::AppError;
 use crate::domain::mpc::cluster::ClusterManager;
-use crate::secrets::UidRegistry;
 use anyhow::Result;
 use hot_validation_core::Validation;
 use hot_validation_primitives::bridge::DepositAction;
@@ -9,13 +9,8 @@ use hot_validation_primitives::uid::Uid;
 use serde_json::json;
 use std::sync::Arc;
 use tracing::instrument;
-use crate::domain::errors::AppError;
 
-
-#[instrument(
-    skip(validation),
-    err(Debug)
-)]
+#[instrument(skip(validation), err(Debug))]
 async fn get_withdrawal(
     validation: &Arc<Validation>,
     nonce: u128,
@@ -76,11 +71,16 @@ mod tests {
             chain_id: ChainId::Solana,
             data: DepositData {
                 sender: None,
-                receiver: Some(bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
-                    .into_vec()?
-                    .try_into()
-                    .unwrap()),
-                token_id: Some(vec![206, 1, 14, 96, 175, 237, 178, 39, 23, 189, 99, 25, 47, 84, 20, 90, 63, 150, 90, 51, 187, 130, 210, 199, 2, 158, 178, 206, 30, 32, 130, 100]),
+                receiver: Some(
+                    bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
+                        .into_vec()?
+                        .try_into()
+                        .unwrap(),
+                ),
+                token_id: Some(vec![
+                    206, 1, 14, 96, 175, 237, 178, 39, 23, 189, 99, 25, 47, 84, 20, 90, 63, 150,
+                    90, 51, 187, 130, 210, 199, 2, 158, 178, 206, 30, 32, 130, 100,
+                ]),
                 amount: Some(998_289),
                 nonce: 1_749_390_032_000_000_032_243_u128,
             },

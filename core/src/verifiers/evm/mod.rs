@@ -14,7 +14,7 @@ use hot_validation_primitives::{ChainId, ExtendedChainId};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct EvmVerifier {
+pub struct EvmVerifier {
     client: Arc<reqwest::Client>,
     server: String,
     chain_id: ChainId,

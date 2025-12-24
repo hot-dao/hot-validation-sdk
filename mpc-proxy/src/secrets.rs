@@ -1,4 +1,3 @@
-use serde_with::hex::Hex;
 use crate::domain::errors::AppError;
 use aes::{Aes128, Aes192, Aes256};
 use anyhow::{Context, anyhow};
@@ -7,13 +6,14 @@ use base64::prelude::BASE64_STANDARD;
 use cbc::Decryptor;
 use cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use hot_validation_primitives::uid::Uid;
-use near_workspaces::{AccountId, InMemorySigner};
 use near_workspaces::types::SecretKey;
+use near_workspaces::{AccountId, InMemorySigner};
 use rpassword::prompt_password;
 use serde::{Deserialize, Serialize};
+use serde_with::hex::Hex;
+use serde_with::serde_as;
 use std::fs::read_to_string;
 use std::path::Path;
-use serde_with::serde_as;
 
 /// A registry of helper-uids, that's used for protocol-specific actions
 #[serde_as]
@@ -32,7 +32,12 @@ pub(crate) struct NearRegistryAccount {
 }
 
 impl From<NearRegistryAccount> for InMemorySigner {
-    fn from(NearRegistryAccount { account_id, private_key }: NearRegistryAccount) -> Self {
+    fn from(
+        NearRegistryAccount {
+            account_id,
+            private_key,
+        }: NearRegistryAccount,
+    ) -> Self {
         Self::from_secret_key(account_id, private_key)
     }
 }

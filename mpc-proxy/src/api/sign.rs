@@ -6,15 +6,15 @@ use axum::extract::State;
 use hot_validation_primitives::Base58;
 use hot_validation_primitives::Base58Array;
 use hot_validation_primitives::ProofModel;
-use hot_validation_primitives::mpc::{k256, KeyType, OffchainSignatureResponse};
+use hot_validation_primitives::mpc::cait_sith::frost_ed25519;
+use hot_validation_primitives::mpc::cait_sith::frost_ed25519::VerifyingKey;
+use hot_validation_primitives::mpc::k256::elliptic_curve::sec1::ToEncodedPoint;
+use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse, k256};
 use hot_validation_primitives::uid::Uid;
 use serde::{Deserialize, Serialize};
 use serde_with::hex::Hex;
 use serde_with::serde_as;
 use tracing::instrument;
-use hot_validation_primitives::mpc::cait_sith::frost_ed25519;
-use hot_validation_primitives::mpc::cait_sith::frost_ed25519::VerifyingKey;
-use hot_validation_primitives::mpc::k256::elliptic_curve::sec1::ToEncodedPoint;
 
 #[derive(Deserialize, Debug)]
 struct ProofRaw {
@@ -80,26 +80,33 @@ pub enum ProxySignatureResponse {
 impl From<OffchainSignatureResponse> for ProxySignatureResponse {
     fn from(value: OffchainSignatureResponse) -> Self {
         match value {
-            OffchainSignatureResponse::Ecdsa { big_r, signature, .. } => {
-                Self::Ecdsa {
-                    r: big_r.to_encoded_point(true).to_string()[2..].to_string(),
-                    s: signature,
-                }
-            }
-            OffchainSignatureResponse::Eddsa { signature, public_key, .. } => {
-                Self::Eddsa { signature, public_key }
-            }
+            OffchainSignatureResponse::Ecdsa {
+                big_r, signature, ..
+            } => Self::Ecdsa {
+                r: big_r.to_encoded_point(true).to_string()[2..].to_string(),
+                s: signature,
+            },
+            OffchainSignatureResponse::Eddsa {
+                signature,
+                public_key,
+                ..
+            } => Self::Eddsa {
+                signature,
+                public_key,
+            },
         }
     }
 }
 
-#[instrument(
-    skip(state, uid),
-    err(Debug)
-)]
+#[instrument(skip(state, uid), err(Debug))]
 pub(crate) async fn sign_raw_endpoint(
     State(state): State<AppState>,
-    Json(SignRawRequest { uid, message, proof, key_type }): Json<SignRawRequest>,
+    Json(SignRawRequest {
+        uid,
+        message,
+        proof,
+        key_type,
+    }): Json<SignRawRequest>,
 ) -> Result<Json<ProxySignatureResponse>, AppError> {
     let proof_model = ProofModel::from(proof);
     let signature = validate_and_sign(
@@ -110,17 +117,19 @@ pub(crate) async fn sign_raw_endpoint(
         proof_model,
         key_type,
     )
-        .await?;
+    .await?;
     Ok(Json(signature.into()))
 }
 
-#[instrument(
-    skip(state, uid),
-    err(Debug)
-)]
+#[instrument(skip(state, uid), err(Debug))]
 pub(crate) async fn sign_endpoint(
     State(state): State<AppState>,
-    Json(SignRequest { uid, message, proof, key_type }): Json<SignRequest>,
+    Json(SignRequest {
+        uid,
+        message,
+        proof,
+        key_type,
+    }): Json<SignRequest>,
 ) -> Result<Json<ProxySignatureResponse>, AppError> {
     let signature = validate_and_sign(
         &state.cluster_manager,
@@ -130,6 +139,6 @@ pub(crate) async fn sign_endpoint(
         proof,
         key_type,
     )
-        .await?;
+    .await?;
     Ok(Json(signature.into()))
 }

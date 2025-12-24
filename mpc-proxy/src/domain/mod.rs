@@ -5,16 +5,14 @@ pub(crate) mod mpc;
 use crate::api::bridge::{ClearCompletedWithdrawalRequest, DepositRequest, WithdrawRequest};
 use crate::domain::errors::AppError;
 use crate::domain::mpc::cluster::ClusterManager;
-use anyhow::Context;
 use hot_validation_core::Validation;
 use hot_validation_primitives::ProofModel;
 use hot_validation_primitives::bridge::{
     CompletedWithdrawalAction, DepositAction, HotVerifyBridge,
 };
 use hot_validation_primitives::mpc::{KeyType, OffchainSignatureResponse};
-use hot_validation_primitives::uid::{Uid, WalletId};
+use hot_validation_primitives::uid::Uid;
 use std::sync::Arc;
-use tracing::instrument;
 
 pub(crate) async fn validate_and_sign(
     cluster_manager: &Arc<ClusterManager>,
@@ -22,7 +20,7 @@ pub(crate) async fn validate_and_sign(
     uid: Uid,
     message: Vec<u8>,
     proof_model: ProofModel,
-    key_type: KeyType
+    key_type: KeyType,
 ) -> Result<OffchainSignatureResponse, AppError> {
     let wallet_id = uid.to_wallet_id();
     validation

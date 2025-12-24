@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use crate::http_client::TIMEOUT;
 use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::Verifier;
@@ -14,12 +15,9 @@ use soroban_client::network::{NetworkPassphrase, Networks};
 use soroban_client::transaction::ScVal;
 use soroban_client::transaction_builder::{TransactionBuilder, TransactionBuilderBehavior};
 use soroban_client::{xdr, Options, Server};
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
 
 #[derive(Clone)]
-pub(crate) struct StellarVerifier {
+pub struct StellarVerifier {
     client: Arc<Server>,
     server: String,
 }

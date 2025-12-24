@@ -18,7 +18,7 @@ use solana_sdk::transaction::Transaction;
 use std::str::FromStr;
 use std::sync::Arc;
 
-pub(crate) struct SolanaVerifier {
+pub struct SolanaVerifier {
     client: RpcClient,
     server: String,
 }

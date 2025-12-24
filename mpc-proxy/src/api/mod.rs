@@ -1,4 +1,7 @@
-use crate::api::bridge::{clear_completed_withdrawal_endpoint, sign_deposit_endpoint, sign_withdraw_endpoint};
+use crate::api::bridge::{
+    clear_completed_withdrawal_endpoint, sign_deposit_endpoint, sign_withdraw_endpoint,
+};
+use crate::api::create_wallet::create_wallet_endpoint;
 use crate::api::healthcheck::healthcheck_endpoint;
 use crate::api::public_key::public_key_endpoint;
 use crate::api::sign::{sign_endpoint, sign_raw_endpoint};
@@ -9,14 +12,13 @@ use axum::Router;
 use axum::routing::{get, post};
 use hot_validation_core::Validation;
 use std::sync::Arc;
-use crate::api::create_wallet::create_wallet_endpoint;
 
 pub(crate) mod bridge;
+mod create_wallet;
 mod healthcheck;
 mod public_key;
 mod sign;
 mod telemetry;
-mod create_wallet;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
