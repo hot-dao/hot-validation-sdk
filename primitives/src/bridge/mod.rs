@@ -228,7 +228,6 @@ pub struct HotVerifyAuthCall {
     PartialEq,
     Hash,
     Clone,
-    TryFrom,
     TryInto,
     From,
 )]
