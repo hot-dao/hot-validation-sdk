@@ -36,34 +36,6 @@ impl StellarVerifier {
         Ok(Self { client, server })
     }
 
-    fn create_transaction_builder() -> Result<TransactionBuilder> {
-        // We could have saved it as a struct field, but the transaction builder
-        //   is not `sync` because of Rc<RefCell<T>>.
-        // It's easier to build it every time.
-
-        // Some boilerplate code specific to Stellar RPC.
-        let source_account = {
-            let kp = Keypair::random().map_err(|e| anyhow::anyhow!(e.to_string()))?;
-            Rc::new(RefCell::new(
-                // Exact values do not matter, we just have to fill in placeholders.
-                Account::new(&kp.public_key(), "1").map_err(|e| anyhow::anyhow!(e.to_string()))?,
-            ))
-        };
-
-        let timeout_secs: i64 = TIMEOUT
-            .as_secs()
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("timeout exceeds i64::MAX seconds"))?;
-
-        let transaction_builder = TransactionBuilder::new(source_account, Networks::public(), None)
-            .fee(100u32) // An exact value doesn't matter, it's just a placeholder.
-            .set_timeout(timeout_secs)
-            .map_err(|e| anyhow::anyhow!(e))?
-            .clone();
-
-        Ok(transaction_builder)
-    }
-
     fn build_contract_call(
         auth_contract_id: &str,
         method_name: &str,
@@ -92,7 +64,20 @@ impl Verifier for StellarVerifier {
 
         let operation = Self::build_contract_call(&auth_contract_id, &method_name, input)?;
 
-        let tx = Self::create_transaction_builder()?
+        let mut source_account = {
+            let kp = Keypair::random().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+            Account::new(&kp.public_key(), "1").map_err(|e| anyhow::anyhow!(e.to_string()))?
+        };
+
+        let tx = TransactionBuilder::new(&mut source_account, Networks::public(), None)
+            .fee(100u32) // An exact value doesn't matter, it's just a placeholder.
+            .set_timeout(
+                TIMEOUT
+                    .as_secs()
+                    .try_into()
+                    .map_err(|_| anyhow::anyhow!("timeout exceeds i64::MAX seconds"))?
+            )
+            .map_err(|e| anyhow::anyhow!(e))?
             .add_operation(operation)
             .build();
 
