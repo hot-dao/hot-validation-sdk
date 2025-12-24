@@ -6,6 +6,7 @@ repository.workspace = true
 
 [features]
 abi = ["borsh/unstable__schema", "borsh/derive"]
+mpc = ["k256", "cait-sith"]
 
 [dependencies]
 alloy-dyn-abi = { workspace = true }
@@ -15,8 +16,10 @@ anyhow = { workspace = true }
 base64 = { workspace = true }
 borsh = { workspace = true, features = ["derive"] }
 bs58 = { workspace = true }
+cait-sith = { workspace = true, features = ["k256"], optional = true }
 derive_more = { workspace = true }
 hex = { workspace = true, features = ["serde"] }
+k256 = { workspace = true, optional = true }
 rlp = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }

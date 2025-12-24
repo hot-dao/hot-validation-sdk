@@ -103,7 +103,7 @@ impl ThresholdVerifier<EvmVerifier> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::base_rpc;
+    use crate::test_data::base_rpc;
     use crate::threshold_verifier::ThresholdVerifier;
     use crate::{ChainValidationConfig, HOT_VERIFY_METHOD_NAME};
     use anyhow::Result;

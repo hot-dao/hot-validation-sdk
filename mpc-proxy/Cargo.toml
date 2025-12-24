@@ -4,15 +4,47 @@ edition.workspace = true
 version.workspace = true
 repository.workspace = true
 
+[features]
+debug = []
+
 [dependencies]
-actix-web = { workspace = true }
+
+aes = { workspace = true }
+anyhow = { workspace = true }
+axum = { workspace = true, features = ["macros"] }
+base64 = { workspace = true }
+bs58 = { workspace = true }
+cbc = { workspace = true, features = ["alloc"] }
+cipher = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
-num_cpus = { workspace = true }
+derive_more = { workspace = true }
+futures-util = { workspace = true }
+hex = { workspace = true }
+hot-validation-core = { workspace = true, features = ["test-data"] }
+hot-validation-primitives = { workspace = true, features = ["mpc"] }
+itertools = { workspace = true }
+near-workspaces = { workspace = true }
 prometheus = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+rpassword = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_with = { workspace = true, features = ["hex"] }
+serde_yaml = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["trace", "cors", "compression-gzip", "request-id", "timeout"] }
 tracing = { workspace = true }
-tracing-actix-web = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json"] }
-utoipa = { workspace = true, features = ["macros", "actix_extras"] }
-utoipa-swagger-ui = { workspace = true, features = ["actix-web"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json", "time"] }
+
+# OpenTelemetry core + SDK split
+opentelemetry = { version = "0.31.0", features = ["trace"] }
+opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.31.0", features = ["tonic", "grpc-tonic"] }
+opentelemetry-http = "0.31.0"
+opentelemetry-appender-tracing = "0.31.0"
+opentelemetry-stdout = "0.31.0"
+tracing-opentelemetry = "0.32.0"
+tracing-error = "0.2.1"

@@ -1,8 +1,11 @@
+use crate::integer::U128String;
 use serde::{Deserialize, Serialize};
 use serde_hex::SerHexSeq;
 use serde_hex::StrictPfx;
+use serde_with::serde_as;
 use stellar_xdr::curr::{Limited, Limits, ReadXdr, ScBytes, ScString, ScVal, UInt128Parts};
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 #[serde(tag = "type", content = "value")]
 pub enum StellarInputArg {
@@ -15,9 +18,8 @@ pub enum StellarInputArg {
     #[schemars(with = "[u8; 32]")]
     Bytes(Vec<u8>),
     #[serde(rename = "u128")]
-    #[serde(with = "crate::integer::u128_string")]
     #[schemars(with = "String")]
-    U128(u128),
+    U128(#[serde_as(as = "U128String")] u128),
 }
 
 impl TryFrom<StellarInputArg> for ScVal {

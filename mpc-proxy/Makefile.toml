@@ -1,9 +1,16 @@
-[tasks.run-local]
-env = { RUST_LOG = "info,actix_web=info,tracing_actix_web=info" }
+[tasks.compose]
+command = "docker-compose"
+cwd = "integration-tests"
+args = [
+    "up",
+    "--build"
+]
+
+[tasks.up]
 command = "cargo"
+env_files = [".env"]
 args = [
     "run",
-    "--",
-    "--bind-addr=0.0.0.0:8080",
-    "--workers=1",
+    "--features",
+    "debug"
 ]

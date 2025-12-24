@@ -1,4 +1,5 @@
 use crate::ChainId;
+use derive_more::{Deref, DerefMut, Into};
 use serde::{Deserialize, Serialize};
 use serde_valid::Validate;
 use std::collections::HashMap;
@@ -10,7 +11,7 @@ pub struct ProofModel {
     pub user_payloads: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Into, Deref, DerefMut)]
 pub struct ValidationConfig(pub HashMap<ChainId, ChainValidationConfig>);
 
 /// For a specific chain:

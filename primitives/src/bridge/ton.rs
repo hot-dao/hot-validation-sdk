@@ -7,6 +7,7 @@
 //!
 //! This logic implements TOP API V2 data format for `runGetMethod`: <https://toncenter.com/api/v2>/
 
+use crate::integer::U128String;
 use anyhow::Context;
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD;
@@ -14,6 +15,7 @@ use derive_more::{Deref, From};
 use serde::ser::{SerializeMap, SerializeTuple};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::json;
+use serde_with::serde_as;
 use std::str::FromStr;
 use tonlib_core::TonAddress;
 use tonlib_core::cell::{ArcCell, Cell, CellBuilder};
@@ -27,12 +29,13 @@ pub struct TonInputData {
     pub action: Action,
 }
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone)]
 pub enum Action {
     Deposit,
     CheckCompletedWithdrawal {
-        #[serde(with = "crate::integer::u128_string")]
         #[schemars(with = "String")]
+        #[serde_as(as = "U128String")]
         nonce: u128,
     },
 }
