@@ -24,7 +24,7 @@ pub(crate) async fn validate_and_sign(
     proof_model: ProofModel,
     key_type: KeyType
 ) -> Result<OffchainSignatureResponse, AppError> {
-    let wallet_id = WalletId::from(&uid);
+    let wallet_id = uid.to_wallet_id();
     validation
         .verify(wallet_id, message.clone(), proof_model.clone())
         .await

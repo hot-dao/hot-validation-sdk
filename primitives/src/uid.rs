@@ -31,6 +31,20 @@ impl fmt::Debug for Uid {
 }
 
 impl Uid {
+    pub fn to_wallet_id(&self) -> WalletId {
+        let hashed = Sha256::digest(&self.0).into();
+        WalletId(hashed)
+    }
+
+    /// Differs from `wallet_id` because of legacy decisions
+    #[must_use]
+    pub fn to_tweak(&self) -> [u8; 32] {
+        let hexed = hex::encode(self.0);
+        let mut hashed: [u8; 32] = Sha256::digest(hexed.as_bytes()).into();
+        hashed.reverse();
+        hashed
+    }
+    
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let array = bytes
             .try_into()
@@ -81,23 +95,6 @@ impl FromStr for WalletId {
             .try_into()
             .map_err(|_| anyhow::anyhow!("Expected 32 bytes, got {} bytes", bytes_vec.len()))?;
         Ok(WalletId(array))
-    }
-}
-impl From<&Uid> for WalletId {
-    fn from(value: &Uid) -> Self {
-        let hashed = Sha256::digest(&value.0).into();
-        Self(hashed)
-    }
-}
-
-impl Uid {
-    /// Differs from `wallet_id` because of legacy decisions
-    #[must_use]
-    pub fn to_tweak(&self) -> [u8; 32] {
-        let hexed = hex::encode(self.0);
-        let mut hashed: [u8; 32] = Sha256::digest(hexed.as_bytes()).into();
-        hashed.reverse();
-        hashed
     }
 }
 
@@ -160,7 +157,7 @@ use crate::uid::Uid;
     #[test]
     fn test_wallet_id_consistency() -> Result<()> {
         let uid = Uid::from_hex(UID_HEX)?;
-        let wallet_ud = WalletId::from(&uid);
+        let wallet_ud = uid.to_wallet_id();
         dbg!(wallet_ud.to_string());
 
         assert_eq!(bs58::encode(*wallet_ud).into_string(), WALLET_ID_HEX,);
