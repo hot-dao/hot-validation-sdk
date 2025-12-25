@@ -14,7 +14,7 @@ pub use cait_sith;
 #[serde_as]
 #[derive(Serialize, Deserialize)]
 pub struct PublicKeyRequest {
-    #[serde_as(as = "Base58Array<32>")]
+    #[serde_as(as = "Hex")]
     pub uid: Uid,
 }
 
