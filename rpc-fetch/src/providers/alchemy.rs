@@ -40,8 +40,9 @@ impl SlugFromChainId for AlchemyProvider {
             Mantle => Some("mantle-mainnet".to_string()),
             Abstract => Some("abstract-mainnet".to_string()),
             Ink => Some("ink-mainnet".to_string()),
+            ADI => Some("adi-mainnet".to_string()),
 
-            ADI | Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Stellar | Kava | Aurora => {
+            Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Stellar | Kava | Aurora => {
                 None
             }
         }

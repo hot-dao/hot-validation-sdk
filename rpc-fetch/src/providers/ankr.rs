@@ -41,8 +41,9 @@ impl SlugFromChainId for AnkrProvider {
             Kaia => Some("kaia".to_string()),
             Mantle => Some("mantle".to_string()),
             Flare => Some("flare".to_string()),
-            // Ton => Some("premium-http/ton_api_v2".to_string()),
-            ADI | Juno | Gonka | MonadMainnet | Ton | Near | Abstract | Ink | HyperEVM
+            Ton => Some("premium-http/ton_api_v2".to_string()),
+
+            ADI | Juno | Gonka | MonadMainnet | Near | Abstract | Ink | HyperEVM
             | BeraChain | Aurora => None,
         }
     }
