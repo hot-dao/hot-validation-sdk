@@ -220,16 +220,7 @@ pub struct HotVerifyAuthCall {
 }
 
 #[derive(
-    Debug,
-    Serialize,
-    Deserialize,
-    schemars::JsonSchema,
-    Eq,
-    PartialEq,
-    Hash,
-    Clone,
-    TryInto,
-    From,
+    Debug, Serialize, Deserialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone, TryInto, From,
 )]
 #[try_into(owned, ref, ref_mut)]
 #[serde(untagged)]

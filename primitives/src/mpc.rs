@@ -1,4 +1,3 @@
-use crate::Base58Array;
 use crate::ProofModel;
 use crate::uid::Uid;
 use cait_sith::ecdsa::sign::FullSignature;
@@ -8,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::hex::Hex;
 use serde_with::serde_as;
 
-pub use k256;
 pub use cait_sith;
+pub use k256;
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]

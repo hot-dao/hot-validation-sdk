@@ -40,7 +40,7 @@ impl<const N: usize> SerializeAs<[u8; N]> for Base58Array<N> {
 
 impl<'de, I, const N: usize> DeserializeAs<'de, I> for Base58Array<N>
 where
-    I: From<[u8; N]>
+    I: From<[u8; N]>,
 {
     fn deserialize_as<D>(deserializer: D) -> Result<I, D::Error>
     where
@@ -51,14 +51,12 @@ where
             .into_vec()
             .context("failed to decode from base58")
             .map_err(serde::de::Error::custom)?;
-        let arr: [u8; N] = bytes
-            .try_into()
-            .map_err(|v: Vec<u8>| {
-                serde::de::Error::invalid_length(
-                    v.len(),
-                    &format!("expected {N} bytes after base58 decoding").as_str(),
-                )
-            })?;
+        let arr: [u8; N] = bytes.try_into().map_err(|v: Vec<u8>| {
+            serde::de::Error::invalid_length(
+                v.len(),
+                &format!("expected {N} bytes after base58 decoding").as_str(),
+            )
+        })?;
 
         Ok(arr.into())
     }

@@ -35,10 +35,7 @@ impl NearVerifier {
         Self { client, server }
     }
 
-    #[instrument(
-        skip(self),
-        err(Debug)
-    )]
+    #[instrument(skip(self), err(Debug))]
     async fn get_wallet(&self, wallet_id: WalletId) -> Result<WalletAuthMethods> {
         let wallet_id = GetWalletArgs { wallet_id };
         self.call_view_method(
@@ -120,10 +117,7 @@ impl ThresholdVerifier<NearVerifier> {
         }
     }
 
-    #[instrument(
-        skip(self),
-        err(Debug)
-    )]
+    #[instrument(skip(self), err(Debug))]
     pub async fn get_wallet_auth_methods(
         self: &Arc<Self>,
         wallet_id: WalletId,

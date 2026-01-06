@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use crate::http_client::TIMEOUT;
 use crate::threshold_verifier::{Identifiable, ThresholdVerifier};
 use crate::verifiers::Verifier;
@@ -15,6 +14,7 @@ use soroban_client::network::{NetworkPassphrase, Networks};
 use soroban_client::transaction::ScVal;
 use soroban_client::transaction_builder::{TransactionBuilder, TransactionBuilderBehavior};
 use soroban_client::{xdr, Options, Server};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct StellarVerifier {
@@ -73,7 +73,7 @@ impl Verifier for StellarVerifier {
                 TIMEOUT
                     .as_secs()
                     .try_into()
-                    .map_err(|_| anyhow::anyhow!("timeout exceeds i64::MAX seconds"))?
+                    .map_err(|_| anyhow::anyhow!("timeout exceeds i64::MAX seconds"))?,
             )
             .map_err(|e| anyhow::anyhow!(e))?
             .add_operation(operation)

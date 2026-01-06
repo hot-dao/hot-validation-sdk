@@ -176,11 +176,10 @@ impl Validation {
                     )
                 }),
         )
-            .await?;
+        .await?;
 
         Ok(())
     }
-
 
     #[instrument(
         skip(self, message),
@@ -406,7 +405,9 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = WalletId::from_str("A8NpkSkn1HZPYjxJRCpD4iPhDHzP81bbduZTqPpHmEgn").unwrap();
-        let message = hex::decode("57f42da8350f6a7c6ad567d678355a3bbd17a681117e7a892db30656d5caee32").unwrap();
+        let message =
+            hex::decode("57f42da8350f6a7c6ad567d678355a3bbd17a681117e7a892db30656d5caee32")
+                .unwrap();
         let proof = ProofModel {
             message_body: "S8safEk4JWgnJsVKxans4TqBL796cEuV5GcrqnFHPdNW91AupymrQ6zgwEXoeRb6P3nyaSskoFtMJzaskXTDAnQUTKs5dGMWQHsz7irQJJ2UA2aDHSQ4qxgsU3h1U83nkq4rBstK8PL1xm6WygSYihvBTmuaMjuKCK6JT1tB4Uw71kGV262kU914YDwJa53BiNLuVi3s2rj5tboEwsSEpyJo9x5diq4Ckmzf51ZjZEDYCH8TdrP1dcY4FqkTCBA7JhjfCTToJR5r74ApfnNJLnDhTxkvJb4ReR9T9Ga7hPNazCFGE8Xq1deu44kcPjXNvb1GJGWLAZ5k1wxq9nnARb3bvkqBTmeYiDcPDamauhrwYWZkMNUsHtoMwF6286gcmY3ZgE3jja1NGuYKYQHnvscUqcutuT9qH".to_string(),
             user_payloads: vec![r#"{"auth_method":0,"signatures":["HZUhhJamfp8GJLL8gEa2F2qZ6TXPu4PYzzWkDqsTQsMcW9rQsG2Hof4eD2Vex6he2fVVy3UNhgi631CY8E9StAH"]}"#.to_string()],
@@ -444,7 +445,9 @@ mod tests {
         let validation = Arc::new(Validation::new(&configs).unwrap());
 
         let wallet_id = WalletId::from_str("GjEEr1744i8BCjSpXTfcdd8GCvRiz1QHpQ7egP3QLESQ").unwrap();
-        let message = hex::decode("6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4").unwrap();
+        let message =
+            hex::decode("6484f06d86d1aee5ee53411f6033181eb0c5cde57081a798f4f6bfbe01a443e4")
+                .unwrap();
         let proof = ProofModel {
             message_body: String::new(),
             user_payloads: vec![
@@ -466,7 +469,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6")?;
+        let message =
+            hex::decode("c4ea3c95f2171df3fa5a6f8452d1bbbbd0608abe68fdcea7f25a04516c50cba6")?;
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Evm(56),
             data: DepositData {
@@ -493,7 +497,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881")?;
+        let message =
+            hex::decode("c9a9f00772fcf664b4a8fefb93170d1a6f0e9843a2a816797bab71b6a99ca881")?;
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Stellar,
             data: DepositData {
@@ -521,7 +526,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c")?;
+        let message =
+            hex::decode("bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c")?;
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::TON_V2,
             data: DepositData {
@@ -549,12 +555,15 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a")?;
+        let message =
+            hex::decode("c45c5f7a9abba84c7ae06d1fe29e043e47dec94319d996e19d9e62757bd5fb5a")?;
         let payload = HotVerifyBridge::ClearCompletedWithdrawal(CompletedWithdrawalAction {
             chain_id: ChainId::TON_V2,
             data: CompletedWithdrawal {
                 nonce: 1_753_218_716_000_000_003_679,
-                receiver_address: Some("UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string()),
+                receiver_address: Some(
+                    "UQA3zc65LQyIR9SoDniLaZA0UDPudeiNs6P06skYcCuCtw8I".to_string(),
+                ),
             },
         });
         let json = serde_json::to_value(&payload)?;
@@ -574,7 +583,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52")?;
+        let message =
+            hex::decode("8b7a6c9c9ea6efad319a472f3447a1d1847ddc0188959e4167821135f9f0ba52")?;
 
         let payload = HotVerifyBridge::ClearCompletedWithdrawal(CompletedWithdrawalAction {
             chain_id: ChainId::Stellar,
@@ -600,7 +610,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a")?;
+        let message =
+            hex::decode("8bd51d3368eeabd76957a0666c06fac90e9b1d2e366ece0a1229c15cc8e9d76a")?;
 
         let payload = HotVerifyBridge::ClearCompletedWithdrawal(CompletedWithdrawalAction {
             chain_id: ChainId::Evm(56),
@@ -626,20 +637,26 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c")?;
+        let message =
+            hex::decode("bcb143828f64d7e4bf0b6a8e66a2a2d03c916c16e9e9034419ae778b9f699d3c")?;
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Solana,
             data: DepositData {
-                sender: Some(bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
-                    .into_vec()?
-                    .try_into()
-                    .unwrap()),
-                receiver: Some(bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
-                    .into_vec()?
-                    .try_into()
-                    .unwrap()),
-                token_id: Some(bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z")
-                    .into_vec()?),
+                sender: Some(
+                    bs58::decode("5eMysQ7ywu4D8pmN5RtDoPxbu5YbiEThQy8gaBcmMoho")
+                        .into_vec()?
+                        .try_into()
+                        .unwrap(),
+                ),
+                receiver: Some(
+                    bs58::decode("BJu6S7gT4gnx7AXPnghM7aYiS5dPfSUixqAZJq1Uqf4V")
+                        .into_vec()?
+                        .try_into()
+                        .unwrap(),
+                ),
+                token_id: Some(
+                    bs58::decode("BYPsjxa3YuZESQz1dKuBw1QSFCSpecsm8nCQhY5xbU1Z").into_vec()?,
+                ),
                 amount: Some(10_000_000),
                 nonce: 1_757_984_522_000_007_228,
             },
@@ -661,7 +678,8 @@ mod tests {
         let validation = create_validation_object();
 
         let wallet_id = staging_wallet_id();
-        let message = hex::decode("170a154a02aa91beb4b2d29175028d8684ee38585b418f36600cdeeb6ca05a1c")?;
+        let message =
+            hex::decode("170a154a02aa91beb4b2d29175028d8684ee38585b418f36600cdeeb6ca05a1c")?;
 
         let payload = HotVerifyBridge::ClearCompletedWithdrawal(CompletedWithdrawalAction {
             chain_id: ChainId::Solana,

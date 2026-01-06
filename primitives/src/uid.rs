@@ -13,7 +13,7 @@ pub struct Uid(pub [u8; 32]);
 impl From<Vec<u8>> for Uid {
     fn from(value: Vec<u8>) -> Self {
         Self::from_bytes(value.as_slice())
-            .expect(format!("Expected 32 bytes, got {}", value.len()).as_str())
+            .unwrap_or_else(|_| panic!("Expected 32 bytes, got {}", value.len()))
     }
 }
 
@@ -31,7 +31,7 @@ impl fmt::Debug for Uid {
 
 impl Uid {
     pub fn to_wallet_id(&self) -> WalletId {
-        let hashed = Sha256::digest(&self.0).into();
+        let hashed = Sha256::digest(self.0).into();
         WalletId(hashed)
     }
 
@@ -43,7 +43,7 @@ impl Uid {
         hashed.reverse();
         hashed
     }
-    
+
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let array = bytes
             .try_into()
@@ -100,8 +100,8 @@ impl FromStr for WalletId {
 #[cfg(test)]
 mod tests {
     use crate::Base58Array;
-use crate::uid::Uid;
-    use crate::uid::{WalletId};
+    use crate::uid::Uid;
+
     use anyhow::Result;
     use derive_more::{Deref, DerefMut, From, Into};
     use serde::{Deserialize, Serialize};

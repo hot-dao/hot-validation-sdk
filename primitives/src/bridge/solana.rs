@@ -1,5 +1,5 @@
 use crate::bridge::{CompletedWithdrawal, DepositData};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 use serde_with::{hex::Hex, serde_as};
