@@ -20,7 +20,7 @@ impl SlugFromChainId for AnkrProvider {
         use ExtendedChainId::{
             ADI, Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka,
             HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near,
-            Optimism, Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
+            Optimism, Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync, Plasma, MegaEthTestnet
         };
         match chain_id {
             Eth => Some("eth".to_string()),
@@ -44,7 +44,7 @@ impl SlugFromChainId for AnkrProvider {
             Ton => Some("premium-http/ton_api_v2".to_string()),
 
             ADI | Juno | Gonka | MonadMainnet | Near | Abstract | Ink | HyperEVM
-            | BeraChain | Aurora => None,
+            | BeraChain | Aurora | Plasma | MegaEthTestnet => None,
         }
     }
 }

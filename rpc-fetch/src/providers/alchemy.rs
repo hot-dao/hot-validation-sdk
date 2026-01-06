@@ -19,7 +19,7 @@ impl SlugFromChainId for AlchemyProvider {
         use ExtendedChainId::{
             ADI, Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka,
             HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MonadMainnet, MonadTestnet, Near,
-            Optimism, Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync,
+            Optimism, Polygon, Scroll, Solana, Stellar, Ton, XLayer, ZkSync, Plasma, MegaEthTestnet
         };
         match chain_id {
             Eth => Some("eth-mainnet".to_string()),
@@ -41,10 +41,12 @@ impl SlugFromChainId for AlchemyProvider {
             Abstract => Some("abstract-mainnet".to_string()),
             Ink => Some("ink-mainnet".to_string()),
             ADI => Some("adi-mainnet".to_string()),
+            Plasma => Some("plasma-mainnet".to_string()),
+            MegaEthTestnet => Some("megaeth-testnet".to_string()),
 
             Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Stellar | Kava | Aurora => {
                 None
-            }
+            },
         }
     }
 }

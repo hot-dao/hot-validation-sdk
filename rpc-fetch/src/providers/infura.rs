@@ -38,6 +38,7 @@ impl SlugFromChainId for InfuraProvider {
             | MonadTestnet | XLayer | Stellar | Kava | BeraChain | Aurora | Solana | Kaia | Ton => {
                 None
             }
+            _ => None, // TODO: We don't support infura anymore.
         }
     }
 }

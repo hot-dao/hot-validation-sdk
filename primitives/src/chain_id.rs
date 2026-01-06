@@ -129,9 +129,11 @@ define_u64_enum_with_reverse! {
         Ton = 1117,
         Kava = 2222,
         Abstract = 2741,
+        MegaEthTestnet = 6342,
         Mantle = 5000,
         Kaia = 8217,
         Base = 8453,
+        Plasma = 9745,
         MonadTestnet = 10143,
         ADI = 36900,
         Arbitrum = 42161,
@@ -190,6 +192,8 @@ impl ExtendedChainId {
             | Self::Mantle
             | Self::MonadMainnet
             | Self::MonadTestnet
+            | Self::Plasma
+            | Self::MegaEthTestnet
             | Self::Flare => true,
 
             // 🧱 BFT / PoA / deterministic
