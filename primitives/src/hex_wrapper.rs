@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
 use serde::{Deserialize, Deserializer, Serializer};
 use serde_with::{DeserializeAs, SerializeAs};
+use std::marker::PhantomData;
 
 pub struct PrefixedHex<T = Vec<u8>>(PhantomData<T>);
 

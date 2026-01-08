@@ -128,20 +128,13 @@ impl ClusterManager {
 
                     leader
                         .server
-                        .sign(
-                            &client,
-                            uid,
-                            message,
-                            proof,
-                            key_type,
-                            Some(accounts),
-                        )
+                        .sign(&client, uid, message, proof, key_type, Some(accounts))
                         .await
                         .map_err(|e| {
                             error!(
-                                    "sign failed for combination {:?}, leader: {}, error: {}",
-                                    combination, leader.participants_info.me, e
-                                );
+                                "sign failed for combination {:?}, leader: {}, error: {}",
+                                combination, leader.participants_info.me, e
+                            );
                             e
                         })
                 }
@@ -154,9 +147,7 @@ impl ClusterManager {
             }
         }
 
-        Err(MpcError(anyhow!(
-                "sign failed for all combinations"
-            )))
+        Err(MpcError(anyhow!("sign failed for all combinations")))
     }
 }
 

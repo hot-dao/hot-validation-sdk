@@ -474,8 +474,8 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Evm(56),
             data: DepositData {
-                sender: Some([0; 32]),
-                receiver: Some([0; 32]),
+                sender: Some(vec![0; 32]),
+                receiver: Some(vec![0; 32]),
                 token_id: Some(vec![]),
                 amount: Some(0),
                 nonce: 1_754_431_900_000_000_013_182,
@@ -502,8 +502,8 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Stellar,
             data: DepositData {
-                sender: Some([0; 32]),
-                receiver: Some([0; 32]),
+                sender: Some(vec![0; 32]),
+                receiver: Some(vec![0; 32]),
                 token_id: Some(vec![]),
                 amount: Some(0),
                 nonce: 1_754_531_354_365_901_458_000,
@@ -531,8 +531,8 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::TON_V2,
             data: DepositData {
-                sender: Some([0; 32]),
-                receiver: Some([0; 32]),
+                sender: Some(vec![0; 32]),
+                receiver: Some(vec![0; 32]),
                 token_id: Some(vec![]),
                 amount: Some(0),
                 nonce: 1_753_218_716_000_000_003_679,
@@ -709,8 +709,8 @@ mod tests {
         let payload = HotVerifyBridge::Deposit(DepositAction {
             chain_id: ChainId::Evm(4444_118),
             data: DepositData {
-                sender: Some([0; 32]),
-                receiver: Some([0; 32]),
+                sender: Some(vec![0; 32]),
+                receiver: Some(vec![0; 32]),
                 token_id: Some(vec![]),
                 amount: Some(0),
                 nonce: 1764175051000000000008,

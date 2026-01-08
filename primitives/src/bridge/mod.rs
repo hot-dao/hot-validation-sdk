@@ -8,12 +8,11 @@ pub mod solana;
 pub mod stellar;
 pub mod ton;
 
-use crate::hex_wrapper::PrefixedHex;
-use serde_with::PickFirst;
 use crate::Base58;
 use crate::ChainId;
 use crate::bridge::cosmos::CosmosInputData;
 use crate::bridge::solana::SolanaInputData;
+use crate::hex_wrapper::PrefixedHex;
 use anyhow::{Result, bail};
 use borsh::BorshSerialize;
 use derive_more::{From, TryInto};
@@ -21,6 +20,7 @@ use evm::EvmInputData;
 use rlp::RlpStream;
 use serde::{Deserialize, Serialize};
 use serde_with::DisplayFromStr;
+use serde_with::PickFirst;
 use serde_with::serde_as;
 use sha2::Digest;
 use stellar::StellarInputData;
@@ -63,7 +63,7 @@ impl DepositAction {
     Debug, Serialize, Deserialize, BorshSerialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone,
 )]
 pub struct DepositData {
-    #[serde_as(as = "PickFirst<(Option<Base58>, Option<PrefixedHex>)>")]
+    #[serde_as(as = "Option<PickFirst<(Base58, PrefixedHex)>>")]
     #[schemars(with = "Option<String>")]
     #[serde(alias = "sender_id")]
     pub sender: Option<Vec<u8>>,

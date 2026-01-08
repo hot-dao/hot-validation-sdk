@@ -4,10 +4,10 @@ pub mod chain_id;
 pub mod integer;
 pub mod validation;
 
+mod hex_wrapper;
 #[cfg(feature = "mpc")]
 pub mod mpc;
 pub mod uid;
-mod hex_wrapper;
 
 pub use base58_wrapper::*;
 pub use chain_id::*;
