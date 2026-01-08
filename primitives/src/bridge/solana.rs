@@ -138,8 +138,11 @@ impl DepositWithProof {
 
     fn get_instruction(&self, program_id: &Address, method_name: &str) -> Result<Instruction> {
         let sender = {
-            let sender = *self.deposit_data.get_sender()?;
-            Pubkey::from(sender)
+            let sender = self
+                .deposit_data
+                .get_sender()?;
+            let sender_bytes: [u8; 32] = sender.try_into().map_err(|_| anyhow!("sender is not 32 bytes long"))?;
+            Pubkey::from(sender_bytes)
         };
         let deposit = self.get_deposit_address(program_id)?;
         let user = self.get_user_address(program_id)?;
@@ -167,8 +170,9 @@ impl DepositWithProof {
         // We dont care about specific signer here, since there's no signature checking.
         // But we need to provide an existent signer.
         let signer_pubkey = {
-            let sender = *self.deposit_data.get_sender()?;
-            Pubkey::from(sender)
+            let sender = self.deposit_data.get_sender()?;
+            let sender_bytes: [u8; 32] = sender.try_into().map_err(|_| anyhow!("sender is not 32 bytes long"))?;
+            Pubkey::from(sender_bytes)
         };
         let ix = self.get_instruction(program_id, method_name)?;
         let msg = Message::new(&[ix], Some(&signer_pubkey));

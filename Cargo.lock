@@ -3392,6 +3392,7 @@ dependencies = [
  "derive_more",
  "hex",
  "k256",
+ "prefix-hex",
  "rlp 0.6.1",
  "schemars 0.8.22",
  "serde",
@@ -5406,6 +5407,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
+]
+
+[[package]]
+name = "prefix-hex"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f1799f398371ad6957951ec446d3ff322d35c46d9db2e217b67e828b311c249"
+dependencies = [
+ "hex",
 ]
 
 [[package]]

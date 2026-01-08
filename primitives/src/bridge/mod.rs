@@ -8,8 +8,9 @@ pub mod solana;
 pub mod stellar;
 pub mod ton;
 
+use crate::hex_wrapper::PrefixedHex;
+use serde_with::PickFirst;
 use crate::Base58;
-use crate::Base58Array;
 use crate::ChainId;
 use crate::bridge::cosmos::CosmosInputData;
 use crate::bridge::solana::SolanaInputData;
@@ -62,14 +63,14 @@ impl DepositAction {
     Debug, Serialize, Deserialize, BorshSerialize, schemars::JsonSchema, Eq, PartialEq, Hash, Clone,
 )]
 pub struct DepositData {
-    #[serde_as(as = "Option<Base58Array<32>>")]
+    #[serde_as(as = "PickFirst<(Option<Base58>, Option<PrefixedHex>)>")]
     #[schemars(with = "Option<String>")]
     #[serde(alias = "sender_id")]
-    pub sender: Option<[u8; 32]>,
-    #[serde_as(as = "Option<Base58Array<32>>")]
+    pub sender: Option<Vec<u8>>,
+    #[serde_as(as = "Option<Base58>")]
     #[schemars(with = "Option<String>")]
     #[serde(alias = "receiver_id")]
-    pub receiver: Option<[u8; 32]>,
+    pub receiver: Option<Vec<u8>>,
     #[serde_as(as = "Option<Base58>")]
     #[schemars(with = "Option<String>")]
     #[serde(alias = "contract_id")]
@@ -94,7 +95,7 @@ impl DepositData {
         }
     }
 
-    fn get_sender(&self) -> Result<&[u8; 32]> {
+    fn get_sender(&self) -> Result<&[u8]> {
         let sender = self
             .sender
             .as_ref()
@@ -107,7 +108,7 @@ impl DepositData {
         Ok(amount)
     }
 
-    fn get_receiver(&self) -> Result<&[u8; 32]> {
+    fn get_receiver(&self) -> Result<&[u8]> {
         let receiver = self
             .receiver
             .as_ref()
