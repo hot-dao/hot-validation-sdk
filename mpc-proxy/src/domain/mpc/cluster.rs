@@ -23,6 +23,7 @@ use tracing::{debug, error, instrument, warn};
 const HEALTHCHECK_INTERVAL: Duration = Duration::from_secs(15);
 const HEALTHCHECK_TIMEOUT: Duration = Duration::from_secs(2);
 const HEALTHCHECK_MAX_CONCURRENCY: usize = 5;
+const SIGN_CONCURRENCY: usize = 3;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ClusterManager {
@@ -95,7 +96,7 @@ impl ClusterManager {
         proof: ProofModel,
         key_type: KeyType,
     ) -> Result<OffchainSignatureResponse, AppError> {
-        let mut combinations_from_clusters = stream::iter(self.clusters.iter().cloned())
+        let combinations_from_clusters = stream::iter(self.clusters.iter().cloned())
             .map(|cluster| async move { cluster.alive_snapshot().await.combinations })
             .buffer_unordered(self.clusters.len())
             .filter_map(|x| async move { x })
@@ -105,43 +106,57 @@ impl ClusterManager {
             .flatten()
             .collect::<Vec<_>>();
         let mut rng = StdRng::from_os_rng();
-        combinations_from_clusters.shuffle(&mut rng);
-        // TODO: Metrics on how many tries we made
-        for combination in combinations_from_clusters {
-            let Some(leader) = combination.iter().choose(&mut rng) else {
-                error!("iter::choose returned None");
-                continue;
-            };
-            let accounts = combination
-                .iter()
-                .map(|info| info.participants_info.me.clone())
-                .collect::<Vec<_>>();
-            let result = leader
-                .server
-                .sign(
-                    &self.client,
-                    uid.clone(),
-                    message.clone(),
-                    proof.clone(),
-                    key_type,
-                    Some(accounts),
-                )
-                .await;
-            match result {
-                Ok(response) => {
-                    return Ok(response);
+        let mut combinations = combinations_from_clusters;
+        combinations.shuffle(&mut rng);
+
+        let mut sign_stream = stream::iter(combinations)
+            .map(|combination| {
+                let client = self.client.clone();
+                let uid = uid.clone();
+                let message = message.clone();
+                let proof = proof.clone();
+                let mut rng = StdRng::from_os_rng();
+
+                async move {
+                    let Some(leader) = combination.iter().choose(&mut rng) else {
+                        return Err(anyhow!("iter::choose returned None"));
+                    };
+                    let accounts = combination
+                        .iter()
+                        .map(|info| info.participants_info.me.clone())
+                        .collect::<Vec<_>>();
+
+                    leader
+                        .server
+                        .sign(
+                            &client,
+                            uid,
+                            message,
+                            proof,
+                            key_type,
+                            Some(accounts),
+                        )
+                        .await
+                        .map_err(|e| {
+                            error!(
+                                    "sign failed for combination {:?}, leader: {}, error: {}",
+                                    combination, leader.participants_info.me, e
+                                );
+                            e
+                        })
                 }
-                Err(e) => {
-                    error!(
-                        "sign failed for combination {:?}, leader: {}, error: {}",
-                        combination, leader.participants_info.me, e
-                    );
-                }
+            })
+            .buffer_unordered(SIGN_CONCURRENCY);
+
+        while let Some(result) = sign_stream.next().await {
+            if let Ok(response) = result {
+                return Ok(response);
             }
         }
-        Err(AppError::MpcError(anyhow!(
-            "sign failed for all combinations"
-        )))
+
+        Err(MpcError(anyhow!(
+                "sign failed for all combinations"
+            )))
     }
 }
 
