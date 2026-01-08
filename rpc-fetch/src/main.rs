@@ -1,6 +1,6 @@
 mod providers;
 
-use std::cmp::max;
+use std::cmp::{max, min};
 use crate::providers::Provider;
 use crate::providers::ankr::AnkrProvider;
 use anyhow::Result;
@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
         let mut data = HashMap::new();
         for (chain_id, endpoints) in &mut config {
             let len = endpoints.len();
-            let threshold = if len == 1 { 1 } else { max(len - 1, 3) };
+            let threshold = if len == 1 { 1 } else { min(len - 1, 3) };
             let validation_config = ChainValidationConfig {
                 threshold,
                 servers: endpoints.clone(),
