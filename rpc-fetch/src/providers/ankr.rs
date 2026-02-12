@@ -2,6 +2,7 @@ use crate::providers::{Provider, SlugFromChainId};
 use anyhow::Result;
 use async_trait::async_trait;
 use hot_validation_primitives::ExtendedChainId;
+use hot_validation_primitives::ExtendedChainId::MegaEthMainnet;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
@@ -19,9 +20,9 @@ impl SlugFromChainId for AnkrProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
             ADI, Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka,
-            HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MegaEthTestnet, MonadMainnet,
-            MonadTestnet, Near, Optimism, Plasma, Polygon, Scroll, Solana, Stellar, Ton, XLayer,
-            ZkSync,
+            HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MegaEthMainnet, MegaEthTestnet,
+            MonadMainnet, MonadTestnet, Near, Optimism, Plasma, Polygon, Scroll, Solana, Stellar,
+            Ton, XLayer, ZkSync,
         };
         match chain_id {
             Eth => Some("eth".to_string()),
@@ -45,7 +46,7 @@ impl SlugFromChainId for AnkrProvider {
             Ton => Some("premium-http/ton_api_v2".to_string()),
 
             ADI | Juno | Gonka | MonadMainnet | Near | Abstract | Ink | HyperEVM | BeraChain
-            | Aurora | Plasma | MegaEthTestnet => None,
+            | Aurora | Plasma | MegaEthTestnet | MegaEthMainnet => None,
         }
     }
 }

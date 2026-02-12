@@ -1,6 +1,5 @@
 mod providers;
 
-use std::cmp::{max, min};
 use crate::providers::Provider;
 use crate::providers::ankr::AnkrProvider;
 use anyhow::Result;
@@ -9,6 +8,7 @@ use hot_validation_primitives::{ChainValidationConfig, ExtendedChainId};
 use hot_validation_rpc_healthcheck::healthcheck_many;
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;

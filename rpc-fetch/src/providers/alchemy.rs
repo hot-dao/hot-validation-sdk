@@ -1,6 +1,7 @@
 use crate::providers::{Provider, SlugFromChainId};
 use async_trait::async_trait;
 use hot_validation_primitives::ExtendedChainId;
+use hot_validation_primitives::ExtendedChainId::MegaEthMainnet;
 use std::collections::HashMap;
 use strum::IntoEnumIterator;
 
@@ -18,9 +19,9 @@ impl SlugFromChainId for AlchemyProvider {
     fn slug(chain_id: ExtendedChainId) -> Option<String> {
         use ExtendedChainId::{
             ADI, Abstract, Arbitrum, Aurora, Avax, Base, BeraChain, Bsc, Eth, Flare, Gonka,
-            HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MegaEthTestnet, MonadMainnet,
-            MonadTestnet, Near, Optimism, Plasma, Polygon, Scroll, Solana, Stellar, Ton, XLayer,
-            ZkSync,
+            HyperEVM, Ink, Juno, Kaia, Kava, Linea, Mantle, MegaEthMainnet, MegaEthTestnet,
+            MonadMainnet, MonadTestnet, Near, Optimism, Plasma, Polygon, Scroll, Solana, Stellar,
+            Ton, XLayer, ZkSync,
         };
         match chain_id {
             Eth => Some("eth-mainnet".to_string()),
@@ -44,6 +45,7 @@ impl SlugFromChainId for AlchemyProvider {
             ADI => Some("adi-mainnet".to_string()),
             Plasma => Some("plasma-mainnet".to_string()),
             MegaEthTestnet => Some("megaeth-testnet".to_string()),
+            MegaEthMainnet => Some("megaeth-mainnet".to_string()),
 
             Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Stellar | Kava | Aurora => None,
         }
