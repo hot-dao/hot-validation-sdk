@@ -55,9 +55,16 @@ impl SolanaVerifier {
         let simulation_config = Self::get_simulation_config();
         let message = deposit_data.get_message(program_id, method_name)?;
         let tx = Transaction::new_unsigned(message);
-        self.client
+        let resp = self
+            .client
             .simulate_transaction_with_config(&tx, simulation_config)
             .await?;
+        if let Some(err) = resp.value.err {
+            return Err(anyhow!(
+                "hot_verify_deposit reverted: {err:?}; logs={:?}",
+                resp.value.logs
+            ));
+        }
         Ok(())
     }
 
