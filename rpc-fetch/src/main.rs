@@ -8,7 +8,6 @@ use hot_validation_primitives::{ChainValidationConfig, ExtendedChainId};
 use hot_validation_rpc_healthcheck::healthcheck_many;
 use providers::quicknode::QuicknodeProvider;
 use serde::{Deserialize, Serialize};
-use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -108,7 +107,11 @@ async fn main() -> Result<()> {
         let mut data = HashMap::new();
         for (chain_id, endpoints) in &mut config {
             let len = endpoints.len();
-            let threshold = if len == 1 { 1 } else { min(len - 1, 3) };
+            if len == 0 {
+                anyhow::bail!("no RPC endpoints for chain {chain_id:?}");
+            }
+            // Strict majority: smallest t such that 2*t > n.
+            let threshold = len / 2 + 1;
             let validation_config = ChainValidationConfig {
                 threshold,
                 servers: endpoints.clone(),
