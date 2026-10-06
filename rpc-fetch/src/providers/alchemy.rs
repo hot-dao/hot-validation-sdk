@@ -37,6 +37,7 @@ impl SlugFromChainId for AlchemyProvider {
             Scroll => Some("scroll-mainnet".to_string()),
             BeraChain => Some("berachain-mainnet".to_string()),
             Solana => Some("solana-mainnet".to_string()),
+            Stellar => Some("stellar-mainnet".to_string()),
             HyperEVM => Some("hyperliquid-mainnet".to_string()),
             Linea => Some("linea-mainnet".to_string()),
             Mantle => Some("mantle-mainnet".to_string()),
@@ -47,7 +48,7 @@ impl SlugFromChainId for AlchemyProvider {
             MegaEthTestnet => Some("megaeth-testnet".to_string()),
             MegaEthMainnet => Some("megaeth-mainnet".to_string()),
 
-            Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Stellar | Kava | Aurora => None,
+            Juno | Gonka | Ton | Flare | Kaia | XLayer | Near | Kava | Aurora => None,
         }
     }
 }
@@ -63,5 +64,23 @@ impl Provider for AlchemyProvider {
             }
         }
         Ok(endpoints)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AlchemyProvider;
+    use crate::providers::Provider;
+    use hot_validation_primitives::ExtendedChainId;
+
+    #[tokio::test]
+    async fn stellar_endpoint() {
+        let provider = AlchemyProvider::new("test-key".to_string());
+        let endpoints = provider.fetch_endpoints().await.unwrap();
+
+        assert_eq!(
+            endpoints.get(&ExtendedChainId::Stellar).map(String::as_str),
+            Some("https://stellar-mainnet.g.alchemy.com/v2/test-key")
+        );
     }
 }
